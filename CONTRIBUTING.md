@@ -189,3 +189,30 @@ own picture, the overview, the blackout, an embedded document, video, and two
 real windows talking to each other. Ghosts are counted as they appear and never
 as they are cleared away, so a magic move that forgets to tidy up goes
 unnoticed.
+
+## Before a release
+
+The checks above run against the working tree, where every example is compiled
+with a package path pointing back at it. That is not what a user gets. Twice
+now, a bug reached the point of being submitted to Universe and was caught only
+by the step below.
+
+Assemble the bundle as it will be published — the repository minus what
+`exclude` in `typst.toml` names, but *keeping* the README's images, because the
+Universe page renders them — and compile a deck against that copy alone:
+
+```bash
+mkdir -p /tmp/pkg/preview
+cp -R <the assembled 0.1.1 directory> /tmp/pkg/preview/typstage
+typst compile --package-path /tmp/pkg --root . probe.typ probe.pdf
+```
+
+The probe deck should reach for options that no example deck combines, since
+that is where the gap is. Both bugs found this way were of that kind: a
+`contents()` together with `pages: "step"`, and a `contents()` standing behind
+a slide with reveals. Neither combination exists in `examples/`, so the whole
+chain stayed green while the published package would have failed to compile.
+
+Compile it in both outputs and check for `error:` as well as `did not
+converge`. A convergence warning is not an error and Typst still writes a file,
+so a run that only checks the exit status will miss it.

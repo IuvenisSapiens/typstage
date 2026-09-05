@@ -186,7 +186,7 @@
 /// denselben Argumenten -- und Typst gibt für gleichen Inhalt das gemerkte
 /// Layout zurück, also viermal dieselbe Seite.
 #let slide-body(s, style, geo, t, chrome: true, overflow: "none",
-                schritt: none) = block(
+                schritt: none, nr: none) = block(
   width: geo.width, height: geo.height,
 {
   papier-schritt.update(schritt)
@@ -240,10 +240,13 @@
   // Geprüft wird das Argument und nicht der Zustand: ein Vergleich, keine
   // Lesung. Der Verweis führt damit auf die erste Seite der Folie, und das ist
   // die richtige -- dort schlägt sie auf.
+  // Die Nummer kommt als Argument und nicht aus `deck-info`: der Fund steht in
+  // einem `place`, und platzierter Inhalt löst seinen `context` unzuverlässig
+  // auf, sobald eine Folie mehrere Seiten setzt. Gemessen bei `pages: "step"`
+  // fehlten dadurch Marken und andere kamen dreifach -- `contents()` fand sein
+  // Ziel nicht mehr und brach ab.
   let navigations-ziel = if schritt != none and schritt != 1 { none } else {
-  place(center + horizon, context {
-    [#metadata(deck-info.get().nr) <typstage-slide-target>]
-  })
+    place(center + horizon, [#metadata(nr) <typstage-slide-target>])
   }
   // Everything below is measured on the default canvas and scaled with it, so
   // a smaller or wider slide keeps its proportions.
@@ -478,7 +481,7 @@
         // `start` again, so nothing in it reads from the wrong side.
         align(top + left, scale(w / geo.width * 100%, origin: top + left,
               slide-body(item.slide, style, geo, thema(item.slide),
-                         overflow: overflow)))
+                         overflow: overflow, nr: item.fakten.nr)))
       }) <ts-handout-frame>]
     }
 

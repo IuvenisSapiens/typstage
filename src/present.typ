@@ -890,7 +890,7 @@
                  + sprite-number.update(none)
                  + (if wechselt { theme-state.update(thema(s)) } else { none })
                  + slide-body(s, style, geo, thema(s), overflow: overflow,
-                              schritt: k))
+                              schritt: k, nr: nr))
         }
       }
       seiten.join(pagebreak(weak: true))
@@ -983,7 +983,7 @@
                     + (if name != "" { (data-titel: name) } else { (:) }), {
           html.elem("div", attrs: (class: "ts-bg"),
                     html.frame(slide-body(s, style, geo, thema(s), chrome: false,
-                                          overflow: overflow)))
+                                          overflow: overflow, nr: hier.nr)))
           // Second chrome, only for the browser's own print view. There each
           // slide stands on its own page, there is no transition. And the
           // layer above the stage cannot travel along there, because the

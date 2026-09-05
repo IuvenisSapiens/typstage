@@ -35,6 +35,12 @@ FAELLE = {
     # hängt an den Schritten. Gemessen, bevor die Marke auf die erste Seite
     # beschränkt wurde: "query for elements labelled `typstage-slide-target`
     # did not stabilize".
+    # Ein Verzeichnis *hinter* einer Folie mit Aufdeckschritten: dort fand
+    # `contents()` sein Sprungziel nicht mehr, weil die Marke ihre
+    # Foliennummer aus einem `place` heraus las und das bei mehreren Seiten je
+    # Folie danebengeht -- gemessen fehlten Nummern und andere kamen dreifach.
+    "contents nach Aufdecken": ("= Eins\n== A\n=== Aufdecken\n#anim[eins]\n"
+                 "#stagger([a], [b])\n= Zwei\n== B\n=== Agenda\n#contents()\n", 7, 10),
     "contents": ("= Ein Abschnitt\n== Aufdecken\n#anim[eins]\n"
                  "#stagger([a], [b])\n#alternatives([p], [q])\n"
                  "== Verzeichnis\n#contents()\n", 4, 9),
