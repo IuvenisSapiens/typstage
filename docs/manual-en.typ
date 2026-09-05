@@ -18,6 +18,7 @@
 #set text(lang: "en")
 
 #show: docs.with(
+  lang: "en",
   // Das Zeichen statt des Namens im Kopf. Als SVG: Typst setzt die Schrift
   // beim Ausgeben in Pfade um, es hängt also an keiner Schrift.
   logo: image("../assets/logo.svg", height: 1.7em, alt: "typstage"),
