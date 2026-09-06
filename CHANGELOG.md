@@ -108,6 +108,23 @@ All notable changes to this package are recorded here. The format follows
 
 ### Fixed
 
+- **An embedded frame was scaled twice in WebKit.** `embed` spans its frame in
+  slide points and scales it onto the stage, so that every window shows the
+  same crop. That was done with `zoom`, and WebKit applies `zoom` on an iframe
+  to the element box *and*, once more, to the painting of the document inside
+  it: the content landed at the square of the scale. Measured in Safari 26.4
+  at 0.3, where a guest filled 30 % of its frame instead of all of it.
+  Reported from a lesson deck with a live preview beside it, where the speaker
+  view -- the stage in a small tile, the scale far below one -- showed the
+  embedded document far too small while the talk window was right. The frame
+  now scales with `transform`, which both engines paint once. The reason that
+  once spoke for `zoom` no longer holds either: at 1.71, the scale of an
+  ordinary full-screen stage, `zoom` and `transform` come out equally sharp
+  side by side. The frame's layout box now stands in slide points and
+  overhangs its host wherever the stage scales down, so the host clips it, and
+  the scale that converts a pointer into the frame is read from the element
+  rather than from `style.zoom`.
+
 - **The reveal chains let `track` hand out their steps.** A chain that read
   the step cursor and passed a *computed* `at` into a tracked element cost the
   document its convergence, as soon as the revealed body carried something out
