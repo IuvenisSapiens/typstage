@@ -1,8 +1,50 @@
 // Turning tracked elements into HTML.
 
 #import "config.typ": *
-#import "internal.typ": sprite-number
-#import "theme.typ": with-style
+#import "internal.typ": (folien-notizen, notiz-marke-ab, notiz-selektoren,
+                        sprite-number)
+#import "theme.typ": notiz-zeile, with-style
+
+/// Die Anmerkungen einer Folie als Sprites.
+///
+/// Der Gegenpart zu den Schlitzen, die `slide-body` im Hintergrund stanzt:
+/// dieselbe Abfrage, dieselbe Reihenfolge, dieselbe Zeilenfunktion. Der
+/// Hintergrund hält den Platz und trägt die unsichtbare Marke, hier steht die
+/// Tinte -- und weil `data-n` und Marke zusammenfinden, setzt die Laufzeit den
+/// Sprite punktgenau in die Zeile, die für ihn freigehalten wurde.
+///
+/// Es gibt damit nur noch *eine* Quelle für Anmerkungen. Eine ungekettete
+/// Fußnote und eine gekettete unterscheiden sich allein in einer Zeichenkette,
+/// dem `data-at`: `"1-"` gegen `"3-"`. Doppelt kann nichts kommen, weil der
+/// Hintergrund keine Anmerkungstinte mehr trägt; verloren gehen kann auch
+/// nichts, weil ein fehlender Schritt auf `"1-"` zurückfällt.
+///
+/// Muss in einem `context` stehen.
+#let notiz-sprites(nr, t, geo) = {
+  let m = margins(geo)
+  let inner = geo.width - m.left - m.right
+  let fn = folien-notizen(nr)
+  if fn.len() == 0 { return [] }
+  let schritte = notiz-selektoren(nr)
+  fn.enumerate().map(((i, f)) => {
+    let s = schritte.at(i, default: (at: "1-", delay: 0, after: none))
+    let zahl = counter(footnote).at(f.location()).first()
+    html.elem("div", attrs: (
+      class: "ts-el ts-note",
+      "data-n": str(notiz-marke-ab + i),
+      "data-at": s.at,
+      // Eine Anmerkung blendet auf und wandert nicht: sie steht am Fuß der
+      // Folie, wo ein Weg von vierzehn Punkten nur unruhig aussähe. Die
+      // Verzögerung kommt dagegen mit, damit die Anmerkung eines gestaffelten
+      // Punktes im selben Takt kommt wie der Punkt.
+      "data-enter": "fade",
+      ..if s.at("delay", default: 0) != 0 { ("data-delay": str(s.delay)) } else { (:) },
+      // Nur die Abweichung von der Vorgabe reist mit, wie bei jedem Sprite:
+      // ein Deck ohne `dim` sieht danach aus wie eines von gestern.
+      ..if s.at("after", default: none) != none { ("data-after": s.after) } else { (:) },
+    ), html.frame(block(width: inner, notiz-zeile(t, geo.scale, zahl, f.body))))
+  }).join()
+}
 
 /// One sprite: the element as its own small frame, plus everything the runtime
 /// needs to know about it as data attributes.

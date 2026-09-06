@@ -458,10 +458,24 @@ wirft 0,90 m Schatten.
 ```]
 
 Sie erreicht alle drei Ausgaben: den Browser, die PDF und das Handout neben
-seiner Folie. Bei `pages: "step"` steht die Anmerkung vom ersten Schritt der
-Folie an und erscheint nicht erst mit dem Stück, das ihre Marke trägt -- im
-Browser ginge es gar nicht anders, weil dort jeder Schritt einer Folie zugleich
-gesetzt ist, und das Papier folgt dem Browser.
+seiner Folie. Steht die Fußnote *in* einer Aufdeckkette, erscheint ihre
+Anmerkung mit ihrer Marke: im Browser wird sie auf demselben Schritt
+eingeblendet, der Folienfuß verrät also nichts, was der Vortrag noch nicht
+gezeigt hat. Ihr Platz steht dabei von Anfang an; es springt nichts, wenn sie
+kommt.
+
+#info[
+  Auf Papier steht die Anmerkung vom ersten Schritt ihrer Folie an.
+  `pages: "step"` setzt dieselbe Folie einmal je Schritt; das Papier zeigt, was
+  der Browser einblendet.
+]
+
+#warning[
+  Eine Fußnote trägt Text. Blockinhalt mit eigener Ausrichtung in einer
+  Anmerkung -- eine abgesetzte Formel, eine `figure`, ein `#align(center)` --
+  kommt in beide Ausgaben, aber nicht an dieselbe Stelle: der Browser
+  zentriert ihn, das Papier beginnt ihn am Anfang der Zeile.
+]
 
 #info[
   Typsts eigener Fußnotenapparat ist für ein Deck abgeschaltet, weil er hier

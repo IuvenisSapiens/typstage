@@ -8,6 +8,27 @@ All notable changes to this package are recorded here. The format follows
 
 ### Added
 
+- **A footnote's note is revealed with its marker.** A footnote standing inside
+  a reveal chain now has its note appear on the same step in the browser, so the
+  foot of the slide gives nothing away that the talk has not shown yet. Its
+  place is held from the start, so nothing jumps when it arrives. On paper it
+  stands from the slide's first step, as before. The step is not carried
+  anywhere: `track` lays two reads of `counter(footnote)` around its own body
+  and reports the *span* of numbers that fall between them; the overlay takes,
+  for each note, the narrowest span containing its number, so a footnote inside
+  an `anim` inside a `stagger` gets the step of the `anim`. A footnote in no
+  chain finds no span and stands from step one. In the browser the note is no
+  longer drawn in the background at all: the background punches a slot the size
+  of the line, holding the place and carrying the marker, and the ink comes from
+  the overlay. There is therefore exactly one place that draws note ink, and
+  nothing that could double. Five earlier attempts of mine all broke the same
+  rule, measured: as soon as a value read from the running slide lands in a
+  sprite record, the document stops converging -- provided another slide
+  follows. A known limit comes with it: block content with an alignment of its
+  own inside a note -- a displayed equation, a `figure`, an `#align(center)` --
+  reaches both outputs but not the same place, centred in the browser and at the
+  start of the line on paper.
+
 - **`#footnote` works on a slide.** It is written as it always was and stands
   at the foot of *its slide*, under a short rule, numbered from one on every
   slide. Reported from a deck where it had squeezed itself into the bottom and

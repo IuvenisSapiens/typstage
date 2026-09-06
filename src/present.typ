@@ -996,6 +996,9 @@
         step-here.update(())
         sprite-number.update(none)
         sprites.update(())
+        // Neben `sprites`, aus demselben Grund: was `track` über die
+        // Anmerkungen dieser Folie aufschreibt, gehört zu dieser Folie.
+        notiz-schritte.update(_ => (:))
         bridge-jobs.update(())
         kamera-liste.update(())
         note-state.update(s.note)
@@ -1050,7 +1053,15 @@
               + (if geplante-uhr != none { ("data-clock": str(geplante-uhr)) }
                  else { (:) }),
               sprites.get().enumerate()
-                .map(((i, sp)) => sprite-markup(sp, i + 1, style)).join())
+                .map(((i, sp)) => sprite-markup(sp, i + 1, style)).join()
+              // Direkt hinter der Sprite-Schleife und aus derselben Abfrage,
+              // aus der `slide-body` seine Schlitze gestanzt hat. Nur eine
+              // Folie mit einem Rumpf hat einen Fuß: eine Titel- oder
+              // Abschnittsfolie zeichnet das Theme selbst und stanzt nichts,
+              // ein Sprite fände dort keine Marke.
+              + (if s.kind != "title" and s.kind != "section" {
+                  notiz-sprites(hier.nr, thema(s), geo)
+                } else { [] }))
             // For the check at the end of the document, note which morphs
             // sit on this slide and whether they stand from step one.
             // Evaluate first, then record: inside the update function

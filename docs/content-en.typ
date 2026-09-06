@@ -423,10 +423,22 @@ casts a shadow of 0.90 m.
 ```]
 
 It reaches all three outputs: the browser, the PDF, and the handout beside its
-slide. With `pages: "step"` the note stands from the slide's first step on
-rather than appearing with the piece that carries its marker -- in the browser
-it could not be otherwise, since every step of a slide is set at once, and the
-paper follows the browser.
+slide. A footnote standing inside a reveal chain appears with its marker: in
+the browser the note is revealed on the same step, so the foot of the slide
+gives nothing away that the talk has not shown yet. Its place is held from the
+start, so nothing jumps when it arrives.
+
+#info[
+  On paper the note stands from the slide's first step on. `pages: "step"` sets
+  the same slide once per step, and the paper shows what the browser reveals.
+]
+
+#warning[
+  A footnote carries text. Block content with an alignment of its own inside a
+  note -- a displayed equation, a `figure`, an `#align(center)` -- reaches both
+  outputs, but not the same place: the browser centres it, the paper starts it
+  at the beginning of the line.
+]
 
 #info[
   Typst's own footnote machinery is switched off for a deck, because it cannot

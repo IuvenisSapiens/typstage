@@ -51,6 +51,7 @@ readers who are not in this repository.
 | `pruefe-palette.py` | the contrast contract of the speaker palette |
 | `pruefe-rundgang.py` | every export is demonstrated in `tour.typ` |
 | `pruefe-inhalt.js` | `contents()` jumps to a section and back |
+| `pruefe-fussnoten.js` | a footnote's note is revealed with its marker, not before |
 | `pruefe-cue-pfeil.js` | a `cue()` group claims the arrow only when due |
 | `pruefe-cue-folien.js` | a `cue()` group stays on its slide, a layer on its point |
 | `pruefe-konvergenz.py` | the reveal chains converge within five passes |

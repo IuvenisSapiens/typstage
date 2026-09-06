@@ -24,6 +24,33 @@
 /// Marks that may sit anywhere in a slide body, even deeply nested, because a
 /// state update inside an `html.frame` is readable afterwards.
 #let sprites = state("typstage-sprites", ())
+
+/// Der Schritt, auf dem eine Anmerkung erscheinen soll -- je Folie.
+///
+/// Nicht der Ort der Anmerkung reist zu `track`, sondern der Schritt reist zu
+/// der Stelle, an der die Anmerkung ohnehin schon steht. Geschrieben wird
+/// darum nichts als eine Zeichenkette unter einem rein strukturellen
+/// Schluessel `"<Elementnummer>/<Gangindex>"`: keine Abfrage, kein Zustand der
+/// Folie, kein Zaehlerstand. Das ist der ganze Unterschied zu den gemessenen
+/// Sackgassen, an denen dieses Dokument seine Konvergenz verlor -- dort landete
+/// ein aus einer Lesung *dieser* Folie gewonnener Wert in einem
+/// Sprite-Datensatz.
+///
+/// Und ausdruecklich *nicht* in `sprites`: `step-jetzt()` greift dort ueber die
+/// Elementnummer mit `liste.at(nr - 1)` zu, und `sprite-markup(sp, i + 1)`
+/// leitet `data-n` aus dem Feldindex ab. Ein eingeschobener Notiz-Datensatz
+/// verschoebe beides. Die Anmerkung wird deshalb Markup und kein Datensatz.
+///
+/// Zurueckgesetzt je Folie, wie `sprites` und `bridge-jobs`.
+#let notiz-schritte = state("typstage-notiz-schritte", (:))
+
+/// Die Nummer, ab der die Marken der Anmerkungen liegen.
+///
+/// `marker(n)` fasst 16 Bit; Elementnummern je Folie liegen im zweistelligen
+/// Bereich. Der Abstand haelt die Notizmarken von den Elementmarken getrennt,
+/// ohne dass jemand die beiden Zaehlungen aufeinander abstimmen muesste.
+#let notiz-marke-ab = 32768
+
 #let note-state = state("typstage-note", none)
 /// Die im Deck geplante Dauer der angehefteten Klassenuhr, in Minuten.
 /// Wie die Notiz: eine Folie traegt hoechstens eine, und sie steht am Ende
@@ -967,6 +994,93 @@
   false
 }
 
+/// Wie viele Fußnoten stehen im Rumpf dieses verfolgten Elements?
+///
+/// Derselbe flache Gang wie `hat-invert` nebenan, nur mit `footnote` als Blatt.
+/// Er sieht genau die Fußnoten, deren *innerste* Aufdeckkette dieses Element
+/// ist: eine weitere Kette darin -- `stagger`, `anim`, `alternatives` -- ist an
+/// dieser Stelle ein blankes `context`, und in einen Verschluss sieht kein Gang
+/// hinein. Gemessen: `fields()` eines solchen Elements ist leer, der Gang
+/// findet null Fußnoten darin. Genau das wird gebraucht, denn die innere Kette
+/// zählt ihre eigenen selbst.
+///
+/// Eine Fußnote, die erst ein `context` beim Satz erzeugt, bleibt unsichtbar.
+/// Sie bekommt dann keinen Schritt, und ohne Schritt gilt die Vorgabe `"1-"` --
+/// also genau das Verhalten von heute. Der einzig mögliche Fehlschlag ist
+/// "es bleibt, wie es war", nie "die Anmerkung ist weg".
+#let notiz-zahl(body) = {
+  if type(body) != content { return 0 }
+  if body.func() == footnote { return 1 }
+  if body.has("children") {
+    return body.children.fold(0, (s, c) => s + notiz-zahl(c))
+  }
+  if body.has("child") { return notiz-zahl(body.child) }
+  if body.has("body") { return notiz-zahl(body.body) }
+  0
+}
+
+/// Die Fußnoten einer Folie, so wie ihre Anmerkungen am Fuß stehen.
+///
+/// Gefragt wird die Abfrage und nicht der Rumpf: ein Gang durch den Inhalt
+/// *vor* dem Setzen findet eine Fußnote nur dort, wo sie geschrieben steht, und
+/// eine Aufdeckkette gibt ein `context` zurück.
+///
+/// Zugeordnet wird über `deck-info` am Ort der Fußnote und nicht über die
+/// Seitenzahl: im Handout stehen mehrere Folien auf einer Seite. Die Seite
+/// kommt trotzdem dazu, wo es sie gibt -- `pages: "step"` setzt dieselbe Folie
+/// mehrfach, und ohne sie stünden die Anmerkungen dreifach untereinander.
+///
+/// Und nicht aus einem Sprite: der Rumpf eines verfolgten Elements wird in der
+/// Überlagerung ein zweites Mal gesetzt, seine Fußnoten kämen sonst doppelt.
+///
+/// Muss in einem `context` stehen.
+#let folien-notizen(nr, seite: none) = query(footnote).filter(f => {
+  let ort = f.location()
+  (deck-info.at(ort).nr == nr
+   and (seite == none or ort.page() == seite)
+   and sprite-number.at(ort) == none)
+})
+
+/// Zu jeder Anmerkung dieser Folie der Schritt, ab dem sie stehen soll.
+///
+/// Der Schlüssel `(n, j)` ist auf beiden Seiten ohne Absprache herstellbar.
+/// `track` nimmt seine eigene Elementnummer und den Index seines Gangs. Hier
+/// steht die Frage andersherum: zu jeder Hintergrund-Fußnote die Menge der
+/// `sprite-number` ihrer Sprite-Kopien -- erkannt an ihrer Nummer, denn der
+/// Sprite setzt den Fußnotenzähler auf den Stand des Hintergrunds --, davon das
+/// Maximum, und das ist die innerste Kette. Der Rang unter den Fußnoten
+/// derselben innersten Kette ist `j`.
+///
+/// Was keinen Eintrag findet, steht ab Schritt eins: eine Fußnote im freien
+/// Fluss, und ebenso eine, die kein Gang gesehen hat. Das ist das Verhalten
+/// von heute.
+///
+/// Muss in einem `context` stehen.
+#let notiz-selektoren(nr) = {
+  let kopien = query(footnote).filter(f => {
+    let ort = f.location()
+    deck-info.at(ort).nr == nr and sprite-number.at(ort) != none
+  }).map(f => (zahl: counter(footnote).at(f.location()).first(),
+               n: sprite-number.at(f.location())))
+  let buch = notiz-schritte.get()
+  let rang = (:)
+  let raus = ()
+  for f in folien-notizen(nr) {
+    let zahl = counter(footnote).at(f.location()).first()
+    let meine = kopien.filter(k => k.zahl == zahl).map(k => k.n)
+    let vorgabe = (at: "1-", delay: 0, after: none)
+    if meine.len() == 0 {
+      raus.push(vorgabe)
+    } else {
+      let kette = str(calc.max(..meine))
+      let j = rang.at(kette, default: 0)
+      rang.insert(kette, j + 1)
+      raus.push(buch.at(kette + "/" + str(j), default: vorgabe))
+    }
+  }
+  raus
+}
+
 /// Steckt eine Fußnote in einer Überschrift?
 ///
 /// Sie darf dort nicht stehen, und das ist keine Geschmacksfrage. Der Titel
@@ -1454,6 +1568,34 @@
     // body is laid out a second time there, long after the cursor has run on
     // to the end of the slide.
     let erster = min-step(selected)
+    // Und derselbe Schritt für die Anmerkungen, die in diesem Rumpf hängen.
+    //
+    // Das einzige, was dieser Entwurf `track` abverlangt: zwei ganze Zahlen und
+    // eine Zeichenkette, die es schon in der Hand hält. `n` kommt aus dem
+    // Elementzähler, `j` aus dem Gang über das eigene Argument, `selected` ist
+    // dasselbe `at`, das nebenan ohnehin in den Datensatz geht. Keine Abfrage,
+    // kein `.at()`, kein `get()` einer Folienlesung -- und darum wächst der
+    // Introspektionsgraph der Folie hier um keine Kante.
+    //
+    // Nicht der Ort der Anmerkung reist hierher, sondern der Schritt reist zu
+    // der Stelle, an der die Anmerkung ohnehin schon steht: an den Fuß der
+    // Folie, wo `slide-body` ihr einen Schlitz stanzt. Eine Marke *hier* wäre
+    // falsch -- ein `place(bottom + left, …)` löst gegen den nächsten Block
+    // auf, und der ist in einem Listenpunkt der Punkt und nicht der Folienrumpf.
+    //
+    // `after` reist mit, sonst nur der Schritt. Ein `stagger(dim: true)` trägt
+    // einen geschlossenen Bereich und bleibt danach gedämpft stehen -- seine
+    // Marke also auch, und eine Anmerkung, die dort verschwände, liesse einen
+    // Verweis ohne Anmerkung zurück. Gemessen an `dim: true`: Marke bei 0.65,
+    // Anmerkung bei 0.
+    let notiz-satz = (at: selected, delay: extra.at("delay", default: 0),
+                      after: extra.at("after", default: none))
+    for j in range(notiz-zahl(body)) {
+      let schluessel = str(n) + "/" + str(j)
+      notiz-schritte.update(d =>
+        if d.at(schluessel, default: none) == notiz-satz { d }
+        else { d + ((schluessel): notiz-satz) })
+    }
     // Pushed *before* the layout, not inside the hidden block further down,
     // and that is not cosmetic: the body is measured before it is laid out,
     // and a measurement reads the state as it stands at that point in the

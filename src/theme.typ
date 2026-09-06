@@ -25,7 +25,8 @@
 // says so: "content labelled multiple times", and the last one is used.
 
 #import "config.typ": *
-#import "internal.typ": (cue-basis, deck-info, html-output, note-state,
+#import "internal.typ": (cue-basis, deck-info, folien-notizen, html-output,
+                        marker, note-state, notiz-marke-ab,
                         papier-schritt,
                         papier-zahlen,
                         plain-text, slide-counter, sprite-number, step-cursor,
@@ -52,6 +53,38 @@
 /// How tall the header builds in the book style. Needed in two places:
 /// `slide-chrome` draws it, `slide-body` has to place the title below it.
 #let lauf-hoehe(t, k) = if t.header == "run" { 27pt * k } else { 0pt }
+
+/// Eine Anmerkungszeile: die Nummer, ein Zwischenraum, der Text.
+///
+/// Steht hier, weil sie zweimal gesetzt wird und beide Male gleich hoch
+/// ausfallen muss: einmal als Schlitz im Hintergrund der Folie, wo sie den
+/// Platz hält, und einmal als Sprite in der Überlagerung, wo sie die Tinte
+/// trägt. Der Sprite steht in seinem eigenen Rahmen und kennt die `set`-Regeln
+/// der Folie nicht -- derselbe Grund, aus dem `with-style` existiert --, also
+/// steht die ganze Typografie hier ausdrücklich da.
+///
+/// Der `style`-Haken des Decks wird ausdrücklich *nicht* angewandt: der
+/// Anmerkungsblock im Hintergrund wendet ihn heute auch nicht an, er umschließt
+/// nur `s.body`. Täte ihn nur eine der beiden Seiten, liefen Schlitz und Sprite
+/// in der Höhe auseinander und das SVG würde verzerrt.
+#let notiz-zeile(t, k, zahl, koerper) = {
+  set text(..font-args(t.font), size: t.size * 0.62 * k, fill: t.muted)
+  set par(leading: 0.5em, spacing: 0.35em)
+  // Bekannte Grenze, hier notiert, weil sie an dieser Zeile hängt: Blockinhalt
+  // mit eigener Ausrichtung im Rumpf einer Fußnote -- eine abgesetzte Formel,
+  // eine `figure`, ein `align(center)` -- steht im Browser mittig und auf
+  // Papier am Anfang der Zeile. Gemessen an `#footnote[#align(center)[MITTIG]]`
+  // in einem Deck: im PDF bei x = 32 von 841, im Browser in der Folienmitte.
+  //
+  // Woran das Papier sich festhält, habe ich nicht auflösen können: dieselbe
+  // Verschachtelung für sich nachgebaut -- `place(bottom + left, dx, dy,
+  // block(width: inner, block(width: 100%, …)))` -- zentriert auch auf Papier,
+  // und weder `set align(start)` noch ein `box` um den Rumpf bringt beide
+  // Seiten zusammen (das `box` nimmt einer langen Anmerkung den Umbruch).
+  // Eine Fußnote trägt Text; wer eine Formel in eine Anmerkung setzt, bekommt
+  // sie in beiden Ausgaben zu sehen, nur nicht an derselben Stelle.
+  [#super[#zahl]#h(0.35em)#koerper]
+}
 
 /// Farbe, Höhe und Lage der Fortschrittsleiste -- oder `none`, wenn das Theme
 /// keine zeichnet.
@@ -389,17 +422,29 @@
       // setzt dieselbe Folie mehrfach, und jede ihrer Seiten trägt dieselben
       // Fußnoten -- gemessen standen die Anmerkungen dreifach untereinander.
       // Die Seite allein genügt auch nicht, siehe das Handout oben.
-      let fn = query(footnote).filter(f => {
-        let ort = f.location()
-        // Und nicht aus einem Sprite. Der Rumpf eines verfolgten Elements wird
-        // in der Überlagerung ein zweites Mal gesetzt, und seine Fußnoten
-        // kämen damit doppelt: gemessen fünf Anmerkungen für drei Fußnoten,
-        // die beiden aus einem `stagger` zweimal. Auf Papier gibt es keinen
-        // Sprite, dort fiel es nicht auf.
-        (deck-info.at(ort).nr == nr
-         and ort.page() == here().page()
-         and sprite-number.at(ort) == none)
-      })
+      // Und nicht aus einem Sprite. Der Rumpf eines verfolgten Elements wird
+      // in der Überlagerung ein zweites Mal gesetzt, und seine Fußnoten kämen
+      // damit doppelt: gemessen fünf Anmerkungen für drei Fußnoten, die beiden
+      // aus einem `stagger` zweimal. Auf Papier gibt es keinen Sprite, dort
+      // fiel es nicht auf. Alle drei Lesungen stehen jetzt in
+      // `folien-notizen`, weil die Überlagerung dieselbe Liste braucht.
+      let fn = folien-notizen(nr, seite: here().page())
+      // Im Browser trägt dieser Block keine Tinte mehr, nur noch Luft und
+      // Marken: für jede Anmerkung einen Schlitz in Zeilengröße, den die
+      // Überlagerung mit einem Sprite füllt. Der Platz steht dabei ab Schritt
+      // eins, auch für eine Anmerkung, die erst auf Schritt drei sichtbar wird
+      // -- der Schlitz ist `hide`, nicht Weglassen; dieselbe Entscheidung, die
+      // `track` für den Rumpf trifft. So springt nichts, wenn die dritte
+      // Anmerkung erscheint, und der Fuß der Folie sieht auf Papier aus wie im
+      // Browser.
+      //
+      // Gestapelt wird dabei gar nichts von Hand: Reihenfolge, Zeilenabstand,
+      // der Umbruch einer langen Anmerkung über zwei Zeilen und das Wachsen
+      // des Stapels nach oben vom `bottom`-Anker aus bleiben unverändert, weil
+      // es derselbe Block ist wie zuvor. Zwei Sprites können sich damit nicht
+      // überlagern: ihre Marken liegen untereinander, und ein Sprite ist so
+      // groß wie seine Marke.
+      let im-browser = html-output.get()
       if fn.len() > 0 {
         place(bottom + left, dx: m.left, dy: -(t.foot-gap + 12pt) * k,
           block(width: inner, {
@@ -411,9 +456,19 @@
             })
             [#block(width: 100%, {
               for (i, f) in fn.enumerate() {
+                // `marker(n)` fasst 16 Bit. Eine Folie mit 32768 Anmerkungen
+                // gibt es nicht, aber die Grenze soll reden statt zu
+                // vertauschen.
+                assert(i < notiz-marke-ab, message:
+                  "typstage: a slide cannot carry more than "
+                  + str(notiz-marke-ab) + " footnotes.")
                 let zahl = counter(footnote).at(f.location()).first()
+                let zeile = notiz-zeile(t, k, zahl, f.body)
                 block(above: if i == 0 { 0pt } else { 0.35em }, below: 0pt,
-                      [#super[#zahl]#h(0.35em)#f.body])
+                      if im-browser {
+                        block(width: 100%, fill: marker(notiz-marke-ab + i),
+                              hide(zeile))
+                      } else { zeile })
               }
             }) <ts-slide-notes>]
           }))
