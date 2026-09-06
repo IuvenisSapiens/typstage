@@ -967,6 +967,33 @@
   false
 }
 
+/// Steckt eine Fußnote in einer Überschrift?
+///
+/// Sie darf dort nicht stehen, und das ist keine Geschmacksfrage. Der Titel
+/// einer Folie wird wiederholt: als laufender Kopf über den Folien des
+/// Abschnitts, im Verzeichnis, in der Sprecheransicht. Jede Wiederholung setzt
+/// die Fußnote *neu* -- gemessen trug eine Folie danach die Anmerkung ihres
+/// Abschnittstitels statt der eigenen, und ihre eigene Marke rutschte von 1
+/// auf 2. Im Rumpf steht der Titel genau einmal, dort geht es.
+///
+/// Ein tiefer Gang, weil eine Überschrift `emph`, `strong` oder Mathematik
+/// tragen kann; über `fields()`, weil der Inhalt je nach Element an
+/// `children`, an `body` oder an `child` hängt. Titel sind kurz, das kostet
+/// nichts.
+#let fussnote-im-titel(c) = {
+  if type(c) != content { return false }
+  if c.func() == footnote { return true }
+  for (_, v) in c.fields() {
+    if type(v) == content and fussnote-im-titel(v) { return true }
+    if type(v) == array {
+      for e in v { if type(e) == content and fussnote-im-titel(e) { return true } }
+    }
+  }
+  false
+}
+
+}
+
 /// What a fit says when something inside it may not be there.
 ///
 /// Named, because the same sentence has to come out of nine functions and out

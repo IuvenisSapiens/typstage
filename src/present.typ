@@ -555,6 +555,23 @@
   // `title`-Element aus dem Rumpf *nicht* in den Kopf -- `set document` tut es.
   set document(title: title) if title != none
 
+  // Typsts Fußnotenapparat stillgelegt, weil er auf einer Folie nicht gehen
+  // kann. Er setzt seine Einträge an den Fuß des *Inhaltsbereichs*; eine
+  // Folie ist aber ein Block in genau Seitenhöhe und lässt dort nichts übrig.
+  // Gemessen an einem Deck aus drei Folien mit einer Fußnote: vier Seiten
+  // statt drei, und der Anmerkungstext stand allein auf einer Geisterseite
+  // *vor* der Folie, die ihn nennt. Im HTML war er auf keiner Folie zu sehen.
+  //
+  // Die Marke im Text bleibt -- die zeichnet das Element selbst, und sie
+  // stimmt. Nur der Eintrag verschwindet, und die Abstände dazu müssen mit,
+  // sonst hält die Seite weiter Platz für etwas, das nicht mehr da ist:
+  // gemessen blieb es ohne sie bei vier Seiten.
+  //
+  // Gesetzt wird die Anmerkung stattdessen von `slide-body`, das die Fußnoten
+  // seiner Folie abfragt und sie unter den Rumpf stellt.
+  set footnote.entry(separator: none, clearance: 0pt, gap: 0pt, indent: 0pt)
+  show footnote.entry: none
+
   let geo = canvas(width: width, height: height, margin: margin)
   let given = slides.pos()
   // A single piece of content means: this is the body of a show rule, and that
@@ -570,6 +587,21 @@
                              author: author, date: date)
       (head,) + rest
     } else { rest }
+  }
+  // Eine Fußnote in der Überschrift bricht ab, statt still falsch zu stehen:
+  // der Titel wird wiederholt, und jede Wiederholung setzt sie neu. Vor der
+  // Abzweigung darunter, denn eine Titel- oder Abschnittsfolie hat keinen
+  // Rumpf und käme dort nie vorbei.
+  for s in all {
+    if fussnote-im-titel(s.at("title", default: none)) {
+      panic("typstage: a footnote in a slide title cannot work. The title is "
+            + "repeated -- as a running head above the slides of its section, "
+            + "in the contents, in the speaker view -- and every repetition "
+            + "sets the footnote again, so the slides after it carry the wrong "
+            + "note and their own numbering shifts. Put the footnote into the "
+            + "slide body instead. The title in question reads: "
+            + plain-text(s.title))
+    }
   }
   let all = all.map(s => if s.body == none { s } else {
     // The marker is looked for in the body as it was written, before the
@@ -888,6 +920,14 @@
                  + cue-basis.update(_ => (:))
                  + step-here.update(())
                  + sprite-number.update(none)
+                 // Die Fußnoten zählen je Folie und nicht durch das Deck: auf
+                 // einer Folie steht die Anmerkung neben ihrer Marke, und eine
+                 // 17 neben der ersten Anmerkung einer Folie liest niemand als
+                 // Verweis. Der Zähler wird deshalb je *Seite* zurückgesetzt,
+                 // nicht je Folie -- bei `pages: "step"` setzt dieselbe Folie
+                 // mehrere Seiten, und ohne den Rücksetzer stiegen ihre Marken
+                 // von Seite zu Seite weiter.
+                 + counter(footnote).update(0)
                  + (if wechselt { theme-state.update(thema(s)) } else { none })
                  + slide-body(s, style, geo, thema(s), overflow: overflow,
                               schritt: k, nr: nr))
@@ -981,9 +1021,11 @@
         } else { "" }
         html.elem("section", attrs: (class: "ts-slide")
                     + (if name != "" { (data-titel: name) } else { (:) }), {
-          html.elem("div", attrs: (class: "ts-bg"),
-                    html.frame(slide-body(s, style, geo, thema(s), chrome: false,
-                                          overflow: overflow, nr: hier.nr)))
+          html.elem("div", attrs: (class: "ts-bg"), {
+            counter(footnote).update(0)
+            html.frame(slide-body(s, style, geo, thema(s), chrome: false,
+                                  overflow: overflow, nr: hier.nr))
+          })
           // Second chrome, only for the browser's own print view. There each
           // slide stands on its own page, there is no transition. And the
           // layer above the stage cannot travel along there, because the

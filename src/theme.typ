@@ -360,6 +360,58 @@
     let raum = geo.height - kopf - (t.head-gap + t.foot-gap) * k
     am-anfang(top, m, dy: kopf + t.head-gap * k,
       block(width: inner, height: raum, style(s.body)))
+    // Die Anmerkungen der Folie, unter dem Rumpf und über der Fußzeile.
+    //
+    // Gefragt wird die Abfrage und nicht der Rumpf. Ein Gang durch den Inhalt
+    // *vor* dem Setzen findet eine Fußnote nur dort, wo sie geschrieben steht:
+    // `stagger` und die anderen Aufdeckketten geben ein `context` zurück, und
+    // in einen Verschluss sieht kein Gang hinein. Gemessen an einem `stagger`
+    // mit zwei Fußnoten fand er null davon, während beide Marken im Satz
+    // standen -- ein Verweis ohne Anmerkung, also schlimmer als nichts.
+    //
+    // Zugeordnet wird über `deck-info` am Ort der Fußnote und nicht über die
+    // Seitenzahl: im Handout stehen mehrere Folien auf einer Seite, und nach
+    // Seiten gefiltert trüge jede die Anmerkungen aller.
+    //
+    // Die Nummer kommt aus dem Zähler am Ort der Fußnote und nicht aus der
+    // Reihenfolge. Beides ergäbe hier dasselbe, aber nur das eine bleibt
+    // richtig, wenn ein Deck `set footnote(numbering: ...)` sagt.
+    //
+    // `place` wie alles andere, was die Folie neben ihrem Rumpf zeigt: Band,
+    // Titel, Fußzeile, Fortschritt. Ein Streifen, der dem Rumpf Höhe abzöge,
+    // müsste gemessen werden, und eine gemessene Länge, die in die Höhe des
+    // Blocks zurückläuft, ist genau die Rückkopplung, an der dieses Dokument
+    // schon zweimal seine Konvergenz verloren hat. So kostet eine Anmerkung
+    // den Rumpf nichts, und der Überlaufmelder misst gegen dieselbe Fläche
+    // wie zuvor.
+    context {
+      // Nach Folie *und* Seite. Die Folie allein genügt nicht: `pages: "step"`
+      // setzt dieselbe Folie mehrfach, und jede ihrer Seiten trägt dieselben
+      // Fußnoten -- gemessen standen die Anmerkungen dreifach untereinander.
+      // Die Seite allein genügt auch nicht, siehe das Handout oben.
+      let fn = query(footnote).filter(f => {
+        let ort = f.location()
+        deck-info.at(ort).nr == nr and ort.page() == here().page()
+      })
+      if fn.len() > 0 {
+        place(bottom + left, dx: m.left, dy: -(t.foot-gap + 12pt) * k,
+          block(width: inner, {
+            set text(size: t.size * 0.62 * k, fill: t.muted)
+            set par(leading: 0.5em, spacing: 0.35em)
+            block(above: 0pt, below: 0.45em, {
+              set rect(fill: t.muted, stroke: none)
+              [#rect(width: 26%, height: 0.5pt * k) <ts-slide-notes-rule>]
+            })
+            [#block(width: 100%, {
+              for (i, f) in fn.enumerate() {
+                let zahl = counter(footnote).at(f.location()).first()
+                block(above: if i == 0 { 0pt } else { 0.35em }, below: 0pt,
+                      [#super[#zahl]#h(0.35em)#f.body])
+              }
+            }) <ts-slide-notes>]
+          }))
+      }
+    }
     // `place`, like the mark above: the block is already slide-high and full,
     // and the check must not take a single point from the body it measures.
     // Only for slides. A title or a section slide is drawn by the theme with
@@ -505,6 +557,7 @@
       cue-basis.update(_ => (:))
       step-here.update(())
       sprite-number.update(none)
+      counter(footnote).update(0)
       // The slide's own `speaker-note` may overwrite this while it is laid
       // out, which is why the note is only read afterwards.
       note-state.update(item.slide.note)

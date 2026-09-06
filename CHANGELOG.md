@@ -8,6 +8,29 @@ All notable changes to this package are recorded here. The format follows
 
 ### Added
 
+- **`#footnote` works on a slide.** It is written as it always was and stands
+  at the foot of *its slide*, under a short rule, numbered from one on every
+  slide. Reported from a deck where it had squeezed itself into the bottom and
+  pushed the content onto a new slide. Typst's own footnote machinery cannot
+  work here and is switched off for a deck: it puts its entries at the foot of
+  the *text area*, and a slide is a block of exactly page height that leaves
+  nothing there. Measured on three slides with one footnote: four pages instead
+  of three, the note alone on a page *before* the slide that names it, and in
+  the browser on no slide at all. The deck sets the note itself now, in all
+  three outputs -- browser, PDF and the handout beside its slide -- and it finds
+  footnotes inside the reveal chains too. That last point cost the first
+  attempt: a walk through the slide body before it is laid out finds a footnote
+  only where it is written, and `stagger` returns a `context`, into which no
+  walk can see -- of two footnotes in a `stagger` it found none while both
+  markers stood in the type. The notes are therefore asked for by query,
+  filtered by slide *and* page: by slide alone they stood three times over
+  under `pages: "step"`, by page alone a handout sheet would carry the notes of
+  every slide on it. Two new labels, `ts-slide-notes` and `ts-slide-notes-rule`.
+  A footnote in a slide *title* now stops the compilation and says why: the
+  title is repeated as a running head, in the contents and in the speaker view,
+  and every repetition set the footnote again -- the slides after it carried
+  the note of their section title instead of their own.
+
 - **Decks that read from the right.** `#set text(lang: "fa")` before the show
   rule, or `#set text(dir: rtl)`, turns the whole slide around. The slide body
   was placed with `place(top + left, …)`, and that alignment beat the `start`

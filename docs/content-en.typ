@@ -408,6 +408,43 @@ calculation, one slide per line.
 It appears in the speaker view -- opened in a second window with `n` -- and in
 the handout, beside its slide.
 
+== A note the room can read
+
+`#footnote` works, and it does not look like it does in a book: the note
+stands at the foot of *its slide*, under a short rule, and the numbering
+starts again on every slide. A footnote on slide seven is number one there.
+
+// check: folgen
+#show-code[```typ
+== The measurement
+
+The pole is 1.20 m high#footnote[Measured at the base, not at the tip.] and
+casts a shadow of 0.90 m.
+```]
+
+It reaches all three outputs: the browser, the PDF, and the handout beside its
+slide. With `pages: "step"` the note stands from the slide's first step on
+rather than appearing with the piece that carries its marker -- in the browser
+it could not be otherwise, since every step of a slide is set at once, and the
+paper follows the browser.
+
+#info[
+  Typst's own footnote machinery is switched off for a deck, because it cannot
+  work here: it puts its entries at the foot of the *text area*, and a slide is
+  a block of exactly page height that leaves nothing there. Left alone, it cost
+  a three-slide deck a fourth page, with the note alone on it, before the slide
+  that names it; in the browser the note appeared on no slide at all. What you
+  write is unchanged -- `#footnote[…]` -- only the setting is the deck's own.
+]
+
+#warning[
+  Not in a heading. A title is repeated -- as a running head above the slides
+  of its section, in the contents, in the speaker view -- and every repetition
+  sets the footnote again: the slides after it carried the note of their
+  section title instead of their own, and their own numbering shifted from 1 to
+  2. A footnote in a title stops the compilation and says so.
+]
+
 == A PDF that unfolds
 
 `pages: "step"` sets one page per step instead of one per slide. What is not
@@ -3369,7 +3406,7 @@ their place.
   one puts it *inside* -- and inside the rectangle there is no second rectangle
   for it to reach.
 
-  For the 16 type labels the two spellings are equivalent: what sits inside the
+  For the 17 type labels the two spellings are equivalent: what sits inside the
   matched element there is the text, and a rule reaches that from within.
 ]
 
@@ -3381,9 +3418,9 @@ and every moving piece.
 
 The `style` hook does *not*. It is wrapped around the slide *body*, and header,
 footer, progress and the two whole-picture slides are built beside it. Measured,
-all 38 rules one by one: from `style` exactly the 13 that stand in the body take
+all 40 rules one by one: from `style` exactly the 13 that stand in the body take
 effect -- `ts-card…`, `ts-callout…`, `ts-statement` and the three `ts-media-…`
-surfaces. The other 25 stay silent, without a warning.
+surfaces. The other 27 stay silent, without a warning.
 
 #warning[
   A `show` rule written *after* `#show: presentation` does not reach a tracked
@@ -3484,6 +3521,9 @@ say -- is not on that slide, and a rule on it does nothing.
     [`text`],
   [`ts-slide-title-rule`], [The rule under the title, only when
     `rule-size > 0pt`], [`rect`],
+  [`ts-slide-notes`], [The slide's footnotes, only where it has any],
+    [`text`],
+  [`ts-slide-notes-rule`], [The short rule above them], [`rect`],
   [`ts-slide-footer`], [The footer line], [`text`],
   [`ts-slide-number`], [The slide number in it], [`text`],
   [`ts-slide-footer-rule`], [The hairline above it, only when

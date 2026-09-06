@@ -443,6 +443,46 @@ Rechnung.
 
 Zu sehen ist sie in der Sprecheransicht und im Handout neben ihrer Folie.
 
+== Eine Anmerkung, die der Saal liest
+
+`#footnote` geht, und es sieht anders aus als im Buch: Die Anmerkung steht am
+Fuß *ihrer Folie*, unter einem kurzen Strich, und gezählt wird je Folie neu.
+Eine Fußnote auf Folie sieben trägt dort die Eins.
+
+// check: folgen
+#show-code[```typ
+== Die Messung
+
+Der Stab ist 1,20 m hoch#footnote[Am Fuß gemessen, nicht an der Spitze.] und
+wirft 0,90 m Schatten.
+```]
+
+Sie erreicht alle drei Ausgaben: den Browser, die PDF und das Handout neben
+seiner Folie. Bei `pages: "step"` steht die Anmerkung vom ersten Schritt der
+Folie an und erscheint nicht erst mit dem Stück, das ihre Marke trägt -- im
+Browser ginge es gar nicht anders, weil dort jeder Schritt einer Folie zugleich
+gesetzt ist, und das Papier folgt dem Browser.
+
+#info[
+  Typsts eigener Fußnotenapparat ist für ein Deck abgeschaltet, weil er hier
+  nicht arbeiten kann: Er setzt seine Einträge an den Fuß des *Textbereichs*,
+  und eine Folie ist ein Block in genau Seitenhöhe, der dort nichts übrig
+  lässt. Sich selbst überlassen kostete er ein Deck aus drei Folien eine
+  vierte Seite, auf der die Anmerkung allein stand -- vor der Folie, die sie
+  nennt;
+  im Browser erschien sie auf gar keiner Folie. Geschrieben wird unverändert
+  `#footnote[…]`, nur gesetzt wird sie vom Deck.
+]
+
+#warning[
+  Nicht in einer Überschrift. Ein Titel wird wiederholt -- als laufender Kopf
+  über den Folien seines Abschnitts, im Verzeichnis, in der Sprecheransicht --
+  und jede Wiederholung setzt die Fußnote neu: Die Folien danach trugen die
+  Anmerkung ihres Abschnittstitels statt der eigenen, und ihre eigene Zählung
+  rutschte von 1 auf 2. Eine Fußnote im Titel hält das Übersetzen an und sagt
+  es.
+]
+
 == Eine PDF, die sich aufdeckt
 
 `pages: "step"` setzt eine Seite je Schritt statt eine je Folie. Was noch nicht
@@ -3994,7 +4034,7 @@ oder `<iframe>` weichen.
   ```
 
   Die Kurzform legt die Stilregel *um* das gefundene Element, die Langform
-  *hinein* -- und im Rechteck steckt kein zweites Rechteck. Bei den 16
+  *hinein* -- und im Rechteck steckt kein zweites Rechteck. Bei den 17
   Schrift-Labels sind beide Schreibweisen gleichwertig.
 ]
 
@@ -4006,9 +4046,9 @@ Element.
 
 `style` erreicht das nicht: der Haken liegt um den *Folienrumpf*, und Kopf,
 Fuß, Fortschritt sowie Titel- und Abschnittsfolie entstehen daneben. Gemessen,
-jede der 38 Regeln einzeln: aus `style` heraus wirken genau die 13, die im
+jede der 40 Regeln einzeln: aus `style` heraus wirken genau die 13, die im
 Folienrumpf stehen -- `ts-card…`, `ts-callout…`, `ts-statement` und die drei
-`ts-media-…`. Die übrigen 25 bleiben dort stumm, ohne Warnung.
+`ts-media-…`. Die übrigen 27 bleiben dort stumm, ohne Warnung.
 
 #warning[
   Eine `show`-Regel *hinter* `#show: presentation` erreicht ein getracktes
@@ -4091,6 +4131,9 @@ tut nichts.
   [`ts-slide-title`], [der Folientitel, bei allen drei Kopfarten], [`text`],
   [`ts-slide-title-rule`], [die Linie darunter, nur bei `rule-size > 0pt`],
     [`rect`],
+  [`ts-slide-notes`], [die Anmerkungen der Folie, nur wenn sie welche hat],
+    [`text`],
+  [`ts-slide-notes-rule`], [der kurze Strich darüber], [`rect`],
   [`ts-slide-footer`], [die Fußzeile], [`text`],
   [`ts-slide-number`], [die Foliennummer darin], [`text`],
   [`ts-slide-footer-rule`], [die Haarlinie darüber, nur bei
