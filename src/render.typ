@@ -66,6 +66,18 @@
       // one. Only the number travels; the step itself is looked up from
       // `sprites`, for the reason given at `sprite-number`.
       sprite-number.update(n)
+      // Und der Fußnotenzähler auf den Stand, den er im Hintergrund an der
+      // Stelle dieses Rumpfes hatte. Ohne das zählt der zweite Satz weiter,
+      // und im Browser ist die sichtbare Marke die von hier: gemessen las ein
+      // Deck mit drei Fußnoten, zwei davon in einem `stagger`, die Marken
+      // 1, 4, 5 und die Anmerkungen darunter 1, 2, 3.
+      //
+      // Abgelesen wird am mitgereisten *Ort*, nicht an einer mitgereisten
+      // Zahl -- siehe den Kommentar bei `fnort` in `track`.
+      context {
+        let o = s.at("fnort", default: none)
+        if o != none { counter(footnote).update(counter(footnote).at(o).first()) }
+      }
       // The measured size on the outside, since that decides the frame, and
       // the region from back then on the inside. A relative measure in the body
       // therefore resolves exactly once, and against the same reference as in

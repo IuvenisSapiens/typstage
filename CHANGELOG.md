@@ -131,6 +131,20 @@ All notable changes to this package are recorded here. The format follows
 
 ### Fixed
 
+- **A footnote inside a reveal chain carried the wrong number in the browser.**
+  The body of a tracked element is laid out twice there -- hidden in the
+  background and again as its sprite in the overlay, which is the copy the
+  viewer sees -- and `counter(footnote)` advanced in both. Measured on three
+  footnotes, two of them inside a `stagger`: the markers read 1, 4, 5 while the
+  notes beneath them read 1, 2, 3. On paper there are no sprites and the
+  numbering was right. The sprite now carries the *place* at which its body
+  begins in the background, and sets the counter from it before laying the body
+  out again. A place and not a number, and that is the whole difference: a
+  recorded counter value would be read back out of the state that the overlay
+  then writes the same counter from -- a circle that gains a link per nesting
+  level, measured as "value of counter(footnote) did not converge". A place
+  follows the structure of the document and stands from the first run.
+
 - **A footnote inside a reveal chain was noted twice.** The body of a tracked
   element is laid out a second time in the browser, as its sprite in the
   overlay, and the note at the foot of the slide was taken from both copies:

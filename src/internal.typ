@@ -1558,10 +1558,25 @@
       // `dim-freiwillig` rides in the sprite record and not in `extra`, which
       // becomes `data-` attributes one for one. It is only read by the check
       // at the end of the document and has no business in the markup.
+      // Der *Ort*, an dem dieser Rumpf im Hintergrund beginnt -- nicht der
+      // Stand eines Zählers dort. Der Sprite setzt den Fußnotenzähler damit
+      // auf denselben Wert wie der Hintergrund, und seine Marken tragen
+      // dieselben Nummern.
+      //
+      // Ein Ort und keine Zahl, und das ist der ganze Unterschied zu einem
+      // früheren Versuch, der den Zählerstand selbst in den Datensatz legte:
+      // dann liest der Zustand einen Zähler, den die Überlagerung anschließend
+      // aus demselben Zustand wieder setzt -- ein Kreis, der je Verschachtelung
+      // ein Glied gewinnt, und Typst gibt nach fünf Anläufen auf. Gemessen:
+      // "value of counter(footnote) did not converge". Ein Ort folgt dem Bau
+      // des Dokuments und keinem Zählerstand; er steht vom ersten Lauf an fest.
+      // Dasselbe gilt für `n` in `sprite-number.update(n)` nebenan: eine reine
+      // Strukturgröße.
+      let fnort = here()
       sprites.update(a => a + ((kind: kind, at: selected, extra: extra, body: body,
                                 raw-frames: raw-frames, width: w,
                                 height: m.height, region: region, pad: luft,
-                                step: erster, style: style,
+                                step: erster, style: style, fnort: fnort,
                                 dim-freiwillig: dim-freiwillig),))
       // A `box` is inline and puts its baseline on the bottom edge, and with a
       // two-line list item the bullet would drop a line. Block content gets a
