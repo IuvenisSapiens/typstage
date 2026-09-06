@@ -391,7 +391,14 @@
       // Die Seite allein genügt auch nicht, siehe das Handout oben.
       let fn = query(footnote).filter(f => {
         let ort = f.location()
-        deck-info.at(ort).nr == nr and ort.page() == here().page()
+        // Und nicht aus einem Sprite. Der Rumpf eines verfolgten Elements wird
+        // in der Überlagerung ein zweites Mal gesetzt, und seine Fußnoten
+        // kämen damit doppelt: gemessen fünf Anmerkungen für drei Fußnoten,
+        // die beiden aus einem `stagger` zweimal. Auf Papier gibt es keinen
+        // Sprite, dort fiel es nicht auf.
+        (deck-info.at(ort).nr == nr
+         and ort.page() == here().page()
+         and sprite-number.at(ort) == none)
       })
       if fn.len() > 0 {
         place(bottom + left, dx: m.left, dy: -(t.foot-gap + 12pt) * k,

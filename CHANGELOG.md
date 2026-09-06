@@ -131,6 +131,14 @@ All notable changes to this package are recorded here. The format follows
 
 ### Fixed
 
+- **A footnote inside a reveal chain was noted twice.** The body of a tracked
+  element is laid out a second time in the browser, as its sprite in the
+  overlay, and the note at the foot of the slide was taken from both copies:
+  measured, five notes for three footnotes, the two inside a `stagger` twice
+  over. On paper there are no sprites and it did not show. The slide now leaves
+  the sprite copies out. The numbering of the markers themselves is a separate
+  matter and still wrong in the browser for a footnote inside a reveal.
+
 - **An embedded frame was scaled twice in WebKit.** `embed` spans its frame in
   slide points and scales it onto the stage, so that every window shows the
   same crop. That was done with `zoom`, and WebKit applies `zoom` on an iframe
