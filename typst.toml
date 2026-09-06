@@ -42,11 +42,15 @@ disciplines = ["education", "mathematics"]
 # Messwerten, aus denen Korrekturen entstanden sind. Sie gehoeren zur
 # Geschichte des Pakets und nicht zu dem, was jemand herunterlaedt -- gemessen
 # 9,7 KiB, die niemand braucht, der nur Folien setzen will.
+# `.vscode/` genauso: ein Build-Task fuer die lebende Vorschau, der auf
+# `${workspaceFolder}` zeigt. Im Buendel eines fremden Projekts zeigt er
+# irgendwohin. Wer ihn haben will, findet ihn im Handbuch abgedruckt.
 # `assets/logo.*` steht beim README und nicht beim Paket: gebraucht wird das
 # Zeichen von README, Handbuch und Rundgang, und die sind alle drei
 # ausgeschlossen. Ausgeschlossene Dateien bleiben auf Universe erreichbar, das
 # README zeigt es also weiterhin.
 exclude = ["example.typ", "examples", "docs", ".github", ".gitignore",
+           ".vscode",
            "CONTRIBUTING.md", "RUECKMELDUNG.md", "RUECKMELDUNG-adpfeil.md",
            "assets/handout.png", "assets/slide.png", "assets/themes.png",
            "assets/logo.typ", "assets/logo.svg", "assets/logo.png",

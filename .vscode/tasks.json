@@ -1,0 +1,72 @@
+// Ein Knopf für die lebende Vorschau.
+//
+// ⇧⌘B (Windows/Linux: Strg+Umschalt+B) übersetzt die .typ-Datei, die gerade
+// vorne liegt, hält sie unter http://127.0.0.1:3000 bereit und lädt den
+// Browser bei jedem Speichern neu. Das Deck kommt dabei auf dem Schritt
+// zurück, auf dem es stand -- der Schritt steht in der Adresse, und der
+// Runtime liest ihn beim Laden.
+//
+// Den Server bringt `typst watch` seit 0.15 selbst mit; er hängt eine Zeile
+// in die ausgelieferte Seite, die die Datei auf der Platte nicht bekommt.
+// Wer sie nicht will: `--no-serve` oder `--no-reload`.
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Deck live",
+      "detail": "typst watch auf die offene Datei, Browser dazu",
+      "dependsOrder": "sequence",
+      "dependsOn": ["typstage: watch", "typstage: Browser"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      // Läuft weiter, bis man ihn beendet. Der problemMatcher unten sagt
+      // VS Code, wann ein Durchgang anfängt und aufhört -- ohne das wartet
+      // der zweite Task ewig auf diesen hier.
+      "label": "typstage: watch",
+      "type": "shell",
+      "command": "typst",
+      "args": [
+        "watch", "${file}",
+        "${fileDirname}/${fileBasenameNoExtension}.html",
+        "--format", "html",
+        "--features", "html",
+        "--root", "${workspaceFolder}",
+        "--port", "3000"
+      ],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": {
+        "owner": "typst",
+        "source": "typst",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        // Zwei Zeilen: die Meldung, dann die Stelle darunter.
+        //   error: expected expression
+        //     ┌─ vortrag.typ:1:8
+        "pattern": [
+          { "regexp": "^(error|warning): (.*)$", "severity": 1, "message": 2 },
+          { "regexp": "^\\s*┌─ (.+):(\\d+):(\\d+)\\s*$", "file": 1, "line": 2, "column": 3 }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "compiling \\.\\.\\.",
+          // `compiled` deckt „successfully", „with warnings" und „with errors"
+          // ab. Der belegte Port muss mit hinein, sonst gilt der Task als nie
+          // fertig, wenn schon ein Lauf steht.
+          "endsPattern": "(compiled |is already in use)"
+        }
+      }
+    },
+    {
+      "label": "typstage: Browser",
+      "type": "shell",
+      "command": "open",
+      "args": ["http://127.0.0.1:3000"],
+      "linux": { "command": "xdg-open", "args": ["http://127.0.0.1:3000"] },
+      "windows": { "command": "cmd", "args": ["/c", "start", "", "http://127.0.0.1:3000"] },
+      "presentation": { "reveal": "never" },
+      "problemMatcher": []
+    }
+  ]
+}

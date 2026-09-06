@@ -31,6 +31,13 @@ package and the index page:
 AGGREGAT=/path/to/Typst-Schule bash .github/scripts/build-site.sh
 ```
 
+For one deck at a time there is `.vscode/tasks.json`. The build shortcut runs
+`typst watch` for the file in front of you, serves it on
+`http://127.0.0.1:3000` and reloads the browser on every save — on the step the
+deck was standing on, so you keep your place. Compile errors land in the
+problem list. The manual describes the same task under *While you write*, for
+readers who are not in this repository.
+
 ## What runs before a change lands
 
 | Check | What it does |

@@ -76,6 +76,16 @@ All notable changes to this package are recorded here. The format follows
   its count would grow with them), and `alternatives`, `build` and `scene` now
   hand their versions to `track` on paper as well, rather than picking one
   themselves.
+- **The manual says how to write with a live deck.** Since Typst 0.15 `typst
+  watch` carries its own HTTP server and puts a live-reload line into the page
+  it serves. A new section, *While you write*, gives the command, a VS Code
+  build task that runs it for the file in front of you, and the fact that makes
+  it usable during a talk: the deck comes back on the step it was on, because
+  the step stands in the address and is read on load. The section on embedding
+  now says what to do when the document to be shown is itself a Typst document
+  -- give its content a name and import it instead of framing it. It then
+  arrives as the deck's own content: same fonts, sharp at any size, in the PDF,
+  and revealable step by step. A frame can do none of that.
 
 ### Changed
 

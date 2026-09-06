@@ -13,6 +13,7 @@ the handout as PDF from that same file.**
 ```bash
 typst compile deck.typ deck.html --format html --features html   # the animated talk
 typst compile deck.typ deck.pdf                                  # slides and handout
+typst watch   deck.typ deck.html --format html --features html   # live on :3000
 ```
 
 ![A slide of a typstage deck in the browser, halfway through its reveals](assets/slide.png)

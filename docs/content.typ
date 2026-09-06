@@ -154,6 +154,71 @@ Foliensatz zum Ausdrucken.
   „Das eigene Aussehen".
 ]
 
+== Während du schreibst
+
+Die beiden Zeilen oben übersetzen einmal. Solange ein Deck noch entsteht,
+nimmt `typst watch` das ab: Es übersetzt bei jedem Speichern neu, und beim
+HTML-Export bringt es einen kleinen Server mit und hängt eine Zeile in die
+ausgelieferte Seite, mit der der Browser sich selbst neu lädt.
+
+#show-code[```bash
+typst watch vortrag.typ vortrag.html --format html --features html --port 3000
+```]
+
+`http://127.0.0.1:3000` einmal öffnen und den Tab stehen lassen. Ein Deck aus
+achtundzwanzig Folien -- vier Megabyte HTML -- ist rund siebzig Millisekunden
+nach dem Speichern wieder da, und zwar *auf dem Schritt, auf dem es stand*:
+Der Schritt steht in der Adresse, und das Deck liest ihn beim Laden.
+
+#info[
+  `--port` darf fehlen; Typst nimmt dann den ersten freien Port zwischen 3000
+  und 3005 und schreibt ihn hin. Ihn zu nennen hält die Adresse jedes Mal
+  gleich, und ein zweiter Lauf auf demselben Port sagt
+  `port 3000 is already in use`, statt still woanders zu bedienen.
+]
+
+#warning[
+  Die Seite, die der Server ausliefert, und die Datei neben der Quelle sind
+  nicht dasselbe. Die Reload-Zeile sind siebenundneunzig Bytes, die nur der
+  Server hinzufügt; die Datei bekommt sie nie, was du weitergibst, ist also
+  unberührt. `--no-serve` und `--no-reload` schalten beides einzeln ab.
+]
+
+In VS Code ist das ein Tastendruck. Das Folgende in `.vscode/tasks.json`, und
+das Kürzel für den Build-Task -- `Umschalt+Cmd+B` unter macOS, sonst
+`Strg+Umschalt+B` -- startet den Lauf für die Datei, die gerade vorne liegt;
+Fehler landen in der Problemliste mit einer Zeile zum Anklicken.
+
+#show-code[```json
+{
+  "version": "2.0.0",
+  "tasks": [{
+    "label": "Deck live",
+    "type": "shell",
+    "command": "typst",
+    "args": ["watch", "${file}",
+             "${fileDirname}/${fileBasenameNoExtension}.html",
+             "--format", "html", "--features", "html",
+             "--root", "${workspaceFolder}", "--port", "3000"],
+    "isBackground": true,
+    "group": { "kind": "build", "isDefault": true },
+    "problemMatcher": {
+      "owner": "typst",
+      "pattern": [
+        { "regexp": "^(error|warning): (.*)$", "severity": 1, "message": 2 },
+        { "regexp": "^\\s*┌─ (.+):(\\d+):(\\d+)\\s*$",
+          "file": 1, "line": 2, "column": 3 }
+      ],
+      "background": {
+        "activeOnStart": true,
+        "beginsPattern": "compiling \\.\\.\\.",
+        "endsPattern": "(compiled |is already in use)"
+      }
+    }
+  }]
+}
+```]
+
 == Mehr als zwei Ebenen
 
 Die Vorgabe schneidet das Deck an der zweiten Ebene: `=` wird eine
@@ -1793,6 +1858,30 @@ Handout ein graues Rechteck mit der Beschriftung aus `label`.
 )
 
 == Ein eigenes Dokument einbetten
+
+#info[
+  Ist das eigene Dokument selbst ein Typst-Dokument, braucht es davon nichts.
+  Gib seinem Inhalt einen Namen und hol ihn dir:
+
+  // check: aus=zeigt_zwei_Dateien
+  #show-code[```typ
+  // karte.typ -- übersetzt weiterhin für sich, mit eigener Seite
+  #let karte = [ ... ]
+  #set page(width: 16cm, height: 8.2cm)
+  #karte
+
+  // vortrag.typ
+  #import "karte.typ": karte
+  == Die Karte
+  #karte
+  ```]
+
+  Das `set page` bleibt zurück, die Folie behält ihre Geometrie. Was ankommt,
+  ist Inhalt des Decks: dieselben Schriften, in jeder Größe scharf, im PDF
+  dabei, und Schritt für Schritt aufdeckbar. Unter `typst watch` (siehe
+  „Während du schreibst") baut ein Speichern in `karte.typ` das Deck neu und
+  bringt es auf demselben Schritt zurück. Ein Rahmen kann davon nichts.
+]
 
 `embed` setzt beliebige Web-Inhalte in einen abgeschotteten Rahmen: `url` lädt
 eine Seite, `html` bettet ein eigenes Dokument als Text ein. Der Rahmen wird in

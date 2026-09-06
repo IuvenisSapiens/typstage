@@ -218,6 +218,71 @@ nothing loaded afterwards.
 Arrow keys page. `?` shows every key, `o` opens the overview, `f` goes full
 screen, and `n` opens the speaker view in a second window.
 
+== While you write
+
+That is the finished deck. While one is still taking shape, `typst watch` takes
+the compiling over: it rebuilds on every save, and for HTML it also brings a
+small server and puts one line into the page it serves, with which the browser
+reloads itself.
+
+#show-code[```bash
+typst watch talk.typ talk.html --format html --features html --port 3000
+```]
+
+Open `http://127.0.0.1:3000` once and leave the tab alone. A deck of
+twenty-eight slides -- four megabytes of HTML -- is back about seventy
+milliseconds after a save, and it is back *on the step it was on*: the step
+stands in the address, and the deck reads it as it loads.
+
+#info[
+  `--port` may be left out; Typst then takes the first free port between 3000
+  and 3005 and prints it. Naming it keeps the address the same every time, and
+  a second run on that port says `port 3000 is already in use` instead of
+  quietly serving somewhere else.
+]
+
+#warning[
+  The page the server hands out and the file beside your source are not the
+  same. The reload line is ninety-seven bytes that only the server adds; the
+  file never carries it, so what you pass on is untouched. `--no-serve` and
+  `--no-reload` switch the two off separately.
+]
+
+In VS Code this is one keystroke. Put the following in `.vscode/tasks.json`,
+and the build shortcut -- `Shift+Cmd+B` on macOS, `Ctrl+Shift+B` elsewhere --
+runs the watch for whichever file is in front of you; errors land in the
+problem list with a line to click.
+
+#show-code[```json
+{
+  "version": "2.0.0",
+  "tasks": [{
+    "label": "Deck live",
+    "type": "shell",
+    "command": "typst",
+    "args": ["watch", "${file}",
+             "${fileDirname}/${fileBasenameNoExtension}.html",
+             "--format", "html", "--features", "html",
+             "--root", "${workspaceFolder}", "--port", "3000"],
+    "isBackground": true,
+    "group": { "kind": "build", "isDefault": true },
+    "problemMatcher": {
+      "owner": "typst",
+      "pattern": [
+        { "regexp": "^(error|warning): (.*)$", "severity": 1, "message": 2 },
+        { "regexp": "^\\s*┌─ (.+):(\\d+):(\\d+)\\s*$",
+          "file": 1, "line": 2, "column": 3 }
+      ],
+      "background": {
+        "activeOnStart": true,
+        "beginsPattern": "compiling \\.\\.\\.",
+        "endsPattern": "(compiled |is already in use)"
+      }
+    }
+  }]
+}
+```]
+
 = One deck, from start to finish
 
 One talk in a single file, from the empty line to the handout. Every step
@@ -1389,6 +1454,30 @@ Three ways to make a slide demonstrate something rather than assert it, from
 the most involved to the simplest.
 
 == A document of your own on the slide
+
+#info[
+  If that document is itself a Typst document, none of this is needed. Give
+  its content a name and fetch it:
+
+  // check: aus=zeigt_zwei_Dateien
+  #show-code[```typ
+  // map.typ -- still compiles on its own, with its own page
+  #let map = [ ... ]
+  #set page(width: 16cm, height: 8.2cm)
+  #map
+
+  // talk.typ
+  #import "map.typ": map
+  == The map
+  #map
+  ```]
+
+  The `set page` stays behind, the slide keeps its geometry. What arrives is
+  the deck's own content: the same fonts, sharp at any size, part of the PDF,
+  and revealable step by step. Under `typst watch` (see *While you write*) a
+  save in `map.typ` rebuilds the deck and brings it back on the same step. A
+  frame can do none of that.
+]
 
 `embed` puts arbitrary HTML into a sandboxed frame:
 
