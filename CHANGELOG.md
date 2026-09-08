@@ -8,6 +8,18 @@ All notable changes to this package are recorded here. The format follows
 
 ### Added
 
+- **The speaker view can be divided by hand.** A handle sits in the seam
+  between the running slide and the note: drag it down for more slide, up for
+  more note. Mouse, pen and touch go through one path; the arrow keys move it
+  in 16-pixel steps, Shift in 64, Home and End go to the stops, and a
+  double-click or Enter returns to the default. What is stored is a *fraction*
+  of the divisible height and not a pixel count, kept beside the clock in
+  `ts-pult:<deck>`: a speaker window is dragged to a beamer, and a height
+  measured at 1400x900 is simply wrong at 1920x1080. A deck without speaker
+  notes has nothing to divide and gets no handle; where the window is too small
+  to divide, the handle steps out of the tab order. Asked for from a lesson deck
+  whose notes were long and whose reading strip was three lines high.
+
 - **A footnote's note is revealed with its marker.** A footnote standing inside
   a reveal chain now has its note appear on the same step in the browser, so the
   foot of the slide gives nothing away that the talk has not shown yet. Its

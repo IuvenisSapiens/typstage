@@ -357,9 +357,13 @@ html[data-ts-licht="hell"]{
    Breite -- sie ist das Groesste und zugleich die Zeichenflaeche --, darunter
    Notiz und naechster Schritt nebeneinander, darunter die Werkzeugzeile aus
    Kacheln. */
+/* `position:relative`: der Griff zwischen Folie und Notiz liegt absolut
+   ueber der Naht und nicht in einer eigenen Rasterzeile (siehe
+   `.ts-sp-teiler`). Er braucht den Leib als Bezug, sonst zaehlte er vom
+   Fenster aus und stuende bei jedem Rand woanders. */
 .ts-sp-leib{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,22rem);
   grid-template-rows:minmax(0,1fr) minmax(0,auto) auto;gap:10px 12px;
-  min-height:0;margin-left:auto;margin-right:auto;width:100%}
+  min-height:0;margin-left:auto;margin-right:auto;width:100%;position:relative}
 /* Die Kachel selbst. Eine Flaeche, ein Rand, eine Marke oben. Mehr ist
    es nicht, und mehr braucht es nicht: der Abstand zwischen zwei Kacheln
    trennt sie besser als jede Linie. */
@@ -622,6 +626,46 @@ button.ts-sp-knopf:focus-visible{outline:2px solid var(--sp-marke);
   line-height:4em;border-radius:0 0 9px 9px;
   background:linear-gradient(to bottom,var(--sp-kachel-null),
     var(--sp-kachel) 62%,var(--sp-kachel))}
+/* ── Der Griff zwischen Folie und Notiz ────────────────────────────────
+   Wer viel notiert, will die Folie kleiner und die Notiz groesser -- im
+   Vortrag und nicht hier im Stilblatt. Der Griff liegt in der Fuge zwischen
+   den beiden Kacheln.
+
+   Absolut und nicht als eigene Rasterzeile: eine fuenfte Zeile haette jede
+   feste Zeilennummer um eins verschoben -- Notiz, Vorschau, Zahlen,
+   Werkzeugband und dazu die sieben Ueberschreibungen fuer `hochkant` und
+   `notiz="keine"`. Absolut gelegt braucht der Griff dagegen keine einzige
+   formabhaengige Regel: `left:0;right:0` stimmt in beiden Formen, weil die
+   Naht in beiden ueber die volle Breite laeuft. `top` und `height` setzt
+   `sprecherSpalten` aus derselben Zahl, aus der es die Zeile gerechnet hat.
+
+   `touch-action:none`: auf dem Tablet ist der Zug ein Zug und kein Rollen
+   der Seite -- Pointer Events fassen Maus, Stift und Finger in einem.
+   `user-select:none`: ein Zug ueber zwei Kacheln markierte sonst Text.
+
+   Im Druck steht er nicht: `@media print` blendet `#ts-speaker` ganz aus,
+   und der Griff liegt darin. Unter der Uebersicht liegt er ebenfalls --
+   die traegt z-index 90, er 2. */
+.ts-sp-teiler{position:absolute;left:0;right:0;z-index:2;
+  cursor:row-resize;touch-action:none;user-select:none;-webkit-user-select:none}
+/* Zu sehen ist ein Strich in der Mitte der Fuge und nicht die ganze Flaeche:
+   eine Linie quer durch die Ansicht waere lauter als das, was sie trennt.
+   40 px sind breit genug, um als Griff gelesen zu werden, und zu schmal, um
+   als Rahmen zu wirken. */
+/* Mittig ueber `translate` und nicht ueber einen negativen Rand: der Rand
+   muesste beim Breiterwerden mitwandern, und er fuhr in der Ueberblendung
+   nicht mit -- gemessen sprang die Pille beim Anfassen 12 px nach links
+   (Mitte 688 -> 676) und kroch waehrend der 120 ms zurueck. `translate`
+   haelt die Mitte, was immer die Breite tut. */
+.ts-sp-teiler::before{content:"";position:absolute;left:50%;top:50%;
+  width:40px;height:3px;transform:translate(-50%,-50%);border-radius:2px;
+  background:var(--sp-rand);transition:background .12s,width .12s}
+.ts-sp-teiler:hover::before,.ts-sp-teiler[data-zieht]::before{
+  background:var(--sp-marke);width:64px}
+/* Der Fokusring gehoert an den Griff und nicht an den Strich: der Strich ist
+   drei Pixel hoch, ein Ring darum waere nicht zu finden. */
+.ts-sp-teiler:focus-visible{outline:2px solid var(--sp-marke);
+  outline-offset:0;border-radius:3px}
 /* Der naechste Schritt. Eine Kachel neben den vier Zahlen, so hoch wie
    sie: die Vorschau ist ein Blick und keine zweite Buehne. Das Bild
    richtet sich nach der Hoehe der Kachel, nicht nach ihrer Breite --

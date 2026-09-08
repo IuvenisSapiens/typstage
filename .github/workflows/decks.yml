@@ -121,6 +121,22 @@ jobs:
       - name: Eine cue-Gruppe greift erst, wenn sie dran ist
         run: node .github/scripts/pruefe-cue-pfeil.js
 
+      # Eine Fußnote in einer Aufdeckkette: erscheint ihre Anmerkung mit ihrer
+      # Marke und nicht vorher? Sichtbar ist das nur im Browser -- im Satz
+      # steht die Anmerkung als Glyphenpfad, und ob sie zu sehen ist, sagt
+      # allein die Deckkraft ihres Elements.
+      - name: Eine Anmerkung erscheint mit ihrer Marke
+        run: node .github/scripts/pruefe-fussnoten.js
+
+      # Der Griff zwischen Folie und Notiz am Pult. Die Aufteilung entsteht
+      # erst im Gitter, und ob die Bühne nach dem Ziehen noch in ihre Kachel
+      # passt, sagt keine Datei. Die Probe fährt beide Richtungen, die
+      # Tastatur, den Doppelklick und beide Anschläge -- eine Prüfung, die nur
+      # eine Richtung kennt, haelt auch die verkehrte für richtig, und genau
+      # das ist hier einmal passiert.
+      - name: Die Folie lässt sich am Pult kleiner ziehen
+        run: node .github/scripts/pruefe-pult-teiler.js
+
       # Und bleibt sie auf ihrer Folie? Zwei gleichnamige Gruppen auf zwei
       # Folien sind zwei Gruppen, jede mit ihrer eigenen 1. Diese Probe fehlte,
       # als die Trennung einmal am Folienpräfix im Schlüssel hing und dieser

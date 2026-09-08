@@ -174,6 +174,19 @@
   "Laufzeitwoerter um 97, drei neue Schluessel und zwei laengere Hilfetexte.",
   "Ihre linux-Werte waren schon fort und sind es geblieben.",
   "",
+  "Der Griff zwischen Folie und Notiz hat sprecher in allen Decks mit Notizen",
+  "um genau eins gehoben: ein div, das die Laufzeit unbedingt anhaengt, ohne",
+  "Text und ohne Kinder -- die Pille ist ein ::before und zaehlt nicht mit.",
+  "Die beiden geteilten sprecher-Werte sind deshalb mit +1 nachgezogen, wie",
+  "bei der Vollbilduhr und beim Kachelentwurf. geogebra hat keine Notizen und",
+  "bekommt keinen Griff; sein Wert steht unveraendert.",
+  "",
+  "pruefdeck/satz und satzBytes haben sich dabei um 2918 Bytes verschoben,",
+  "und die Zahl geht auf: das Stilblatt ist um 2819 Bytes gewachsen -- der",
+  "Griff, seine Pille und ihre Begruendungen -- und die Laufzeitwoerter um 99,",
+  "zwei neue Schluessel in drei Sprachen. Ihre linux-Werte sind nach der Regel",
+  "oben entfernt; der naechste CI-Lauf nennt die neuen.",
+  "",
   "Dieser Absatz stand einmal von Hand in soll.json und war nach dem ersten",
   "--neu-soll fort: was hier nicht steht, ueberlebt keine Neuaufnahme."
  ],
@@ -188,7 +201,7 @@
    "federRueck": 2,
    "hash": 8,
    "hashStand": "0/0",
-   "sprecher": 228,
+   "sprecher": 229,
    "grund": [
     "#ffffff",
     "#c1361c",
@@ -458,7 +471,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "2/0",
-   "sprecher": 216,
+   "sprecher": 217,
    "grund": [
     "#fafafa",
     "#23303f",
@@ -538,7 +551,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "1/0",
-   "sprecher": 645,
+   "sprecher": 646,
    "grund": [
     "#f7f2e6",
     "#f7f2e6",
@@ -628,7 +641,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "3/0",
-   "sprecher": 217,
+   "sprecher": 218,
    "grund": [
     "#ffffff",
     "#e6f0f6",
@@ -719,8 +732,8 @@
    "hash": 8,
    "hashStand": "3/0",
    "sprecher": {
-    "darwin": 1193,
-    "linux": 1192
+    "darwin": 1194,
+    "linux": 1193
    },
    "grund": [
     "#0f1319",
@@ -817,7 +830,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "2/0",
-   "sprecher": 202,
+   "sprecher": 203,
    "grund": [
     "#ffffff",
     "#ffffff",
@@ -906,7 +919,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "2/0",
-   "sprecher": 206,
+   "sprecher": 207,
    "grund": [
     "#fafafa",
     "#23303f",
@@ -1054,8 +1067,8 @@
    "hash": 8,
    "hashStand": "5/0",
    "sprecher": {
-    "darwin": 950,
-    "linux": 954
+    "darwin": 951,
+    "linux": 955
    },
    "grund": [
     "#ffffff",
@@ -1105,7 +1118,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "0/0",
-   "sprecher": 222,
+   "sprecher": 223,
    "grund": [
     "#f5f3ee",
     "#20372c",
@@ -1197,7 +1210,7 @@
    "federRueck": 6,
    "hash": 8,
    "hashStand": "0/0",
-   "sprecher": 220,
+   "sprecher": 221,
    "grund": [
     "#ffffff",
     "#c1361c",
@@ -1351,7 +1364,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "4/3",
-   "sprecher": 204,
+   "sprecher": 205,
    "grund": [
     "#ffffff",
     "#e6f0f6",
@@ -1472,7 +1485,7 @@
    "federRueck": 2,
    "hash": 8,
    "hashStand": "4/0",
-   "sprecher": 278,
+   "sprecher": 279,
    "grund": [
     "#f2eee5",
     "#f2eee5",
@@ -1537,7 +1550,7 @@
    "federRueck": 3,
    "hash": 8,
    "hashStand": "2/0",
-   "sprecher": 232,
+   "sprecher": 233,
    "grund": [
     "#fffcf9",
     "#fffcf9",
@@ -1631,7 +1644,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "0/0",
-   "sprecher": 292,
+   "sprecher": 293,
    "grund": [
     "#111111",
     "#f7f7f5",
@@ -1698,7 +1711,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "3/2",
-   "sprecher": 200,
+   "sprecher": 201,
    "grund": [
     "#ffffff",
     "#e6f0f6",
@@ -1766,7 +1779,7 @@
    "federRueck": 0,
    "hash": 8,
    "hashStand": "2/1",
-   "sprecher": 206,
+   "sprecher": 207,
    "grund": [
     "#f7f2e6",
     "#7b2d26",
@@ -1844,7 +1857,7 @@
    "federRueck": 3,
    "hash": 8,
    "hashStand": "1/0",
-   "sprecher": 181,
+   "sprecher": 182,
    "grund": [
     "#0f1319",
     "#0c2733",
@@ -2011,12 +2024,10 @@
    "zeichnung": "3+3 Pfade · hinein/heraus · 0>1 · 0/0 offen · Sprung 0/1/6",
    "kurve": "cubic-bezier(.34,1.56,.64,1) · cubic-bezier(.34,1.56,.64,1) · cubic-bezier(.34,1.56,.64,1)",
    "satz": {
-    "darwin": "7c2fd55bea5e6e07",
-    "linux": "da0405ea95d02712"
+    "darwin": "f966a6a59b634e12"
    },
    "satzBytes": {
-    "darwin": 1354152,
-    "linux": 1199042
+    "darwin": 1357070
    },
    "szene": "4 Halte · 28 Bilder · 0/9/18/27/27 · Mitte 7 · Sprung 27",
    "kino": "at 1- 0/0/0/12/23 · at 3- 0/0/0/12/23",

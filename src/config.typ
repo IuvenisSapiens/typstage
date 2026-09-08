@@ -118,6 +118,11 @@
               timer: "Klassenuhr", over: "Überzeit",
               light: "hell", dark: "dunkel",
               lost: "kein Vortragsfenster",
+              // Der Griff zwischen Folie und Notiz. Was er tut, steht im
+              // Namen; wie man ihn zurücksetzt, im Hinweis -- ein Doppelklick
+              // ist der billigste Ausweg, aber niemand errät ihn von selbst.
+              split: "Aufteilung Folie und Notiz",
+              splitTip: "nach oben ziehen: mehr Notiz · Doppelklick setzt zurück",
               // Die zwei Zahlen, die zugleich Knöpfe sind: was sie tun,
               // und was sie getan haben.
               resetTip: "Stundenzähler zurücksetzen",
@@ -145,6 +150,8 @@
               timer: "class clock", over: "over",
               light: "light", dark: "dark",
               lost: "no talk window",
+              split: "slide / note split",
+              splitTip: "drag up for more note · double-click resets",
               resetTip: "reset elapsed",
               resetDone: "elapsed reset",
               clockTip: "set or stop the class clock",
@@ -170,6 +177,8 @@
               timer: "minuterie", over: "dépassé",
               light: "clair", dark: "sombre",
               lost: "pas de fenêtre d'exposé",
+              split: "partage diapo / note",
+              splitTip: "tirer vers le haut : plus de note · double-clic pour rétablir",
               resetTip: "remettre l'écoulé à zéro",
               resetDone: "écoulé remis à zéro",
               clockTip: "régler ou arrêter la minuterie",

@@ -3147,15 +3147,58 @@
   var UHR_START = 0;       // since when counting runs, 0 = not started yet
   var ZIEL_MIN = 0;        // planned duration in minutes, 0 = no plan
 
+  // Wie viel von `uebrig` die Folienkachel bekommt -- 0 heisst "niemand hat
+  // gezogen", und dann rechnet `sprecherSpalten` Zeichen fuer Zeichen wie
+  // bisher.
+  //
+  // Gemerkt wird ein Bruch und keine Pixelhoehe, und das ist gemessen und
+  // nicht vermutet: dieselbe Vorgabe von 72 Prozent ergibt 484 px bei
+  // 1400x900, 611 bei 1920x1080 und 167 bei 1440x500. Die 334 px, auf die
+  // ein Zug von 150 px bei 1400x900 fuehrt, waeren auf 1920x1080 noch 39
+  // Prozent des Topfes, auf 1440x500 aber 116 und auf 640x480 288 -- eine
+  // gemerkte Hoehe liegt auf dem Beamer nicht ungenau, sie liegt ausserhalb.
+  //
+  // Der Nenner ist `uebrig` und nicht die Fenster- oder die Leibhoehe: nur
+  // diese eine Hoehe teilen sich die beiden Kacheln. Zahlenzeile und
+  // Werkzeugband haben eine eigene, springende Hoehe -- gemessen `natur` 75
+  // bis 243 px, `band` 66 bis 218 px ueber die geprueften Groessen -- und
+  // sie springen, wenn das Band umbricht, also aus Gruenden, die mit der
+  // Aufteilung nichts zu tun haben. Ein Bruch der Leibhoehe liesse die
+  // Folie mitspringen; `uebrig` ist der Topf, den der Griff verteilt.
+  //
+  // Und darum ist "nichts gewaehlt" die 0 und nicht 0,72: der Vorgabeanteil
+  // ist selbst fensterabhaengig -- gemessen 0,720 bei 1400x900, aber 0,580
+  // bei 1440x500 und 0,592 bei 900x600, denn er folgt dem Seitenmass der
+  // Folie. Wer den heutigen Wert als Zahl wegschriebe, fror eine Groesse
+  // ein, die keine ist.
+  var ANTEIL = 0;
+  // Die Waehrung des letzten Laufs von `sprecherSpalten`, in Pixeln: der
+  // Topf, die Folienhoehe darin und die beiden harten Grenzen. Der Zug
+  // rechnet damit und misst nichts nach -- nachgemessen stimmt es hochkant
+  // naemlich nicht: bei 500x900 stehen Folie 289 und Notiz 152 (zusammen
+  // 441), waehrend das nachtraeglich gemessene `uebrig` 354 ergibt. Die
+  // Summe der Anteile waere 1,25, und der Griff liefe dem Finger nicht
+  // nach. Grund ist die Rueckkopplung, vor der die Kommentare in
+  // `sprecherSpalten` schon warnen: `natur` und `band` werden *vor* dem
+  // Setzen der Zeilen gemessen und aendern sich danach.
+  var TEIL_TOPF = 0, TEIL_FOLIE = 0, TEIL_MIN = 0, TEIL_MAX = 0;
+
   // Schwarz, Frost und die Klassenuhr ueberleben ein Neuladen, der
   // Stundenzaehler und die Zieldauer nicht -- eine Asymmetrie, die niemand
   // erklaeren kann und die eine Lehrkraft nach einem versehentlichen F5
   // ohne ihre Zeit dastehen laesst. Beides steht jetzt daneben, im selben
   // Speicher und mit demselben Schluessel je Deck.
+  //
+  // Die Aufteilung steht als drittes Feld in demselben Schluessel und nicht
+  // in einem zweiten: sie ist Pultstand wie die Zieldauer, und eine, die
+  // anderswo laege als die andere, waere dieselbe Asymmetrie noch einmal.
+  // Vier Nachkommastellen -- 0,0001 des Topfes sind auf einem 5000 px hohen
+  // Schirm ein halbes Pixel, und die Zeichenkette bleibt kurz.
   function standMerken() {
     if (ROLLE !== "speaker") return;
     try {
-      sessionStorage.setItem("ts-pult:" + DECK, UHR_START + "," + ZIEL_MIN);
+      sessionStorage.setItem("ts-pult:" + DECK,
+        UHR_START + "," + ZIEL_MIN + "," + ANTEIL.toFixed(4));
     } catch (x) {}
   }
   function standErinnern() {
@@ -3164,6 +3207,12 @@
       var t = (sessionStorage.getItem("ts-pult:" + DECK) || "").split(",");
       if (+t[0] > 0) UHR_START = +t[0];
       if (+t[1] > 0) ZIEL_MIN = Math.max(0, +t[1]);
+      // Vertraeglich nach hinten, ohne Sonderfall: ein Stand von gestern hat
+      // nur zwei Felder, `+undefined` ist NaN, und NaN scheitert an beiden
+      // Vergleichen. Ein Deck von gestern faellt damit lautlos auf die
+      // Vorgabe zurueck.
+      var a = +t[2];
+      if (a > 0 && a < 1) ANTEIL = a;
     } catch (x) {}
   }
   // Die Vollbilduhr, von hier aus gesehen. `SAAL_SEK` ist die Dauer, die
@@ -3653,6 +3702,214 @@
     else if (m.addListener) m.addListener(folgen);
   }
 
+  // ── Der Griff zwischen Folie und Notiz ────────────────────────────────────
+  //
+  // Wer viel notiert, will die Folie kleiner und die Notiz groesser -- im
+  // Vortrag und nicht im Stilblatt. Der Griff ist der Regler dafuer.
+  //
+  // Er liegt auf der Unterkante der Folienkachel, und eine Kante folgt dem
+  // Finger: nach unten ziehen macht die Folie groesser und die Notiz
+  // kleiner, nach oben umgekehrt. `aria-valuenow` traegt den Folienanteil,
+  // den Pfeil-ab also groesser macht.
+  //
+  // Das stand hier zuerst andersherum, und der Code auch -- eine ganze
+  // Runde lang, weil die Abnahmepruefung die verkehrte Richtung
+  // vorgeschrieben hatte und der Bau sich brav danach gerichtet hat.
+  // Gemessen bei 1400x900, jetzt: 150 px nach unten fuehren die
+  // Folienkachel von 484 auf 596 px und die Notiz von 188 auf 77; 150 px
+  // nach oben fuehren sie auf 334 und 338. Was die eine verliert, bekommt
+  // die andere, und `pruefe-pult-teiler.js` misst seither *beide*
+  // Richtungen -- eine Pruefung, die nur eine kennt, haelt auch die
+  // verkehrte fuer richtig.
+  //
+  // Pointer Events, einmal fuer Maus, Stift und Finger. `setPointerCapture`
+  // haelt den Zug, sobald der Zeiger die schmale Fuge verlaesst -- und das
+  // tut er sofort.
+  function teilerBauen() {
+    var g = bau("div", "ts-sp-teiler", LEIB);
+    g.setAttribute("role", "separator");
+    g.setAttribute("aria-orientation", "horizontal");
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("aria-label", wort("split", "slide / note split"));
+    g.title = wort("splitTip",
+      "drag up for more note · double-click resets");
+    var y0 = 0, anteil0 = 0, topf0 = 0, rahmen = 0;
+    // Welcher Zeiger gerade zieht; `null` heisst: keiner.
+    var zieher = null;
+
+    // Ein voller `fit()` je Bewegung ist genau das, was der vorhandene
+    // `resize`-Horcher beim Ziehen einer Fensterkante ohnehin tut. Ueber
+    // einen anstehenden Rahmen zusammengefasst und nicht ueber einen Timer:
+    // ein Timer braechte eine zweite Uhr ins Spiel, die niemand anhaelt.
+    function neuLegen() {
+      if (!window.requestAnimationFrame) { fit(); return; }
+      if (rahmen) return;
+      rahmen = requestAnimationFrame(function () { rahmen = 0; fit(); });
+    }
+    // Gerechnet wird in der Waehrung des letzten Laufs und nicht in einer
+    // nachgemessenen: `topf0` wird beim Aufsetzen gemerkt, damit der Zug
+    // 1:1 bleibt (siehe `TEIL_TOPF`).
+    g.addEventListener("pointerdown", function (ev) {
+      // Die Uebersicht liegt mit z-index 90 ueber dem Leib. Dort ist der
+      // Griff nicht zu sehen, und was darunter geschieht, geht ihn nichts an.
+      if (OVERVIEW.dataset.on) return;
+      if (ev.button) return;
+      if (!(TEIL_TOPF > 0) || g.hidden) return;
+      // Ein Zug gehoert einem Zeiger. Ohne das setzte ein zweiter Finger auf
+      // der schmalen Fuge `y0` und `anteil0` neu, und sein *Abheben* beendete
+      // den Zug des ersten: gemessen blieb die Folienkachel danach bei 424 px
+      // stehen, waehrend der ziehende Finger noch 200 px weiterfuhr.
+      if (zieher != null) return;
+      zieher = ev.pointerId;
+      y0 = ev.clientY;
+      topf0 = TEIL_TOPF;
+      anteil0 = TEIL_FOLIE / topf0;
+      g.dataset.zieht = "1";
+      try { g.setPointerCapture(ev.pointerId); } catch (x) {}
+      // Nimmt dem Zeiger das Markieren und das Setzen des Fokus. Der Fokus
+      // gehoert hier nicht hin: er laege danach auf dem Griff, und ↑ ↓
+      // rollten nicht mehr die Notiz. Mit der Tastatur kommt man ueber Tab
+      // her, und dann soll er bleiben.
+      ev.preventDefault();
+    });
+    g.addEventListener("pointermove", function (ev) {
+      if (!g.dataset.zieht || ev.pointerId !== zieher) return;
+      // Escape mitten im Zug oeffnet die Uebersicht. Sie liegt ueber dem
+      // Leib, der Griff ist dann nicht mehr zu sehen -- der Zug lief aber
+      // weiter und wurde beim Loslassen festgeschrieben: gemessen sprang die
+      // Folienkachel von den sichtbaren 424 px auf den Anschlag 596, und
+      // gemerkt wurde dieser Wert. Ein verdeckter Regler regelt nicht mehr,
+      // also bricht der Zug hier ab und legt zurueck, was vor ihm stand.
+      if (OVERVIEW.dataset.on) { abbrechen(ev); return; }
+      ev.preventDefault();
+      // Nach unten gezogen heisst groessere Folie: der Griff liegt auf der
+      // Unterkante der Folienkachel, und eine Kante folgt dem Finger. Das
+      // Vorzeichen stand hier zuerst andersherum -- gemessen wurde die Folie
+      // beim Ziehen nach unten um 150 px *kleiner*, wie ein verkehrt herum
+      // laufendes Rollen.
+      var neu = teilKlemme(anteil0 + (ev.clientY - y0) / topf0);
+      if (neu === ANTEIL) return;
+      ANTEIL = neu;
+      neuLegen();
+    });
+    // Zurueck auf den Stand vor dem Zug, ohne ihn zu merken.
+    function abbrechen(ev) {
+      ANTEIL = anteil0 > 0 && anteil0 < 1 ? anteil0 : 0;
+      zieher = null;
+      delete g.dataset.zieht;
+      try { g.releasePointerCapture(ev.pointerId); } catch (x) {}
+      neuLegen();
+    }
+    function loslassen(ev) {
+      if (!g.dataset.zieht || ev.pointerId !== zieher) return;
+      zieher = null;
+      delete g.dataset.zieht;
+      try { g.releasePointerCapture(ev.pointerId); } catch (x) {}
+      // Erst hier geschrieben und nicht bei jeder Bewegung: sechzig
+      // Schreibvorgaenge je Sekunde in den `sessionStorage` sind kein
+      // Merken, sondern Laerm.
+      standMerken();
+    }
+    g.addEventListener("pointerup", loslassen);
+    g.addEventListener("pointercancel", loslassen);
+
+    // Zurueck zur Vorgabe, und das heisst 0 und nicht 0,72: die Vorgabe ist
+    // eine Rechnung und keine Zahl (gemessen 0,720 bei 1400x900, 0,580 bei
+    // 1440x500). Wer sie als Zahl zurueckschriebe, fror den Wert des einen
+    // Fensters fuer alle anderen ein.
+    g.addEventListener("dblclick", function (ev) {
+      if (OVERVIEW.dataset.on) return;
+      ANTEIL = 0;
+      fit();
+      standMerken();
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+
+    g.addEventListener("keydown", function (ev) {
+      if (OVERVIEW.dataset.on) return;
+      if (!(TEIL_TOPF > 0) || g.hidden) return;
+      // Ein Pixelschritt, in Bruch umgerechnet, und keine festen 0,02: die
+      // waeren bei 1400x900 13 px, bei 1440x500 aber 6. Umschalt macht den
+      // groben Schritt.
+      var px = ev.shiftKey ? 64 : 16;
+      var jetzt = TEIL_FOLIE / TEIL_TOPF;
+      // ↓ schiebt die Kante nach unten, die Folie wird groesser -- dieselbe
+      // Richtung wie beim Ziehen.
+      if (ev.key === "ArrowDown") ANTEIL = teilKlemme(jetzt + px / TEIL_TOPF);
+      else if (ev.key === "ArrowUp") ANTEIL = teilKlemme(jetzt - px / TEIL_TOPF);
+      else if (ev.key === "Home") ANTEIL = teilKlemme(TEIL_MIN / TEIL_TOPF);
+      else if (ev.key === "End") ANTEIL = teilKlemme(TEIL_MAX / TEIL_TOPF);
+      else if (ev.key === "Enter") ANTEIL = 0;
+      else return;
+      fit();
+      standMerken();
+      // Der globale Waechter `tippt()` laesst nur input, textarea, select
+      // und `contenteditable` durch; ein fokussiertes `div[role=separator]`
+      // faellt nicht darunter, und ↓ blaetterte sonst *zusaetzlich* weiter.
+      // Der globale Horcher haengt am Fenster in der Blasenphase --
+      // `stopPropagation` reicht, `preventDefault` nimmt dem Browser das
+      // Rollen.
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+    return g;
+  }
+
+  // Der Boden der Notiz kommt aus dem Stilblatt und ist keine abgeschriebene
+  // Zahl. `.ts-sp-notizkasten` traegt `min-height:5.5em`, bei 14 px Schrift
+  // also 77 px, und das ist keine Zierde: die Rasterzeile ist eine feste
+  // Pixelspur, ein hoeheres Kind laeuft darueber hinaus, und `#ts-speaker`
+  // schneidet ab -- ohne Rollbalken und ohne Fehler. Gemessen bei 640x480
+  // stehen die Spuren auf "71px 51px", waehrend die Notizkachel 77 misst:
+  // 26 px stiller Ueberlauf in die Zahlenzeile, den weder `HINAUS` (misst
+  // gegen das Fenster) noch `AUS_KACHEL` (misst Kinder *in* einer Kachel)
+  // sieht. Gelesen statt abgeschrieben, damit die beiden Zahlen nicht
+  // auseinanderlaufen, wenn jemand die eine aendert.
+  function notizBoden() {
+    if (!ELN.notizKasten) return 0;
+    var m = parseFloat(getComputedStyle(ELN.notizKasten).minHeight);
+    return m > 0 ? m : 0;
+  }
+
+  // Der gezogene Anteil, gehalten zwischen den beiden harten Grenzen des
+  // letzten Laufs. Geklemmt wird in Pixeln und erst dann geteilt: die
+  // Grenzen sind Pixelgroessen, der Anteil ist es nicht.
+  function teilKlemme(a) {
+    if (!(TEIL_TOPF > 0)) return a;
+    return Math.max(TEIL_MIN / TEIL_TOPF,
+                    Math.min(TEIL_MAX / TEIL_TOPF, a));
+  }
+
+  // Der Griff sitzt auf der Naht: `top` ist das Ende der ersten Zeile, die
+  // Hoehe der Zeilenabstand des Rasters. Beides kommt aus derselben Zahl,
+  // aus der `sprecherSpalten` gerade die Zeile gerechnet hat -- nachgemessen
+  // waere es eine zweite Quelle fuer dieselbe Groesse.
+  function teilerStellen(folieHoch, topf, beweglich) {
+    var g = ELN.teiler;
+    if (!g) return;
+    // Ein Griff, der sich nicht bewegen kann, muss das sagen. `hidden` nimmt
+    // ihn zugleich aus der Tabreihenfolge -- ein Tabstopp, der auf jede
+    // Taste mit nichts antwortet, ist schlimmer als keiner.
+    g.hidden = !beweglich;
+    g.setAttribute("tabindex", beweglich ? "0" : "-1");
+    if (!beweglich) return;
+    // Die Fuge misst 10 px, unter der 1100-px-Regel 8. Gelesen und nicht
+    // abgeschrieben, aus demselben Grund wie der Notizboden. Die 4 px
+    // Ueberstand nach oben und unten machen aus der Fuge ein Ziel, das auch
+    // ein Finger trifft; mehr geht nicht, denn ueber der Fuge steht die
+    // Buehne mit z-index 71 und schluckte den Zeiger -- gemessen bleiben
+    // zwischen ihr und der Fuge 6 px (5 unter der 1100-px-Regel).
+    var luft = parseFloat(getComputedStyle(LEIB).rowGap);
+    if (!(luft >= 0)) luft = 10;
+    g.style.top = (Math.round(folieHoch) - 4) + "px";
+    g.style.height = (luft + 8) + "px";
+    if (!(topf > 0)) return;
+    g.setAttribute("aria-valuemin", String(Math.round(TEIL_MIN / topf * 100)));
+    g.setAttribute("aria-valuemax", String(Math.round(TEIL_MAX / topf * 100)));
+    g.setAttribute("aria-valuenow", String(Math.round(folieHoch / topf * 100)));
+  }
+
   function sprecherAufbau() {
     if (ROLLE !== "speaker" || !SPRECHERBOX) return;
 
@@ -3693,6 +3950,12 @@
     var hatNotiz = false;
     for (var iN = 0; iN < SLIDES.length; iN++) if (notiz(iN)) { hatNotiz = true; break; }
     if (!hatNotiz) LEIB.dataset.notiz = "keine";
+    // Der Griff nur da, wo es etwas zu teilen gibt -- und dort gar nicht
+    // erst gebaut statt bloss ausgeblendet: ein Element mit `display:none`
+    // findet `querySelector` genauso, und ohne Notizen traegt die zweite
+    // Zeile nur noch die Vorschau. Dieselbe Entscheidung wie eine Zeile
+    // darueber, aus derselben Zaehlung.
+    if (hatNotiz) ELN.teiler = teilerBauen();
 
     // 3. Die Zahlkacheln.
     var uhren = bau("div", "ts-sp-uhren", LEIB);
@@ -5248,7 +5511,11 @@
     var pr = PLATZ.getBoundingClientRect();
     var randX = Math.max(0, kr.width - pr.width);
     var randY = Math.max(0, kr.height - pr.height);
-    var folieHoch = (r.width - randX) / v + randY;
+    // So hoch waere die Folie, wenn nur die Breite sie begrenzte -- die
+    // Stelle, an der die Buehne aufhoert zu wachsen. `fit()` rechnet
+    // `bw = min(raumB, raumH * v)`; oberhalb davon ist sie breitenbegrenzt,
+    // und weiter zu ziehen naehme der Notiz Hoehe und gaebe sie niemandem.
+    var ideal = (r.width - randX) / v + randY;
     var uebrig = Math.max(0, r.height - natur - band - 20);
     // Die Folie nimmt hoechstens 72 Prozent -- und laesst der Zeile darunter
     // ausserdem einen Boden. Ohne den schrumpfte die Vorschau in einem
@@ -5257,13 +5524,56 @@
     // auffiel, lag an einem Fehler, der es zudeckte -- `vorschauBreite` stieg
     // bei zu wenig Platz aus, *ohne* die Masse von vorhin zurueckzunehmen,
     // und liess die Vorschau in ihrer alten Groesse stehen.
-    folieHoch = Math.min(folieHoch, uebrig * 0.72,
+    var folieVorgabe = Math.min(ideal, uebrig * 0.72,
                          Math.max(0, uebrig - Math.min(152, uebrig * 0.42)));
+    var folieHoch = folieVorgabe;
+
+    // ── Der gezogene Anteil, hier und nur hier angewandt ──────────────────
+    //
+    // Ausgewertet wird er da, wo die Zeilen ohnehin entstehen. Alles andere
+    // waere vergeblich: `fit()` ruft diese Funktion, und sie setzt
+    // `gridTemplateRows` bei jedem Lauf neu -- ein Wert, den der Griff
+    // direkt ins Raster schriebe, waere beim naechsten Fenster-Resize weg.
+    //
+    // Zwei Boeden und ein Deckel, alle drei gemessen. Der Notizboden ist die
+    // berechnete `min-height` der Kachel (siehe `notizBoden`). Den
+    // Folienboden gibt es heute gar nicht -- gedeckelt wird die Folie, aber
+    // nie gedrueckt; erst der Griff kann druecken. 96 px Buehne sind bei
+    // 16:9 ein Bild von 171x96, dazu der Rand der Kachel (gemessen 37 bis
+    // 43 px). Entscheidend ist die Klammer darum: der Boden darf die Folie
+    // *nie* ueber das heben, was die Vorgabe ohnehin gibt, sonst aenderte er
+    // die Vorgabelage in flachen Fenstern (gemessen 1440x500: 167 px,
+    // 900x600: 180 px) -- und `pult.js` saehe andere Zahlen als heute.
+    var bodenN = notizBoden();
+    var bodenF = Math.min(randY + 96, folieVorgabe);
+    var deckelF = Math.min(ideal, uebrig - bodenN);
+    // Reicht der Topf nicht fuer beide Boeden, gibt es nichts zu verteilen:
+    // gemessen bei 640x480 ist der Topf 116 px und die Boeden 67 + 77 = 144.
+    // Dann bleibt es bei der alten Formel, und der Griff sagt das, statt
+    // sich stumm nicht bewegen zu lassen.
+    var beweglich = deckelF - bodenF > 1;
+    TEIL_TOPF = uebrig;
+    TEIL_MIN = bodenF;
+    TEIL_MAX = deckelF;
+    if (beweglich && ANTEIL > 0) {
+      // Die beiden Vorgabedeckel gelten jetzt nicht mehr: 72 Prozent und der
+      // 152/42-Prozent-Boden der Notiz sind die Vermutung, was jemand will,
+      // solange er nichts gesagt hat. Wer zieht, hat etwas gesagt. Es
+      // bleiben die harten Grenzen.
+      folieHoch = Math.min(Math.max(uebrig * ANTEIL, bodenF), deckelF);
+    }
+    TEIL_FOLIE = folieHoch;
     var notizHoch = Math.max(0, uebrig - folieHoch);
 
     // Vier Zeilen: Folie, Notiz, Zahlen, Werkzeuge.
     LEIB.style.gridTemplateRows =
       Math.round(folieHoch) + "px " + Math.round(notizHoch) + "px auto auto";
+    // Und der Griff auf die Naht, aus derselben Zahl. Hochkant gilt das
+    // unveraendert: Zeile 1 ist auch dort die Folie und Zeile 2 die Notiz
+    // (gemessen bei 500x900 "289px 152px auto auto"), nur nimmt die Notiz
+    // beide Spalten. Genau deshalb liegt der Griff auf `left:0;right:0` und
+    // nicht in einer Spalte.
+    teilerStellen(folieHoch, uebrig, beweglich);
 
     // Die Vorschauspalte ist so breit, wie ihr Bild bei dieser Zeilenhoehe
     // sein darf -- dann fuellt es die Kachel ganz, statt oben zu haengen und
@@ -5277,7 +5587,16 @@
       var vpY = parseFloat(vs.paddingTop) + parseFloat(vs.paddingBottom)
               + parseFloat(vs.borderTopWidth) + parseFloat(vs.borderBottomWidth);
       var vm = ELN.vorMarke ? ELN.vorMarke.getBoundingClientRect().height : 0;
-      var bildH = Math.max(0, notizHoch - vpY - vm - 4);
+      // Hoechstens so hoch wie die laufende Folie. Die Vorschau zeigt den
+      // *naechsten* Schritt; sie ist die kleinere Schwester und darf nicht
+      // die groessere werden. Ohne diese Schranke waechst sie mit der
+      // Notizzeile mit, und wer den Griff nach oben zieht, um mehr Notiz zu
+      // bekommen, bekommt eine zweite Buehne: gemessen bei 1400x900 am
+      // oberen Anschlag eine Vorschau von 662x372 gegen eine Buehne von
+      // 171x96 -- rund fuenfzehnmal so gross --, und die Notizspalte fiel
+      // dabei von 1072 auf 676 px. Kein Ueberlauf, nur das Verhaeltnis auf
+      // dem Kopf.
+      var bildH = Math.min(Math.max(0, notizHoch - vpY - vm - 4), folieHoch);
       // Hoechstens die halbe Breite: eine Vorschau, die breiter ist als die
       // Notiz daneben, dreht das Verhaeltnis der beiden um.
       var spalte = Math.min(bildH * v + vpX, r.width * 0.5);
@@ -5795,6 +6114,12 @@
     if (!z || !z.closest) return true;
     if (z.closest(".ts-embed")) return false;
     if (ROLLE === "speaker" && z.closest("#ts-stage")) return false;
+    // Der Teiler zieht senkrecht, und ein senkrechter Zug ist keine
+    // Wischgeste. Die Schwelle weiter unten faengt ihn zwar meistens ab
+    // (`|dx| >= |dy| * 1.3`), aber "meistens" ist keine Grenze: ein Zug, der
+    // ein wenig schraeg laeuft, blaetterte auf dem Tablet mitten im Ziehen
+    // weiter.
+    if (z.closest(".ts-sp-teiler")) return false;
     // In the speaker view almost everything has a meaning of its own, from
     // the colour swatch to the input field. A tap must not page there, a
     // swipe may; the check further down separates the two.
@@ -5921,6 +6246,18 @@
       eingefroren: function () { return !!FROST; },
       notizPx: function () { return NOTIZ_PX; },
       platz: function () { return PLATZ; },
+      // Der Anteil, den die Folienkachel vom Topf bekommt. Ohne Argument
+      // gelesen, mit gesetzt; 0 setzt auf die Vorgabe zurueck, und das ist
+      // etwas anderes als der heutige Wert der Vorgabe (siehe `ANTEIL`).
+      // Neben `notizPx()` und `platz()`, damit ein Lauf die Aufteilung
+      // stellen kann, ohne ziehen zu muessen.
+      teil: function (a) {
+        if (a == null) return TEIL_TOPF > 0 ? TEIL_FOLIE / TEIL_TOPF : 0;
+        ANTEIL = +a > 0 ? teilKlemme(+a) : 0;
+        fit();
+        standMerken();
+        return TEIL_TOPF > 0 ? TEIL_FOLIE / TEIL_TOPF : 0;
+      },
       bild: schrittBild
     },
 

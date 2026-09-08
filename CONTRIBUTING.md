@@ -45,6 +45,7 @@ readers who are not in this repository.
 | `pruefe-beispiele.py` | compiles every example in both manuals |
 | `pruefe-decks.js` | drives all example decks through a real browser |
 | `decklauf/pult.js` | the speaker view in both light and dark |
+| `pruefe-pult-teiler.js` | the slide tile can be dragged smaller, and it stays |
 | `decklauf/zwei-fenster.js` | talk window and speaker window together |
 | `decklauf/flug-hoehe.js` | what lies on top of what during a flight |
 | `decklauf/sprung.js` | what a jump into a running transition leaves behind |
