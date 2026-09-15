@@ -1586,6 +1586,45 @@ The file travels beside the HTML, not inside it. `autoplay`, `loop`, `muted`
 and `controls` are the usual switches; `poster` stands there before it runs and
 takes its place in the PDF. The frame crops rather than stretches.
 
+=== A video that ends on the bell
+
+A music video runs before the lesson, and it should stop at the moment the
+lesson begins. `ends-at` says not when it starts but when it is to be over:
+
+// check: folie
+#show-code[```typ
+#video("intro.mp4", width: 100%, height: 100%, muted: false, ends-at: "08:15")
+```]
+
+On entering the slide the runtime reads the video's own length and starts it far
+enough in that its last frame falls on that minute. Unlock the room at 08:11 and
+you get the last four minutes; arrive at 08:07 and you get the last eight.
+
+- If the bell is further away than the video is long, it waits on its first
+  frame and starts by itself when its moment comes.
+- More than an hour away, or an unreadable time: there is no plan and the video
+  plays from the start. That covers two cases in one sentence -- the machine
+  left on overnight, and the minute after the bell, where "the next 08:15"
+  would mean twenty-three hours.
+- Blacking out and coming back re-computes instead of resuming. Forty seconds
+  of black would otherwise move the end by forty seconds.
+
+The clock is the room's, not the talk's. To move a lesson from the first period
+to the third, `room: (bell: …)` is one line rather than one per video:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(room: (bell: "09:50"))
+```]
+
+A `video(ends-at: auto)` then takes its time from there.
+
+#warning[
+  A video with sound does not start on its own -- browsers allow that only
+  muted. One click or keypress in the window releases it, and the next one
+  runs.
+]
+
 == A flip book
 
 `flipbook` lets Typst render the motion itself, frame by frame:
@@ -2374,6 +2413,7 @@ The keys of the view, which `?` also shows inside it:
   [`b`], [black out the hall],
   [`e`], [freeze the hall on this step],
   [`n`], [bring the talk window forward],
+  [`1`…`9`], [that many minutes as a clock on the slide; `0` ends it],
   [`t`], [the class clock, full screen in the hall],
   [`⇧t`], [the same clock, but on the slide instead of over it],
   [`⇧←` `⇧→`], [one minute less or more, while a clock runs],
@@ -2725,6 +2765,94 @@ What a deck knows about the pinned clock it writes with `class-clock`:
 Nothing starts from that: `⇧T` offers the twelve minutes and the speaker
 confirms or changes them. The deck knows how long the task was meant to take,
 the room decides how long it gets.
+
+=== The digits set the clock
+
+A question at the start of the lesson, a minute of talking in pairs: the hand
+is on the keyboard anyway, and a number is shorter than `t`, field, number,
+`Enter`. `3` starts three minutes, `7` seven, `0` ends it again.
+
+What starts is the pinned clock. The question stays on the slide while the time
+runs, and paging does not end it. And it works without a second window: one
+machine at the beamer is enough. The clock used to be reachable only from the
+desk, which is not the arrangement anyone teaches in.
+
+On a slide with a `cue()` group the digits belong to the group. That holds for
+the whole slide, not for the single keystroke: a digit the group does not have,
+and a second press on the same point, start no clock there either. A slide
+belongs either to the points or to the clock, and the slide itself says which.
+
+`b` blacks the hall out and leaves the pinned clock standing: blacking out
+during group work takes away the distraction, not the time. The full-screen
+clock still gives way -- it covers the hall in any case.
+
+=== How calmly the clock reads
+
+A clock that jumps every second pulls the eye off the task each time. `room`
+sets the step for the whole deck:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(
+  room: (clock: (step: 5)),     // the number moves only every five seconds
+)
+```]
+
+The last step still counts down singly -- 0:15, 0:10, 0:05, 0:04, 0:03, 0:02,
+0:01, 0:00. A clock that shows 0:00 for a full five seconds while time is left
+sends the class home early.
+
+The step has to divide 60 evenly: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 or 60
+seconds; `duration(seconds: 5)` works in place of the number. One that does not
+is refused at compile time:
+
+// check: dokument bricht=has_to_divide_60_evenly
+#show-code[```typ
+#show: presentation.with(room: (clock: (step: 7)))
+```]
+
+Otherwise the number is already wrong the moment it starts -- a `class-clock(1)`
+would read 0:56 at a step of seven seconds, and that reads like a fault of the
+clock rather than one of the setting.
+
+On the deck and not on the slide, deliberately. How coarsely the clock reads is
+a property of the eye and not of the task; a running clock that changed its
+rhythm on paging would look like a fault. How long a task is meant to take does
+genuinely differ per slide -- that is what `class-clock` is for.
+
+`room: (clock: (digits: false))` gives the digits back; whoever drops the clock
+entirely writes `speaker-view: (clock: false)` and loses the digits with it.
+
+=== A sound on a key
+
+A signal the class knows: time is up, pack away. `room` binds a key to a sound
+file.
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(
+  room: (sounds: (a: "airhorn.mp3", g: "gong.mp3")),
+)
+```]
+
+The file travels beside the HTML like any other media file; the package ships
+no sound of its own. It is heard in the hall and only there: the speaker sits
+at the machine, the speakers are in the room, and the sound is never heard
+twice. The key may be pressed in either window.
+
+Free letters are #raw("a g h i j k p q s u v w y") -- the rest belong to the
+runtime, and a taken one is refused at compile time with the free ones listed:
+
+// check: dokument bricht=the_runtime_already_has_that_key
+#show-code[```typ
+#show: presentation.with(room: (sounds: (b: "gong.mp3")))
+```]
+The chosen keys appear in the speaker view's key bar, since the translated help
+text cannot know them.
+
+If the file is missing, the runtime says so at load time rather than when
+somebody presses the key: a missing image leaves an empty rectangle, a missing
+sound leaves nothing.
 
 = Making it your own
 

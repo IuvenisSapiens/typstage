@@ -53,6 +53,10 @@ readers who are not in this repository.
 | `pruefe-rundgang.py` | every export is demonstrated in `tour.typ` |
 | `pruefe-inhalt.js` | `contents()` jumps to a section and back |
 | `pruefe-fussnoten.js` | a footnote's note is revealed with its marker, not before |
+| `pruefe-uhr-ziffern.js` | the digits set the class clock, and a `cue()` slide keeps them |
+| `pruefe-klang.js` | a key plays a sound, in the hall and not at the desk |
+| `pruefe-video-frist.js` | a video ends on the minute the lesson begins |
+| `pruefe-woerter.py` | de, en and fr carry the same runtime words |
 | `pruefe-cue-pfeil.js` | a `cue()` group claims the arrow only when due |
 | `pruefe-cue-folien.js` | a `cue()` group stays on its slide, a layer on its point |
 | `pruefe-konvergenz.py` | the reveal chains converge within five passes |

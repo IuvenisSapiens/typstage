@@ -137,6 +137,40 @@ jobs:
       - name: Die Folie lässt sich am Pult kleiner ziehen
         run: node .github/scripts/pruefe-pult-teiler.js
 
+      # Die Zifferntasten stellen die Klassenuhr -- außer auf einer Folie mit
+      # cue()-Gruppe, der die Ziffern gehören. Entschieden wird das am Zustand
+      # der Folie und nicht daran, ob `adTaste` etwas getan hat: drei seiner
+      # vier Absagen liegen mitten auf einer cue-Folie. Dazu das Raster, das
+      # die Anzeige ruhig stellt, und die letzte Stufe, die trotzdem einzeln
+      # zählt. Ohne Browser ist davon nichts zu sehen: die Uhr zählt in
+      # Bühnenzeit, und wie sie liest, entsteht erst im DOM.
+      - name: Die Ziffern stellen die Klassenuhr
+        run: node .github/scripts/pruefe-uhr-ziffern.js
+
+      # Eine Taste, ein Klang, und zwar im Saal. Ob der Ton im richtigen
+      # Fenster landet, sagt keine Datei; und dass der Befehl über eine eigene
+      # Nachrichtenart fährt und nicht im Zustandskanal, sieht nur ein Lauf
+      # mit zwei Fenstern -- im Zustandskanal gongte es bei jedem
+      # Wiederanmelden.
+      - name: Eine Taste spielt einen Klang im Saal
+        run: node .github/scripts/pruefe-klang.js
+
+      # Ein Video, das zur Glocke endet. Die Probe braucht ein Video von
+      # bekannter Länge und baut es sich mit ffmpeg; die Wanduhr wird dabei
+      # festgenagelt, sonst hinge jede Messung daran, wie spät es beim Lauf
+      # gerade ist.
+      - name: Ein Video endet zur vollen Minute
+        run: |
+          ffmpeg -version >/dev/null 2>&1 || sudo apt-get install -y ffmpeg
+          node .github/scripts/pruefe-video-frist.js
+
+      # Tragen alle drei Sprachen dieselben Schlüssel? Ein fehlender fällt
+      # still auf den englischen Rückfall in `wort(k, …)` zurück -- kein
+      # Fehler, keine Meldung, und in der französischen Ansicht steht plötzlich
+      # ein englisches Wort. Kostet nichts und braucht keinen Browser.
+      - name: Das Wörterbuch ist in allen drei Sprachen vollständig
+        run: python3 .github/scripts/pruefe-woerter.py
+
       # Und bleibt sie auf ihrer Folie? Zwei gleichnamige Gruppen auf zwei
       # Folien sind zwei Gruppen, jede mit ihrer eigenen 1. Diese Probe fehlte,
       # als die Trennung einmal am Folienpräfix im Schlüssel hing und dieser

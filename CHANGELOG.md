@@ -4,9 +4,91 @@ All notable changes to this package are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), the numbering
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] — unreleased
+## [0.1.2] — unreleased
 
 ### Added
+
+- **The digits set the class clock.** `3` starts three minutes, `7` seven, `0`
+  ends it again -- for the question at the start of the lesson and the minute of
+  talking in pairs, where the hand is on the keyboard anyway and a number is
+  shorter than `t`, field, number, Enter. What starts is the *pinned* clock, so
+  the question stays on the slide while the time runs and paging does not end it.
+  It works without a second window, which is the point: the clock used to be
+  reachable only from the speaker view, and one machine at a beamer is how
+  anyone actually teaches. On a slide carrying a `cue()` group the digits stay
+  with the group -- decided per slide and not per keystroke, because three of
+  `adTaste`'s four refusals happen in the middle of a cue slide, the repeated
+  press on the same point among them, and each would otherwise have started a
+  clock nobody asked for.
+
+- **`room: (clock: (step: 5))` -- how calmly the clock reads.** A clock that
+  jumps every second pulls the eye off the task each time; at a step of five it
+  moves only every five seconds. The last step still counts down singly, 0:15,
+  0:10, 0:05, 0:04, 0:03, 0:02, 0:01, 0:00, because a clock showing 0:00 for a
+  full five seconds while time is left sends the class home early. The step has
+  to divide 60 evenly, checked at compile time: at seven seconds a
+  `class-clock(1)` would read 0:56 the moment it starts, which looks like a
+  fault of the clock rather than one of the setting. It sits on the deck and not
+  on the slide deliberately -- how coarsely a clock reads is a property of the
+  eye, and a running clock that changed rhythm on paging would look broken;
+  what genuinely varies per slide is the duration, and `class-clock` already
+  carries it. `room` is the counterpart to `speaker-view`: what reaches the
+  room, against what only the speaker sees. `room: (clock: (digits: false))`
+  gives the digits back.
+
+- **`video(ends-at: "08:15")` -- a video that ends on the bell.** A music video
+  runs before the lesson and should stop at the moment the lesson begins. The
+  runtime reads the video's own length when the slide comes up and starts it far
+  enough in that its last frame falls on that minute, so unlocking the room at
+  08:11 gives the last four minutes and arriving at 08:07 the last eight. A bell
+  further away than the video is long leaves it waiting on its first frame; more
+  than an hour away, or an unreadable time, drops the plan and it plays from the
+  start, which covers both the machine left on overnight and the minute after
+  the bell, where "the next 08:15" would mean twenty-three hours. Blacking out
+  and coming back re-computes rather than resumes -- forty seconds of black
+  would otherwise move the end by forty seconds. `room: (bell: "08:15")` plus
+  `ends-at: auto` moves a lesson from the first period to the third in one line
+  instead of one per video.
+
+- **`room: (sounds: (a: "airhorn.mp3"))` -- a sound on a key.** A signal the
+  class knows. The deck supplies the file; the package ships no sound, which
+  keeps somebody else's recording out of an MIT-licensed package. It is heard in
+  the hall and only there -- the speaker sits at the machine, the speakers are
+  in the room -- and the command travels as a message of its own rather than on
+  the state channel, which repeats every second and would have gonged on every
+  re-handshake. Keys the runtime already uses are refused at compile time with
+  the free ones listed, and a missing file is reported at load rather than when
+  somebody presses the key.
+
+### Changed
+
+- **The pinned clock survives blacking out.** `b` used to hide every clock, on
+  the reasoning that whoever blacks out wants to see nothing. That was right for
+  the full-screen clock, which covers the hall anyway, and wrong for the pinned
+  one: it is not slide content but the instrument of the class that is working,
+  and blacking out during group work is meant to take away the distraction, not
+  the time. Before, the clock vanished silently and came back with a changed
+  number.
+
+### Fixed
+
+- **The two windows showed the pinned clock a second apart.** The stage rounded
+  down (`Math.floor` on the exact remainder), the speaker view rounded
+  (`Math.round` on a value already rounded once in transit), and the same clock
+  stands on the same slide in both. At 124.6 seconds left the wall read 2:04 and
+  the desk 2:05. Both now go through one function, and the remainder travels
+  raw instead of pre-rounded. Under a coarse step the one second would have
+  become a whole step: 120 against 125. A second cause sat beside it: the
+  speaker view only redrew when the *rounded* second changed, so at 329.5
+  seconds left it kept standing at 5:30 while the wall had already moved to
+  5:29 -- it now also compares what the pinned clock actually displays.
+
+- **The switch into over-time hung on a coincidence.** Word and signal colour
+  were written after the gate that skips a redraw when the text is unchanged,
+  and only ever got through because `uhrText` puts the `+` into an otherwise
+  empty column, so the text happened to change in the same instant. They now sit
+  behind an edge of their own, ahead of that gate -- which is more correct even
+  without a step, and necessary with one.
 
 - **The speaker view can be divided by hand.** A handle sits in the seam
   between the running slide and the note: drag it down for more slide, up for
@@ -19,6 +101,10 @@ All notable changes to this package are recorded here. The format follows
   notes has nothing to divide and gets no handle; where the window is too small
   to divide, the handle steps out of the tab order. Asked for from a lesson deck
   whose notes were long and whose reading strip was three lines high.
+
+## [0.1.1] — 2026-09-10
+
+### Added
 
 - **A footnote's note is revealed with its marker.** A footnote standing inside
   a reveal chain now has its note appear on the same step in the browser, so the
@@ -154,8 +240,9 @@ All notable changes to this package are recorded here. The format follows
   starts again at `1`, so every exercise slide can say `cue("marks", …)` without
   numbering the names apart. `cue-layer` now points at a declared point rather
   than at a number within a span. A tenth point on one slide is refused: the room
-  calls with the keys 1 to 9, and a digit with nothing behind it silently becomes
-  an ordinary page turn.
+  calls with the keys 1 to 9. A digit with nothing behind it does nothing at all
+  -- on a slide without a group the digits set the class clock instead, see
+  0.1.2.
 - **The runtime files are now `typstage-0.1.1.css` and `typstage-0.1.1.js`.**
   The name carries the version so a CDN can hold several releases side by side
   and no browser serves a stale one from its cache. A deck with

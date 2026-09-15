@@ -1757,12 +1757,99 @@
     return any;
   }
 
+  // ── Ein Video, das punktgenau endet ───────────────────────────────────────
+  //
+  // Vor der Stunde laeuft ein Musikvideo, und es soll in dem Augenblick enden,
+  // in dem die Stunde beginnt. Gerechnet wird deshalb nicht, wann es anfaengt,
+  // sondern wie weit es schon gelaufen sein muesste: `currentTime = dauer -
+  // rest`. Ist es kuerzer als die Wartezeit, steht es auf seinem ersten Bild,
+  // bis sein Augenblick kommt.
+  //
+  // DIE WANDUHR. Sie kommt in dieser Laufzeit jetzt an zwei Stellen vor -- hier
+  // und in der Frist von `sichtMerken`, die ein Neuladen ueberbrueckt. Beide
+  // gehen durch `jetzt()`, damit ein Prueflauf sie festnageln kann; ohne das
+  // waere jede Messung daran tagesabhaengig. Buehnenzeit ist davon unberuehrt:
+  // die Uhr an der Wand zaehlt weiter in `current`.
+  var WANDUHR = null;
+  function jetzt() { return WANDUHR == null ? Date.now() : WANDUHR; }
+
+  // Sekunden bis zum naechsten Eintreten dieser Uhrzeit, oder null.
+  function fristSek(wann) {
+    var m = /^\s*([0-9]{1,2}):([0-5][0-9])\s*$/.exec(String(wann == null ? "" : wann));
+    if (!m || +m[1] > 23) return null;
+    var n = jetzt();
+    var ziel = new Date(n);
+    // Ueber `setHours` und nicht ueber Mitternacht plus Sekunden: an den
+    // beiden Umstellungstagen waere der zweite Weg genau eine Stunde falsch.
+    ziel.setHours(+m[1], +m[2], 0, 0);
+    var rest = (ziel.getTime() - n) / 1000;
+    return rest < 0 ? rest + 86400 : rest;
+  }
+
+  // Eine Stunde. Weiter weg ist kein Plan mehr, sondern ein Rechner, der ueber
+  // Nacht stehengeblieben ist -- oder eine Minute zu spaet geoeffnet, wo
+  // "naechstes Eintreten" dreiundzwanzig Stunden hiesse. Dieselbe Art Grenze
+  // wie `UHR_DECKEL`.
+  var FRIST_DECKEL = 3600;
+  var FRISTEN = [];
+
+  function fristStellen(w) {
+    var v = w.querySelector("video");
+    if (!v) return;
+    var wann = w.dataset.endsAt;
+    if (wann === "auto") wann = (CFG.room || {}).bell;
+    var rest = fristSek(wann);
+    if (rest == null || rest > FRIST_DECKEL) {
+      // Kein Plan: das Video spielt wie immer von vorn.
+      var p0 = v.play(); if (p0 && p0.catch) p0.catch(function () {});
+      return;
+    }
+    // Die Dauer steht erst mit den Metadaten fest, und ein `currentTime`
+    // davor verpufft. Gerechnet wird BEIM EINTREFFEN und nicht einmal beim
+    // Laden: die Frist wandert, waehrend man wartet.
+    if (v.readyState < 1 || !isFinite(v.duration) || !v.duration) {
+      v.addEventListener("loadedmetadata", function () { fristStellen(w); },
+                         { once: true });
+      return;
+    }
+    if (rest >= v.duration) {
+      // Noch zu frueh: auf dem ersten Bild stehen und rechtzeitig wecken.
+      try { v.currentTime = 0; } catch (x) {}
+      v.pause();
+      fristWecker(w, (rest - v.duration) * 1000);
+      return;
+    }
+    try { v.currentTime = Math.max(0, v.duration - rest); } catch (x) {}
+    var p = v.play(); if (p && p.catch) p.catch(function () {});
+  }
+
+  function fristWecker(w, ms) {
+    for (var i = 0; i < FRISTEN.length; i++) {
+      if (FRISTEN[i].el !== w) continue;
+      clearTimeout(FRISTEN[i].wecker);
+      FRISTEN[i].wecker = setTimeout(function () { fristStellen(w); },
+                                     Math.max(200, ms));
+      return;
+    }
+  }
+
   // ── Media ─────────────────────────────────────────────────────────────────
   var ticking = [];
   function mediaOn(i) {
     SLIDES[i].querySelectorAll(".ts-video").forEach(function (w) {
       var v = w.querySelector("video");
       if (!v || w.dataset.autoplay === "0") return;
+      // Ein Video mit Frist wird nicht blind gestartet, sondern gestellt --
+      // und erst, wenn es auch zu sehen ist. Dieselbe Bauart wie beim
+      // Daumenkino, das seine Uhr ebenfalls erst beim Aufdecken startet:
+      // `mediaOn` laeuft beim Folieneintritt, und ein `video(at: "3-")` ist
+      // da noch verdeckt. Jeder Wiedereintritt rechnet neu -- `mediaOff`
+      // spult nicht zurueck, und die Frist ist inzwischen naeher.
+      if (w.dataset.endsAt) {
+        for (var q = 0; q < FRISTEN.length; q++) if (FRISTEN[q].el === w) return;
+        FRISTEN.push({ el: w, gestellt: 0, wecker: 0 });
+        return;
+      }
       if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
     });
     // Aufgenommen, aber noch nicht gestartet: `t0` bleibt leer, bis das
@@ -1777,6 +1864,11 @@
   }
   function mediaOff(i) {
     SLIDES[i].querySelectorAll("video").forEach(function (v) { v.pause(); });
+    FRISTEN = FRISTEN.filter(function (f) {
+      if (!SLIDES[i].contains(f.el)) return true;
+      if (f.wecker) clearTimeout(f.wecker);
+      return false;
+    });
     ticking = ticking.filter(function (t) { return !SLIDES[i].contains(t.el); });
     // Ein Zug, den niemand mehr sieht, laeuft nicht weiter. Wo die Szene beim
     // Abbruch stehenbleibt, ist gleich: der Rueckweg auf diese Folie ist ein
@@ -1946,6 +2038,44 @@
            + uhrZwei(s % 60) + " ";
   }
 
+  // Wie grob die Uhr gelesen wird. Ein Sekundentakt ist im Raum unruhig: die
+  // Zahl springt, waehrend die Klasse arbeitet, und zieht dabei jedes Mal den
+  // Blick von der Aufgabe weg. `room: (clock: (step: 5))` laesst sie nur alle
+  // fuenf Sekunden springen. Vorgabe ist 1, also sieht jedes Deck, das nichts
+  // sagt, aus wie zuvor.
+  //
+  // Die letzte Stufe zaehlt trotzdem einzeln herunter. Ein Raster bis zur Null
+  // hinunter zeigte volle fuenf Sekunden lang 0:00, waehrend noch Zeit uebrig
+  // ist -- die Klasse hoerte auf zu arbeiten, bevor sie muss. Also Ruhe in der
+  // Mitte und Genauigkeit am Schluss: ... 0:15, 0:10, 0:05, 0:04, 0:03, 0:02,
+  // 0:01, 0:00.
+  //
+  // In der Ueberzeit gilt die Ausnahme nicht: dort ist die Zahl ohnehin nur
+  // noch ein Mass dafuer, wie weit man drueber ist, und sie soll ruhig sein.
+  var UHR_SCHRITT = Math.max(1, Math.round(+(CFG.room || {}).clockStep || 1));
+  var UHR_TASTEN = (CFG.room || {}).clockKeys !== false;
+  function uhrRaster(sek, drueber) {
+    if (UHR_SCHRITT <= 1) return sek;
+    if (!drueber && sek < UHR_SCHRITT) return sek;
+    return Math.floor(sek / UHR_SCHRITT) * UHR_SCHRITT;
+  }
+
+  // Was die Uhr zeigt: erst gedeckelt, dann auf ganze Sekunden, dann auf das
+  // Raster. Beide Zeichner gehen durch diese eine Stelle.
+  //
+  // Sie taten es vorher nicht, und das war ein Fehler: `uhrTakt` rundete ab,
+  // `festZeigen` rundete, und dieselbe angeheftete Uhr steht in beiden Fenstern
+  // auf derselben Folie. Bei 124,6 Sekunden Rest stand an der Wand 2:04 und am
+  // Pult 2:05. Unter einem groben Raster waere aus der einen Sekunde
+  // Unterschied eine ganze Rasterstufe geworden.
+  function uhrZeig(rest, dauer) {
+    var drueber = rest < 0;
+    var sek = drueber
+      ? Math.ceil(Math.min(-rest, Math.min(dauer, UHR_DECKEL)))
+      : Math.floor(rest);
+    return uhrRaster(Math.max(0, sek), drueber);
+  }
+
   // Ein Bild der Uhr, in Buehnenzeit. Steht unmittelbar hinter der Zeile, die
   // die Pruefuhr einsetzt, und liest nichts als `current`.
   function uhrTakt(current) {
@@ -1959,18 +2089,24 @@
     var drueber = rest < 0;
     // Gedeckelt bei der Dauer, hoechstens eine halbe Stunde. Danach steht sie
     // still: eine Zahl, die weiterwaechst, sagt nach einer Weile nichts mehr.
-    var zeig = drueber
-      ? Math.ceil(Math.min(-rest, Math.min(UHR.dauer, UHR_DECKEL)))
-      : Math.floor(rest);
-    var txt = uhrText(zeig, drueber,
+    var txt = uhrText(uhrZeig(rest, UHR.dauer), drueber,
                       UHR_KNOTEN && UHR_KNOTEN.dataset.art !== "fest");
+    // Der Umschlag in die Ueberzeit haengt an einer eigenen Flanke und nicht
+    // mehr am Text. Dass er bisher nie durchfiel, war Zufall: `uhrText` setzt
+    // das `+` in eine sonst leere Spalte, also aenderte sich der Text im selben
+    // Augenblick ohnehin. Ein grobes Raster ebnet das ein -- die Wand bliebe in
+    // der Ueberzeit gruen. Vor der Textschranke, denn Farbe und Wort sind das
+    // Ereignis und nicht die Ziffer.
+    if (UHR.drueber !== drueber) {
+      UHR.drueber = drueber;
+      // Das Wort war vorher nicht da; sein Erscheinen ist das Ereignis.
+      if (UHR_WORT) UHR_WORT.textContent = drueber ? wort("over", "over") : "";
+      if (drueber) document.documentElement.dataset.tsClockOver = "1";
+      else delete document.documentElement.dataset.tsClockOver;
+    }
     if (txt === UHR.letztes) return;
     UHR.letztes = txt;
     if (UHR_ZAHL) UHR_ZAHL.textContent = txt;
-    // Das Wort war vorher nicht da; sein Erscheinen ist das Ereignis.
-    if (UHR_WORT) UHR_WORT.textContent = drueber ? wort("over", "over") : "";
-    if (drueber) document.documentElement.dataset.tsClockOver = "1";
-    else delete document.documentElement.dataset.tsClockOver;
   }
 
   // Wechselt die Uhr die Art -- Wanduhr gegen festgenagelt --, ist der alte
@@ -1987,11 +2123,15 @@
   // Gelaufene -- nur beim Wiederherstellen von null verschieden. In der
   // Sprecheransicht tut das nichts: dort liegt die Sprecherbox darueber, und
   // eine zweite grosse Uhr dahinter waere ein zweiter Ort, der stimmen muss.
-  function uhrStellen(sek, lauf, vor) {
+  // `eigen` heisst: dieses Fenster fuehrt die Uhr selbst, es gibt kein Pult,
+  // das sie ihm schickt. Daran haengen drei Stellen -- die Wache raeumt sie
+  // nicht ab, `sichtLoesen` laesst sie stehen, und `0` beendet nur sie.
+  function uhrStellen(sek, lauf, vor, eigen) {
     if (ROLLE === "speaker") return;
     var d = Math.max(1, Math.round(+sek || 0));
     UHR = { dauer: d, vor: Math.max(0, +vor || 0), t0: null, rest: null,
-            lauf: lauf == null ? ++UHR_LAUF : lauf, letztes: null };
+            lauf: lauf == null ? ++UHR_LAUF : lauf, letztes: null,
+            drueber: null, eigen: eigen ? 1 : 0 };
     document.documentElement.dataset.tsClock = "1";
     sichtMerken();
   }
@@ -2054,10 +2194,107 @@
   function uhrStand() {
     if (!UHR) return null;
     var rest = UHR.rest == null ? UHR.dauer - UHR.vor : UHR.rest;
-    return { mode: "full", duration: UHR.dauer, lauf: UHR.lauf,
+    return { mode: (UHR_KNOTEN && UHR_KNOTEN.dataset.art === "fest")
+                     ? "pinned" : "full",
+             duration: UHR.dauer, lauf: UHR.lauf,
              remaining: Math.round(rest * 1000) / 1000,
              over: rest < 0,
-             text: (UHR.letztes || uhrText(Math.floor(Math.max(0, rest)), false)).trim() };
+             text: (UHR.letztes
+                     || uhrText(uhrZeig(Math.max(0, rest), UHR.dauer), false)).trim() };
+  }
+
+  // ── Die Ziffern stellen die Klassenuhr ────────────────────────────────────
+  //
+  // `3` sind drei Minuten, `0` beendet sie. Fuer die Frage am Stundenanfang
+  // und fuer das Gespraech zu zweit: die Hand liegt ohnehin auf der Tastatur,
+  // und eine Zahl ist kuerzer als `t`, Feld, Zahl, Enter.
+  //
+  // Ausdruecklich die ANGEHEFTETE Uhr und nicht das Vollbild. Die Frage muss
+  // stehen bleiben, waehrend die Zeit laeuft, und Blaettern beendet die
+  // angeheftete nicht -- das Vollbild deckt den Saal zu und gehoert der Pause,
+  // nicht der Aufgabe. `t` und `⇧t` bleiben, was sie sind.
+  //
+  // Zwei Rollen, zwei Wege. Am Pult rechnet sie nur und schickt, so wie `t`:
+  // gezaehlt wird drueben. Ohne zweites Fenster -- ein Rechner am Beamer, der
+  // Regelfall im Klassenzimmer -- fuehrt die Buehne sie selbst. Steht spaeter
+  // doch eine Sprecheransicht auf, uebernimmt sie die Uhr ueber `uhrArt` in
+  // der Begruessung und im Abgleich, mit derselben Laufnummer; von da an ist
+  // sie nicht mehr eigen und der gewoehnliche Weg gilt.
+  function uhrZiffer(n) {
+    if (!UHR_TASTEN || SPV.clock === false) return false;
+    if (ROLLE === "speaker") {
+      if (n === 0) return uhrSaalAus();
+      uhrStarten(n, "fest");
+      return true;
+    }
+    // Steht ein Pult daneben, fuehrt es die Uhr, und hier wird nur gewuenscht.
+    // Zwei Fenster, die dieselbe Pause zaehlen, gehen frueher oder spaeter
+    // auseinander -- und ohne diese Zeile haette die `0` hier gar keine
+    // Wirkung mehr, sobald das Pult die Uhr einmal uebernommen hat: sie
+    // beendet ausdruecklich nur eine eigene.
+    if (sende("uhrziffer", { min: n })) return true;
+    // `0` beendet nur eine Uhr, die dieses Fenster fuehrt. Eine vom Pult
+    // gefuehrte hier abzuraeumen brachte sie beim naechsten Schlag zurueck --
+    // und zwar mit `vor: 0`, also mitten in der Gruppenarbeit an ihren Anfang.
+    if (n === 0) {
+      if (!UHR || !UHR.eigen) return false;
+      uhrAus();
+      return true;
+    }
+    uhrStellen(n * 60, null, 0, 1);
+    uhrOrt("fest", SAAL_X, SAAL_Y, SAAL_S);
+    return true;
+  }
+
+  // ── Ein Klang auf einer Taste ─────────────────────────────────────────────
+  //
+  // Das Deck sagt, welche Taste welchen Klang spielt -- `room: (sounds: (a:
+  // "airhorn.mp3"))` --, die Laufzeit bringt keinen mit. Ein mitgeliefertes
+  // Geraeusch waere die Aufnahme eines anderen, und die gehoert nicht in ein
+  // Paket, das unter MIT steht.
+  //
+  // Gehoert wird im SAAL und nur dort. Am Pult sitzt der Vortragende vor dem
+  // Geraet, im Raum steht die Anlage; zweimal zu hoeren ist der Ton nie.
+  // Getragen wird das von der Rollenschranke in `klangSpielen` und nicht vom
+  // Stummschalten beim Aufbau: jenes laeuft ein einziges Mal und ist eine
+  // Momentaufnahme.
+  var KLANG = null, KLANG_ZULETZT = "", KLANG_MAL = 0;
+  function klangTabelle() {
+    if (KLANG) return KLANG;
+    KLANG = {};
+    var knoten = document.querySelectorAll("audio.ts-sound");
+    for (var i = 0; i < knoten.length; i++) {
+      (function (a) {
+        var k = a.dataset.key;
+        if (!k) return;
+        KLANG[k] = a;
+        // Eine fehlende Datei meldet sich sonst genau dann, wenn sie gebraucht
+        // wird, und zwar lautlos: bei einem Bild sieht man ein Standbild, bei
+        // einem Ton gar nichts.
+        a.addEventListener("error", function () {
+          merke("Ton", "Datei nicht ladbar: " + a.getAttribute("src"));
+        }, { once: true });
+      })(knoten[i]);
+    }
+    return KLANG;
+  }
+  function klangSpielen(k) {
+    var tab = klangTabelle();
+    if (!k || !tab[k]) return false;
+    // Am Pult nur schicken, und ueber eine eigene Nachrichtenart. Der
+    // Zustandskanal `sicht` faehrt jede Sekunde und die Begruessung wiederholt
+    // ihn -- ein "spiel jetzt" darin gongte bei jedem Wiederanmelden, jedem
+    // Neuladen und jedem Fensterwechsel, in einer stillen Klasse dreimal
+    // hintereinander.
+    if (ROLLE === "speaker") { sende("klang", { klang: k }); return true; }
+    var a = tab[k];
+    KLANG_ZULETZT = k; KLANG_MAL++;
+    try { a.currentTime = 0; } catch (x) {}
+    // Der Tastendruck ist selbst die Geste, auf die der Browser wartet -- das
+    // ist der Unterschied zu einem Video, das ohne eine solche anlaufen soll.
+    var lauf = a.play();
+    if (lauf && lauf.catch) lauf.catch(function () {});
+    return true;
   }
 
   var PRUEFUHR = null;
@@ -2123,6 +2360,13 @@
       for (var j = 0; j < kinder.length; j++) {
         if (j === i) kinder[j].dataset.on = "1"; else delete kinder[j].dataset.on;
       }
+    }
+    // Fristvideos: gestellt wird beim Aufdecken, nicht beim Folieneintritt.
+    for (var fi = 0; fi < FRISTEN.length; fi++) {
+      var fw = FRISTEN[fi];
+      if (fw.gestellt || fw.el.dataset.on !== "1") continue;
+      fw.gestellt = 1;
+      fristStellen(fw.el);
     }
     szenenTakt();
     requestAnimationFrame(beat);
@@ -2412,7 +2656,19 @@
                          frost: FROST,
                          uhr: us ? us.duration : 0,
                          uhrLauf: us ? us.lauf : 0,
-                         uhrRest: us ? Math.round(us.remaining) : 0 });
+                         // Roh und nicht gerundet: drueben rechnet
+                         // `uhrZeig` dieselbe Anzeige daraus wie hier, und
+                         // eine hier vorgerundete Zahl landete an der
+                         // Rasterkante auf einer anderen Stufe.
+                         uhrRest: us ? us.remaining : 0,
+                         // Und ihre Art. Ohne sie uebernaehme eine spaeter
+                         // geoeffnete Sprecheransicht eine angeheftete Uhr
+                         // zwar richtig, schickte beim naechsten Schlag aber
+                         // `uhrArt: "voll"` zurueck -- die Uhr schluege mitten
+                         // in der Aufgabe auf Vollbild um, also auf schwarz von
+                         // Rand zu Rand, und der naechste Pfeil loeschte sie.
+                         uhrArt: (UHR_KNOTEN && UHR_KNOTEN.dataset.art === "fest")
+                                 ? "fest" : "voll" });
       // The stock only goes to a freshly loaded counterpart. Otherwise the
       // two would keep pushing the same strokes back and forth at the pace
       // of the heartbeat.
@@ -2821,7 +3077,13 @@
     }
     // Only restart what was running before: a video the speaker had paused
     // by hand stays paused.
+    //
+    // Eines mit Frist wird NEU GESTELLT und nicht fortgesetzt: vierzig
+    // Sekunden Schwarz verschoeben sein Ende sonst um vierzig Sekunden, und
+    // punktgenau war der ganze Zweck.
     gehaltene.forEach(function (v) {
+      var w = v.parentNode;
+      if (w && w.dataset && w.dataset.endsAt) { fristStellen(w); return; }
       var p = v.play(); if (p && p.catch) p.catch(function () {});
     });
     gehaltene = [];
@@ -2841,7 +3103,9 @@
     // steht nur etwas darauf; ohne diese Zeile waere sie ein neuer Weg,
     // einen Saal dunkel zurueckzulassen -- und im Buehnenfenster gibt es
     // keine Taste dagegen, und es soll dort keine geben.
-    uhrAus();
+    // Nur eine fremde. Die eigene fuehrt dieses Fenster, und ein Partner, der
+    // nie da war, kann sie nicht zurueckgelassen haben.
+    if (UHR && !UHR.eigen) uhrAus();
     sichtMerken();
   }
 
@@ -2868,8 +3132,8 @@
       var u = "";
       if (UHR) {
         var rest = UHR.rest == null ? UHR.dauer - UHR.vor : UHR.rest;
-        u = ":" + Math.round(Date.now() + rest * 1000) + "," + UHR.dauer
-              + "," + UHR.lauf;
+        u = ":" + Math.round(jetzt() + rest * 1000) + "," + UHR.dauer
+              + "," + UHR.lauf + "," + (UHR.eigen ? 1 : 0);
       }
       sessionStorage.setItem("ts-sicht:" + DECK,
         (document.documentElement.dataset.tsSchwarz ? "1" : "0")
@@ -2890,13 +3154,16 @@
     // abgezogen: die Klasse draussen wartet ja auch. Abgelaufen heisst nicht
     // abgeschaltet -- sie kommt in ihrer Ueberzeit wieder.
     var st = alt.indexOf(":") > 0 ? alt.slice(alt.indexOf(":") + 1).split(",") : null;
-    if (st && st.length === 3) {
-      var dauer = +st[1], verstrichen = dauer - (+st[0] - Date.now()) / 1000;
+    // Vertraeglich nach hinten: ein Stand von gestern hat drei Felder, das
+    // vierte ist dann `undefined` und `+undefined || 0` gibt 0 -- also genau
+    // das bisherige Verhalten. Dasselbe Muster wie in `standErinnern`.
+    if (st && st.length >= 3) {
+      var dauer = +st[1], verstrichen = dauer - (+st[0] - jetzt()) / 1000;
       // Eine Frist jenseits des Deckels hat niemand mehr im Blick -- der
       // Rechner stand ueber Nacht. Dann bleibt die Uhr aus.
       if (isFinite(dauer) && isFinite(verstrichen)
           && verstrichen < dauer + UHR_DECKEL) {
-        uhrStellen(dauer, +st[2], verstrichen);
+        uhrStellen(dauer, +st[2], verstrichen, +st[3] || 0);
       }
     }
     // The guard lifts that again right away if no one is there anymore: a
@@ -2922,7 +3189,13 @@
       // `UHR` steht mit in dieser Bedingung, sonst liefe die Wache bei einer
       // blossen Vollbilduhr gar nicht erst -- und dann waere sie das einzige,
       // was einen Saal ohne Sprecherfenster zugedeckt zuruecklaesst.
-      if (!FROST && !document.documentElement.dataset.tsSchwarz && !UHR) {
+      // Eine Uhr, die dieses Fenster selbst fuehrt, geht die Wache nichts an:
+      // sie deckt den Saal nicht zu, und es gibt keinen Partner, dessen
+      // Verschwinden sie aufheben muesste. Ohne diese Ausnahme raeumte die
+      // Wache jede per Ziffer gestartete Uhr rund eine Sekunde nach dem
+      // Neuladen wieder ab.
+      if (!FROST && !document.documentElement.dataset.tsSchwarz
+          && (!UHR || UHR.eigen)) {
         clearInterval(WACHE); WACHE = 0; return;
       }
       // What is measured is the partner, not the clock. `closed` on the
@@ -2960,9 +3233,15 @@
     // Anfang. Gleicher Lauf heisst nur nachziehen. Das ist der Unterschied zu
     // `schwarz` und `frost`, die keine Zeit mitbringen.
     if (d.uhr != null) {
-      if (!d.uhr) uhrAus();
+      // Eine eigene Uhr ueberlebt ein Pult, das noch nichts von ihr weiss.
+      // Der Abgleich drueben holt sie sich innerhalb von anderthalb Sekunden
+      // ueber die Begruessungsantwort; bis dahin darf sein `uhr: 0` sie nicht
+      // abraeumen.
+      if (!d.uhr) { if (UHR && !UHR.eigen) uhrAus(); }
       else if (!UHR || UHR.lauf !== d.uhrLauf) uhrStellen(d.uhr, d.uhrLauf, 0);
-      else uhrDauer(d.uhr);
+      // Von hier an fuehrt das Pult sie: dieselbe Laufnummer kommt zurueck,
+      // also hat es sie uebernommen, und das Eigentum faellt.
+      else { uhrDauer(d.uhr); UHR.eigen = 0; }
       // Art und Ort kommen bei *jedem* Schlag mit und nicht nur beim Stempeln:
       // eine Uhr, die am Pult gerade verschoben wird, soll drueben mitwandern.
       if (UHR) uhrOrt(d.uhrArt, d.uhrX, d.uhrY, d.uhrS);
@@ -3479,7 +3758,7 @@
     uhrOrt("fest", SAAL_X, SAAL_Y, SAAL_S);
     var drueber = SAAL_REST < 0;
     if (UHR_ZAHL) UHR_ZAHL.textContent =
-      uhrText(Math.abs(Math.round(SAAL_REST)), drueber, false);
+      uhrText(uhrZeig(SAAL_REST, SAAL_SEK), drueber, false);
     if (UHR_WORT) UHR_WORT.textContent = drueber ? wort("over", "over") : "";
     if (drueber) document.documentElement.dataset.tsClockOver = "1";
     else delete document.documentElement.dataset.tsClockOver;
@@ -3601,9 +3880,23 @@
     var u = +d.uhr || 0, n = +d.uhrLauf || 0, r = +d.uhrRest || 0;
     // Verglichen wird die angezeigte Sekunde und nicht der rohe Rest: sonst
     // baute die Lagezeile sich viermal je Sekunde neu auf.
+    //
+    // ZWEI Regeln, weil hier zwei Dinge haengen. Die Kachel rundet nach ihrer
+    // eigenen (`mmss`) -- sie ist das Instrument des Pults und liest
+    // sekundengenau, auch wenn die Wand gerastert steht. Die angeheftete Uhr
+    // daneben liest nach `uhrZeig`, wie die Wand. Nur `Math.round` zu
+    // vergleichen liess sie stehenbleiben: bei 329,5 Sekunden Rest sind
+    // round(329,5) und round(330) beide 330, also galt nichts als neu -- und
+    // das Pult zeigte 05:30, waehrend an der Wand schon 05:29 stand.
     var neu = (s !== SCHWARZ || f !== EIS || u !== SAAL_SEK || n !== SAAL_NR
-               || Math.round(r) !== Math.round(SAAL_REST));
+               || Math.round(r) !== Math.round(SAAL_REST)
+               || uhrZeig(r, u) !== uhrZeig(SAAL_REST, SAAL_SEK));
     SCHWARZ = s; EIS = f; SAAL_SEK = u; SAAL_NR = n; SAAL_REST = r;
+    // Und ihre Art, aber nur solange eine Uhr laeuft: eine abgelaufene traegt
+    // keine, und die Vorgabe des Pults ist "voll". Ohne diese Zeile schluege
+    // eine im Buehnenfenster per Ziffer gestartete Uhr beim naechsten Schlag
+    // auf Vollbild um -- und der naechste Pfeil am Pult loeschte sie.
+    if (u && d.uhrArt) SAAL_ART = d.uhrArt === "fest" ? "fest" : "voll";
     if (neu) lageZeigen();
   }
   // What holds on the other side holds here. A freshly opened view would
@@ -3617,7 +3910,16 @@
     // Ansicht beim ersten `sichtSenden` einen neuen Lauf, und die Pause im Saal
     // spraenge auf ihren Anfang zurueck.
     SAAL_SEK = +d.uhr || 0; SAAL_NR = +d.uhrLauf || 0; SAAL_REST = +d.uhrRest || 0;
+    if (SAAL_SEK && d.uhrArt) SAAL_ART = d.uhrArt === "fest" ? "fest" : "voll";
     lageZeigen();
+    // Und einmal zurueck, mit derselben Laufnummer. Das stempelt drueben
+    // nichts neu -- daran haengt allein die Nummer --, aber es ist die
+    // Bestaetigung, auf die eine Uhr wartet, die das Buehnenfenster bis eben
+    // selbst gefuehrt hat: erst damit gibt sie das Eigentum ab, und erst
+    // danach kann dieses Pult sie auch wieder beenden. Ohne diese Zeile nahm
+    // das Buehnenfenster jedes `uhr: 0` von hier fuer ein Pult, das seine Uhr
+    // noch nicht kennt -- und die `0` blieb auf beiden Seiten wirkungslos.
+    if (SAAL_SEK) sichtSenden();
   }
 
   function tinteSenden(ev) {
@@ -5417,6 +5719,10 @@
     var still = {};
     if (SPV.clock === false) {
       still["t"] = 1; still["⇧t"] = 1; still["⇧← ⇧→"] = 1;
+      // Und die Ziffern, buchstabengleich zum Hilfetext. Eine Leiste, die
+      // `1–9` bewirbt, waehrend die Uhr abbestellt ist, erzaehlt dem
+      // Vortragenden etwas, das nicht stimmt.
+      still["1–9"] = 1; still["0"] = 1;
     }
     if (SPV.target === false) still["d"] = 1;
     if (SPV.tools === false) {
@@ -5444,6 +5750,21 @@
         });
       });
     });
+    // Zuletzt die Klangtasten des Decks. Im Hilfetext koennen sie nicht
+    // stehen: welche es sind, waehlt das Deck, und der Text ist uebersetzt
+    // und fest. Eine Taste, die es gibt und die niemand findet, ist so
+    // schlecht wie eine beworbene, die nichts tut.
+    var toene = Object.keys(klangTabelle());
+    if (toene.length) {
+      var gt = bau("div", "ts-sp-gruppe", wohin);
+      bau("span", "ts-sp-gruppe-name", gt).textContent = wort("sound", "sound");
+      toene.forEach(function (k) {
+        var pr = bau("span", "ts-sp-taste-paar", gt);
+        var quelle = klangTabelle()[k].getAttribute("src") || "";
+        pr.title = k + " \u2014 " + quelle;
+        bau("kbd", "ts-sp-kappe", pr).textContent = k;
+      });
+    }
   }
 
   function sprecherSpalten() {
@@ -5688,6 +6009,14 @@
     // Einstellung zu erklaeren -- daraus wird eine gueltige, leere Seite, und
     // die darf nicht mit einem Zugriff auf `undefined` sterben.
     if (current >= 0 && STEPS[current]) stelle(STEPS[current].slide);
+    // Die angeheftete Uhr steht in festen Pixeln, gerechnet aus der Buehne.
+    // Mit Pult setzt der Herzschlag sie jede Sekunde neu; eine Uhr, die dieses
+    // Fenster selbst fuehrt, wurde bisher genau einmal gesetzt -- ein Druck auf
+    // `f`, ein gezogenes Fenster oder der Beamer schoben sie danach von der
+    // Folie. Also hier, wo ohnehin alles neu vermessen wird.
+    if (UHR && UHR.eigen && UHR_KNOTEN && UHR_KNOTEN.dataset.art === "fest") {
+      uhrOrt("fest", SAAL_X, SAAL_Y, SAAL_S);
+    }
   }
   addEventListener("resize", fit);
 
@@ -6056,7 +6385,32 @@
         && uhrSaalMehr(e.key === "ArrowRight" ? 60 : -60)) {
       e.preventDefault(); return;
     }
-    if (/^[1-9]$/.test(e.key) && adTaste(+e.key)) { e.preventDefault(); return; }
+    // Die Ziffern gehoeren der Folie, auf der man steht: traegt sie eine
+    // cue-Gruppe, rufen sie deren Punkte, sonst stellen sie die Klassenuhr.
+    //
+    // Entschieden wird am Zustand der Folie und nicht daran, ob `adTaste`
+    // etwas getan hat. Drei seiner vier `false`-Ausgaenge liegen mitten auf
+    // einer cue-Folie -- eine Ziffer jenseits der Punktzahl, eine zweite
+    // Gruppe, und der wiederholte Druck derselben Ziffer, der dort
+    // ausdruecklich als folgenlos zugesichert ist. Jeder von ihnen haette
+    // sonst eine Uhr gestartet, die niemand wollte.
+    if (/^[0-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // Eine klemmende Ziffer darf die Uhr nicht je Anschlag neu stempeln --
+      // die Pause spraenge im Takt der Tastaturwiederholung auf ihren Anfang.
+      if (e.repeat) { e.preventDefault(); return; }
+      // Ein Deck ohne Folien hat keinen Schritt null; `adHier` liest ihn.
+      var cue = (current >= 0 && STEPS[current]) ? adHier().length : 0;
+      if (cue) {
+        if (e.key !== "0" && adTaste(+e.key)) { e.preventDefault(); return; }
+      } else if (uhrZiffer(+e.key)) { e.preventDefault(); return; }
+    }
+    // Und die Klangtasten des Decks. Eine gehaltene Taste gongt nicht im Takt
+    // der Tastaturwiederholung.
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && klangTabelle()[e.key]) {
+      if (!e.repeat) klangSpielen(e.key);
+      e.preventDefault();
+      return;
+    }
     if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
       if (!adPfeil()) goto(current + 1);
       e.preventDefault();
@@ -6184,6 +6538,22 @@
   // whether a point of an adaptive group has been called out yet -- none has,
   // so all of them stand aside until a digit says otherwise.
   adSammeln();
+  // Die Klangtasten gehoeren dem Saal und nicht dem Minutenfeld: steht es
+  // offen, schliesst die Taste es und spielt danach. Die Ziffern stehen hier
+  // NICHT -- die gehoeren dort dem Feld, das sie gerade entgegennimmt.
+  for (var kt in klangTabelle()) SAALTASTEN[kt] = 1;
+  // Und der Befehl vom Pult. Die Anmeldung steht HIER und nicht bei
+  // `klangSpielen`: `horch` ist zwar hochgezogen, `HOERER` aber nicht, und
+  // eine Anmeldung oberhalb von dessen Zuweisung lief gegen `undefined` und
+  // riss die ganze Laufzeit mit -- gemessen, `typstage` gab es danach nicht.
+  if (ROLLE !== "speaker") horch("klang", function (d) {
+    if (d && d.klang) klangSpielen(String(d.klang));
+  });
+  // Und der Ziffernwunsch aus dem Buehnenfenster. Ausgefuehrt wird er hier,
+  // wo die Uhr gefuehrt wird -- derselbe Weg, den `⇧t` nimmt.
+  if (ROLLE === "speaker") horch("uhrziffer", function (d) {
+    uhrZiffer(Math.max(0, Math.min(9, Math.round(+(d && d.min) || 0))));
+  });
   // The speaker view starts at the first slide and waits for the talk to
   // tell it where it stands. The talk itself takes the number from the
   // hash, this one time and never again after that.
@@ -6280,7 +6650,56 @@
       // der die Vollbilduhr misst, faende an einem Deck von gestern schlicht
       // `undefined` vor und koennte das nicht von einer Uhr unterscheiden,
       // die nicht laeuft.
-      fassung: 3,
+      //
+      // Vier, seit die Uhr ein Raster hat und seit es `klang` gibt. Beides
+      // veraendert, was ein Lauf misst: `clock().text` liest jetzt die
+      // gerasterte Anzeige, und ein Ton hatte im Decklauf bisher ueberhaupt
+      // keine Zahl.
+      fassung: 4,
+      // Was zuletzt gespielt wurde, und wie oft ueberhaupt. Ohne den Zaehler
+      // liesse sich "hat gespielt" nicht von "spielte schon vorher" trennen.
+      klang: function () {
+        return { tasten: Object.keys(klangTabelle()),
+                 zuletzt: KLANG_ZULETZT, mal: KLANG_MAL };
+      },
+      // Die Wanduhr festnageln, wie `uhr()` die Buehnenzeit. Ohne das waere
+      // jede Messung an einer Videofrist tagesabhaengig -- und die Frist in
+      // `sichtMerken`, die ein Neuladen ueberbrueckt, war bisher ueberhaupt
+      // nicht messbar. `null` gibt sie wieder frei.
+      wanduhr: function (ms) {
+        if (ms === undefined) return WANDUHR;
+        WANDUHR = ms == null ? null : +ms;
+        return WANDUHR;
+      },
+      // Die Fristvideos der laufenden Folie. `lage` trennt zwei Zustaende, die
+      // gleich aussehen und Verschiedenes bedeuten: ein Video, das auf seinem
+      // ersten Bild wartet, und eines, dessen Frist verpasst ist.
+      video: function () {
+        return FRISTEN.map(function (f) {
+          var v = f.el.querySelector("video");
+          var wann = f.el.dataset.endsAt;
+          if (wann === "auto") wann = (CFG.room || {}).bell;
+          var rest = fristSek(wann);
+          return {
+            endsAt: f.el.dataset.endsAt,
+            rest: rest,
+            sichtbar: f.el.dataset.on === "1",
+            gestellt: !!f.gestellt,
+            dauer: v && isFinite(v.duration) ? v.duration : null,
+            stand: v ? v.currentTime : null,
+            // Roh und nicht aus `lage` abgeleitet: `lage` rechnet die Regel
+            // ein zweites Mal, und eine Probe, die nur sie liest, misst die
+            // Regel gegen sich selbst statt gegen das Verhalten.
+            pausiert: v ? v.paused : null,
+            lage: !v ? "kein-video"
+              : (v.readyState < 1 || !isFinite(v.duration) || !v.duration)
+                ? "ohne-metadaten"
+              : (rest == null || rest > FRIST_DECKEL) ? "ohne-frist"
+              : rest >= v.duration ? "wartet"
+              : v.paused ? "steht" : "laeuft"
+          };
+        });
+      },
       bau: CFG.build,
       deck: DECK,
       rolle: ROLLE,

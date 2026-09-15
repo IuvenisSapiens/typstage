@@ -2009,6 +2009,48 @@ Video von sich aus nur stumm anlaufen. `radius` rundet die Ecken, `at` und
 `enter` sagen wie bei jedem Element, ab welchem Schritt es da ist. Auf Papier
 steht das `poster`; ohne `poster` bleibt im Handout ein leeres Rechteck.
 
+=== Ein Video, das zur Glocke endet
+
+Vor der Stunde läuft ein Musikvideo, und es soll in dem Augenblick aufhören, in
+dem die Stunde beginnt. `ends-at` sagt nicht, wann es anfängt, sondern wann es
+zu Ende sein soll:
+
+// check: folie
+#show-code[```typ
+#video("intro.mp4", width: 100%, height: 100%, muted: false, ends-at: "08:15")
+```]
+
+Beim Betreten der Folie liest die Laufzeit die Länge des Videos und setzt es so
+weit hinein, dass sein letztes Bild auf diese Minute fällt. Wer den Raum um
+08:11 aufschließt, bekommt die letzten vier Minuten; wer um 08:07 kommt, die
+letzten acht.
+
+- Liegt die Glocke weiter weg, als das Video lang ist, wartet es auf seinem
+  ersten Bild und läuft von selbst an, wenn sein Augenblick kommt.
+- Liegt sie mehr als eine Stunde entfernt oder ist die Zeit unlesbar, gibt es
+  keinen Plan und das Video spielt von vorn. Das erschlägt zwei Fälle mit
+  einem Satz: den Rechner, der über Nacht angeblieben ist, und die Minute nach
+  der Glocke, in der „das nächste Mal 08:15" dreiundzwanzig Stunden hieße.
+- Verdunkeln und zurück rechnet neu, statt fortzusetzen. Vierzig Sekunden
+  Schwarz verschöben das Ende sonst um vierzig Sekunden.
+
+Gerechnet wird mit der Uhr des Raums, nicht mit der des Vortrags. Wer die
+Stunde von der ersten auf die dritte verlegt, ändert mit `room: (bell: …)` eine
+Zeile statt einer je Video:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(room: (bell: "09:50"))
+```]
+
+Ein `video(ends-at: auto)` nimmt die Zeit dann von dort.
+
+#warning[
+  Ein Video mit Ton läuft ohne Zutun nicht an -- Browser lassen das nur stumm
+  zu. Ein Klick oder ein Tastendruck im Fenster gibt es frei, und danach läuft
+  auch das nächste.
+]
+
 == Daumenkino
 
 Bei `flipbook` zeichnet Typst jedes Einzelbild: `render` bekommt `t` von 0.0 bis
@@ -2919,6 +2961,7 @@ Die Tasten der Ansicht, die `?` dort auch selbst zeigt:
   [`b`], [den Saal schwarz schalten],
   [`e`], [das Bild im Saal auf diesem Schritt einfrieren],
   [`n`], [das Vortragsfenster nach vorn holen],
+  [`1`…`9`], [so viele Minuten als Uhr auf der Folie; `0` beendet sie],
   [`t`], [die Klassenuhr, im Saal als Vollbild],
   [`⇧t`], [dieselbe Uhr, aber auf der Folie statt über ihr],
   [`⇧←` `⇧→`], [eine Minute weniger oder mehr, während eine Uhr läuft],
@@ -3206,6 +3249,96 @@ einmal beendet die Uhr.
 
 Gestartet wird dadurch nichts: `⇧T` bietet die zwölf Minuten an, die Lehrkraft
 bestätigt oder ändert sie, und erst dann läuft die Uhr.
+
+=== Die Ziffern stellen die Uhr
+
+Eine Frage am Stundenanfang, ein Gespräch zu zweit: die Hand liegt ohnehin auf
+der Tastatur, und eine Zahl ist kürzer als `t`, Feld, Zahl, `Eingabe`. `3`
+startet drei Minuten, `7` sieben, `0` beendet sie wieder.
+
+Gestartet wird die angeheftete Uhr. Die Frage bleibt damit stehen, während die
+Zeit läuft, und Blättern beendet sie nicht. Und sie geht ohne zweites Fenster:
+ein Rechner am Beamer genügt. Die Uhr war bisher nur am Pult erreichbar, und
+das ist nicht die Anordnung, in der man unterrichtet.
+
+Auf einer Folie mit `cue()`-Gruppe gehören die Ziffern der Gruppe. Das gilt für
+die ganze Folie und nicht für den einzelnen Anschlag: auch eine Ziffer, die die
+Gruppe nicht hat, und der zweite Druck auf denselben Punkt starten dort keine
+Uhr. Eine Folie gehört entweder den Punkten oder der Uhr, und welche von beiden
+sagt die Folie selbst.
+
+`b` verdunkelt den Saal und lässt die angeheftete Uhr stehen: wer während einer
+Gruppenarbeit verdunkelt, nimmt der Klasse die Ablenkung und nicht ihre Zeit.
+Die Vollbilduhr weicht weiterhin -- sie deckt den Saal ohnehin zu.
+
+=== Wie ruhig die Uhr liest
+
+Eine Uhr, die im Sekundentakt springt, zieht den Blick jedes Mal von der
+Aufgabe weg. `room` setzt den Schritt für das ganze Deck:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(
+  room: (clock: (step: 5)),     // die Zahl springt nur alle fünf Sekunden
+)
+```]
+
+Die letzte Stufe zählt trotzdem einzeln herunter -- 0:15, 0:10, 0:05, 0:04,
+0:03, 0:02, 0:01, 0:00. Eine Uhr, die volle fünf Sekunden lang 0:00 zeigt,
+während noch Zeit übrig ist, schickt die Klasse zu früh nach Hause.
+
+Der Schritt muss 60 teilen: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 oder 60
+Sekunden. Statt der Zahl geht auch `duration(seconds: 5)`. Was nicht aufgeht,
+wird schon beim Übersetzen abgelehnt:
+
+// check: dokument bricht=has_to_divide_60_evenly
+#show-code[```typ
+#show: presentation.with(room: (clock: (step: 7)))
+```]
+
+Sonst stimmte die Zahl schon im Augenblick des Starts nicht: eine
+`class-clock(1)` stünde bei sieben Sekunden Schritt sofort auf 0:56, und das
+liest sich wie ein Fehler der Uhr und nicht wie einer der Einstellung.
+
+Am Deck und nicht an der Folie, und das ist Absicht. Wie grob die Uhr liest,
+ist eine Eigenschaft des Auges und nicht der Aufgabe; eine laufende Uhr, die
+beim Blättern ihren Rhythmus wechselte, sähe aus wie ein Fehler. Wie lange eine
+Aufgabe dauern soll, ist dagegen tatsächlich je Folie verschieden -- dafür gibt
+es `class-clock`.
+
+`room: (clock: (digits: false))` gibt die Ziffern wieder frei; wer die Uhr ganz
+abbestellt, nimmt `speaker-view: (clock: false)` und verliert die Ziffern mit.
+
+=== Ein Klang auf einer Taste
+
+Ein Signal, das die Klasse kennt: „Schluss, aufräumen." `room` bindet eine
+Taste an eine Tondatei.
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(
+  room: (sounds: (a: "airhorn.mp3", g: "gong.mp3")),
+)
+```]
+
+Die Datei reist neben der HTML-Datei, wie jede andere Mediendatei auch; das
+Paket bringt keinen Klang mit. Gehört wird er im Saal und nur dort: am Pult
+sitzt die Lehrkraft vor dem Gerät, im Raum steht die Anlage, und zweimal ist
+der Ton nie zu hören. Gedrückt werden darf die Taste in beiden Fenstern.
+
+Frei sind die Buchstaben #raw("a g h i j k p q s u v w y") -- die übrigen
+gehören der Laufzeit, und ein belegter wird schon beim Übersetzen abgelehnt,
+mit der Liste der freien dabei:
+
+// check: dokument bricht=the_runtime_already_has_that_key
+#show-code[```typ
+#show: presentation.with(room: (sounds: (b: "gong.mp3")))
+```] Die gewählten Tasten stehen in der Tastenleiste
+der Sprecheransicht, denn der übersetzte Hilfetext kann sie nicht kennen.
+
+Fehlt die Datei, meldet die Laufzeit das beim Laden und nicht erst, wenn jemand
+drückt: bei einem fehlenden Bild sieht man ein leeres Rechteck, bei einem
+fehlenden Ton nichts.
 
 == Was auf dem Papier fehlt -- und was man dafür vorsieht
 

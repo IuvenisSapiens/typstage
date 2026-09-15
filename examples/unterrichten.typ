@@ -8,11 +8,13 @@
 // them, and the deck's job is to say how long each burst was meant to be --
 // that is what `class-clock` is for.
 //
-// It starts nothing. `Shift+T` in the presenter view offers the number, the
-// teacher confirms or changes it, and only then does the clock run: the deck
-// knows how long the task was planned for, the room decides how long it gets.
-// And because that clock stands *on* the slide instead of over it, the task
-// stays readable while it counts, and paging ahead does not end it.
+// It starts nothing. `Shift+T` offers the number, the teacher confirms or
+// changes it, and only then does the clock run: the deck knows how long the
+// task was planned for, the room decides how long it gets. Faster still, and
+// without a second window at all: a digit. `5` starts five minutes on the
+// spot. Both start the same pinned clock -- it stands *on* the slide instead
+// of over it, so the task stays readable while it counts, and paging ahead
+// does not end it.
 //
 // Written for somebody who holds it: every working slide carries the minutes,
 // a note, and nothing the class has to wait for.
@@ -33,6 +35,11 @@
   // The planned length of the hour. The presenter view compares it with the
   // time actually spent and says whether the lesson is ahead or behind.
   duration: 45,
+  // Wie die Uhr im Raum gelesen wird. Ein Sekundentakt zieht den Blick jedes
+  // Mal von der Aufgabe weg, während die Klasse rechnet; alle fünf Sekunden
+  // ist ruhig genug, um sie im Vorbeisehen zu lesen. Die letzte Stufe zählt
+  // trotzdem einzeln, damit niemand zu früh aufhört.
+  room: (clock: (step: 5)),
   style: it => { v(1fr); it; v(1fr) },
 )
 

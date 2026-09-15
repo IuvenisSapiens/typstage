@@ -922,10 +922,17 @@ html[data-ts-rolle="speaker"][data-ts-modus="radier"] #ts-stage{cursor:cell}
 html[data-ts-schwarz="1"],html[data-ts-schwarz="1"] body{background:#000}
 html[data-ts-schwarz="1"] #ts-stage,html[data-ts-schwarz="1"] #ts-chrome,
 html[data-ts-schwarz="1"] #ts-fly,html[data-ts-schwarz="1"] #ts-ink,
-/* Und die Uhr dazu. Ohne diese Nennung blieb sie bei `b` voll stehen --
-   gemessen: die Buehne war weg, die Ziffern nicht. Wer schwarz drueckt,
-   will nichts sehen, auch keine Uhr. Schwarz gewinnt. */
-html[data-ts-schwarz="1"] #ts-clock{opacity:0}
+/* Und die Vollbilduhr dazu. Ohne diese Nennung blieb sie bei `b` voll
+   stehen -- gemessen: die Buehne war weg, die Ziffern nicht. Wer schwarz
+   drueckt, will die Folie nicht sehen. Schwarz gewinnt.
+
+   Die ANGEHEFTETE Uhr ist davon ausgenommen, und das ist eine Umkehr der
+   Regel von damals. Sie ist keine Folie, sondern das Instrument der Klasse,
+   die gerade arbeitet: wer waehrend einer Gruppenarbeit `b` drueckt, nimmt
+   der Klasse die Ablenkung und nicht ihre Zeit. Mit den Zifferntasten ist
+   genau das der haeufige Fall geworden -- vorher verschwand die Uhr
+   lautlos und kam beim Aufhellen mit veraenderter Zahl zurueck. */
+html[data-ts-schwarz="1"] #ts-clock:not([data-art="fest"]){opacity:0}
 @media print{
   html,body{overflow:visible;background:#fff;height:auto}
   #ts-stage{position:static;width:100%!important;height:auto!important}

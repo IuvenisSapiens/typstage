@@ -36,6 +36,23 @@
 ///
 /// Without a `poster:` the placeholder on paper is labelled
 /// `<ts-media-poster>`.
+///
+/// `ends-at` makes the video end at a time of day rather than start at one:
+/// give it `"08:15"` and the runtime reads the video's own length when the
+/// slide comes up and starts it far enough in that its last frame falls on
+/// that minute. A music video before the lesson thus ends as the lesson
+/// begins, whenever the room was opened.
+///
+/// - Further away than the video is long: it waits on its first frame and
+///   starts by itself when its moment comes.
+/// - More than an hour away, or unreadable: the plan is dropped and the video
+///   plays from the start, exactly as before.
+/// - `auto` takes the time from `room: (bell: "08:15")`, so moving a lesson
+///   from the first period to the third is one line and not one per video.
+///
+/// The time is the room's wall clock, not stage time: blacking out and coming
+/// back re-computes rather than resumes, since forty seconds of black would
+/// otherwise move the end by forty seconds.
 #let video(
   src,
   width: 100%,
@@ -48,19 +65,34 @@
   radius: 0pt,
   at: "1-",
   enter: "fade",
-) = track(
-  "video",
-  box(width: width, height: height, clip: true, radius: radius,
-      if poster == none {
-        set rect(fill: luma(92%))
-        [#rect(width: 100%, height: 100%) <ts-media-poster>]
-      } else {
-        { set image(width: 100%, height: 100%, fit: "cover"); poster }
-      }),
-  at: at,
-  extra: (src: src, autoplay: autoplay, loop: loop, muted: muted,
-          controls: controls, radius: radius.pt(), enter: enter),
-)
+  ends-at: none,
+) = {
+  assert(ends-at == none or ends-at == auto
+         or (type(ends-at) == str and ends-at.match(regex("^[0-9]{1,2}:[0-5][0-9]$")) != none
+             and int(ends-at.split(":").first()) <= 23),
+    message: "typstage: video(ends-at: …) is a time of day as \"HH:MM\" on a "
+      + "24-hour clock, `auto` for the deck's room.bell, or none. Not "
+      + repr(ends-at))
+  track(
+    "video",
+    box(width: width, height: height, clip: true, radius: radius,
+        if poster == none {
+          set rect(fill: luma(92%))
+          [#rect(width: 100%, height: 100%) <ts-media-poster>]
+        } else {
+          { set image(width: 100%, height: 100%, fit: "cover"); poster }
+        }),
+    at: at,
+    extra: (src: src, autoplay: autoplay, loop: loop, muted: muted,
+            controls: controls, radius: radius.pt(), enter: enter,
+            // `auto` reist als das WORT "auto" und nicht als der Wert: der
+            // Wert fiele in `sprite-markup` still aus `extra` heraus, das
+            // Attribut erschiene nie, und das Video spielte von vorn, ohne
+            // dass irgendwo etwas meldet. Aufgelöst wird es drüben gegen
+            // `room.bell`, denn hier ist die Präsentation nicht zu sehen.
+            ends-at: if ends-at == auto { "auto" } else { ends-at }),
+  )
+}
 
 // What gets prepended to every embedded document so it behaves like a
 // part of the slide instead of a web page in a hole.

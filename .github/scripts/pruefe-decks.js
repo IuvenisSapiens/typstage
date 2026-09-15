@@ -333,6 +333,21 @@ const SOLL_HINWEIS = [
   "Laufzeitwoerter um 97, drei neue Schluessel und zwei laengere Hilfetexte.",
   "Ihre linux-Werte waren schon fort und sind es geblieben.",
   "",
+  "Die Zifferntasten haben sprecher in allen 18 Decks um genau vier gehoben:",
+  "zwei neue Eintraege in der Gruppe Zeit: des Hilfetexts (1-9 und 0), je ein",
+  "span und ein kbd. Derselbe Betrag ueberall -- das ist selbst die Probe --,",
+  "und die beiden geteilten sprecher-Werte (theme-night, geogebra-sprecher)",
+  "sind von Hand um dieselben vier nachgezogen.",
+  "",
+  "pruefdeck/satz und satzBytes haben sich dabei um 621 Bytes verschoben, und",
+  "die Zahl geht auf: das Stilblatt ist um 461 Bytes gewachsen -- es steht mit",
+  "im Satz, herausgeschnitten wird nur der JS-Block -- und die CFG-JSON um",
+  "160. Davon sind 52 das neue room-Feld und 108 die Laufzeitwoerter: zwei",
+  "laengere Hilfetexte und ein neuer Schluessel fuer die Gruppe der",
+  "Klangtasten. Gemessen an einem Deck, das gegen beide Staende uebersetzt",
+  "wurde. Ihre linux-Werte sind nach der Regel oben entfernt; der naechste",
+  "CI-Lauf nennt die neuen.",
+  "",
   "Der Griff zwischen Folie und Notiz hat sprecher in allen Decks mit Notizen",
   "um genau eins gehoben: ein div, das die Laufzeit unbedingt anhaengt, ohne",
   "Text und ohne Kinder -- die Pille ist ein ::before und zaehlt nicht mit.",
@@ -1080,7 +1095,7 @@ async function uhrProbe(b, datei) {
 // ── Der Durchlauf, als ein Stück Seitencode ─────────────────────────────────
 const DURCHLAUF = `(async function () {
   var p = typstage.pruef, S = typstage.steps;
-  if (p.fassung !== 3) return JSON.stringify({ fassungFehler: p.fassung });
+  if (p.fassung !== 4) return JSON.stringify({ fassungFehler: p.fassung });
   p.uhr(${UHR});
   var vor = [], zurueck = [], fristen = 0, flyDom = 0, flyDomRueck = 0;
   var FLY = document.getElementById("ts-fly");
@@ -1810,7 +1825,7 @@ const kurz = s => (s == null ? "nichts" : (s.length > 220 ? s.slice(0, 217) + ".
     }
     const r = JSON.parse(await b.ev(DURCHLAUF));
     if (r.fassungFehler) {
-      z.maengel.push("Messfläche in Fassung " + r.fassungFehler + ", erwartet 3");
+      z.maengel.push("Messfläche in Fassung " + r.fassungFehler + ", erwartet 4");
       bericht.push(z); schlecht++; continue;
     }
 

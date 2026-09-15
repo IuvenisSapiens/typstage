@@ -438,6 +438,7 @@
   palette: (:),
   transition: "slide",
   speaker-view: (:),
+  room: (:),
   transition-duration: 420,
   duration: 520,
   style: it => it,
@@ -458,8 +459,8 @@
     "typstage: presentation() does not know "
     + slides.named().keys().join(", ")
     + ". It takes title, subtitle, author, date, assets, theme, palette, "
-    + "transition, transition-duration, duration, speaker-view, style, width, "
-    + "height, margin, handout, overflow, drift, slide-level, "
+    + "transition, transition-duration, duration, speaker-view, room, style, "
+    + "width, height, margin, handout, overflow, drift, slide-level, "
     + "section-numbering and pages.")
   assert(pages in ("slide", "step"), message:
     "typstage: pages is \"slide\" -- one page per slide, every tracked "
@@ -540,6 +541,77 @@
              and stift.colors.all(f => type(f) == color), message:
         "typstage: speaker-view.pen.colors is a non-empty list of colours, "
         + "written as colours and not as strings. Not " + repr(stift.colors))
+    }
+  }
+  // Was der Saal sieht und hoert. Das Gegenstueck zu `speaker-view`: dort
+  // steht, was nur der Vortragende sieht, hier, was im Raum ankommt. Der Name
+  // ist keine Erfindung -- die Hilfezeile nennt diese Gruppe seit je "Saal:".
+  assert(type(room) == dictionary, message:
+    "typstage: room takes a dictionary, not " + str(type(room))
+    + ". It knows clock, sounds and bell.")
+  for k in room.keys() {
+    assert(k in ("clock", "sounds", "bell"), message:
+      "typstage: room has no entry \"" + k + "\". It takes clock (how the "
+      + "class clock reads in the hall, and whether the digit keys start it), "
+      + "sounds (a key, a sound file) and bell (when the lesson begins).")
+  }
+  if "bell" in room {
+    assert(type(room.bell) == str
+           and room.bell.match(regex("^[0-9]{1,2}:[0-5][0-9]$")) != none
+           and int(room.bell.split(":").first()) <= 23,
+      message: "typstage: room.bell is the time the lesson begins, as "
+        + "\"HH:MM\" on a 24-hour clock. A `video(ends-at: auto)` ends on it. "
+        + "Not " + repr(room.bell))
+  }
+  if "clock" in room {
+    let uhr = room.clock
+    assert(type(uhr) == dictionary, message:
+      "typstage: room.clock takes a dictionary with step and digits, not "
+      + repr(uhr) + ". To hide the clock entirely, speaker-view: (clock: false).")
+    for k in uhr.keys() {
+      assert(k in ("step", "digits"), message:
+        "typstage: room.clock has no entry \"" + k + "\". It takes step (how "
+        + "coarsely the clock reads) and digits (whether 1 to 9 start it).")
+    }
+    if "step" in uhr {
+      let s = uhr.step
+      assert(type(s) == int or type(s) == duration, message:
+        "typstage: room.clock.step is a number of seconds or a duration, not "
+        + repr(s) + ". Write 5 or duration(seconds: 5).")
+      let sek = if type(s) == duration { s.seconds() } else { s }
+      // Der Schritt muss 60 teilen. Sonst stimmt die Zahl schon im Augenblick
+      // des Starts nicht: eine `class-clock(1)` staende bei einem Schritt von
+      // 7 Sekunden sofort auf 0:56, und das liest sich wie ein Fehler der Uhr
+      // und nicht wie einer der Einstellung.
+      assert(type(sek) == int and sek >= 1 and sek <= 60 and calc.rem(60, sek) == 0,
+        message: "typstage: room.clock.step has to divide 60 evenly -- 1, 2, "
+        + "3, 4, 5, 6, 10, 12, 15, 20, 30 or 60 seconds. Not " + repr(s))
+    }
+    if "digits" in uhr {
+      assert(type(uhr.digits) == bool, message:
+        "typstage: room.clock.digits is true or false, not " + repr(uhr.digits))
+    }
+  }
+  if "sounds" in room {
+    let toene = room.sounds
+    assert(type(toene) == dictionary, message:
+      "typstage: room.sounds takes a dictionary of key to sound file, like "
+      + "(a: \"airhorn.mp3\"). Not " + repr(toene))
+    // Die Liste steht hier und wird nicht aus der Laufzeit abgeschrieben: die
+    // Tastentabelle der Bruecke kennt `d` und `l` nicht, obwohl beide belegt
+    // sind, und wer von dort abschreibt, gibt Zieldauer und hell/dunkel weg.
+    let frei = ("a", "g", "h", "i", "j", "k", "p", "q", "s", "u", "v", "w", "y")
+    for (taste, datei) in toene.pairs() {
+      assert(taste in frei, message:
+        "typstage: room.sounds cannot use \"" + taste + "\" -- the runtime "
+        + "already has that key, or it is not a single letter. Free are "
+        + frei.join(", ") + ".")
+      assert(type(datei) == str and datei != "", message:
+        "typstage: room.sounds." + taste + " is the name of a sound file that "
+        + "travels beside the HTML, like \"airhorn.mp3\". Not " + repr(datei))
+      // Eine Zeichenkette aus dem Deck landet in einem Skriptzusammenhang.
+      assert(not datei.contains("<"), message:
+        "typstage: room.sounds." + taste + " may not contain \"<\".")
     }
   }
   uebergang-pruefen(transition, "presentation")
@@ -1148,6 +1220,23 @@
       html.elem("div", attrs: (class: "ts-clock-word"), [])
       html.elem("div", attrs: (class: "ts-clock-num"), [])
     })
+    // Die Klänge. Sie stehen im Chrom und nicht in einer Folie, und zwar aus
+    // drei Gründen: durch `track` wäre ein Ton eine Marke ohne Fläche und
+    // liefe in den dokumentierten Fehlerfall; auf einer Folie hinge er an
+    // deren Schritten, obwohl er zu keinem gehört; und auf Papier gäbe es
+    // etwas zu unterdrücken, das dort gar nicht hingehört. So ist der Ton
+    // ein Gerät des Raums, wie die Uhr daneben.
+    //
+    // `preload="auto"`: wer die Taste drückt, will den Ton jetzt und nicht
+    // nach dem Laden. Eine Airhorn-Datei ist klein.
+    if "sounds" in room {
+      for (taste, datei) in room.sounds.pairs() {
+        html.elem("audio", attrs: (
+          class: "ts-sound", "data-key": taste,
+          src: datei, preload: "auto",
+        ), [])
+      }
+    }
     // A delayed morph is not yet present on the first step of its slide.
     // That is harmless as long as the slide before it does not carry a morph
     // of the same name. Otherwise the flight between the two is lost, and
@@ -1247,6 +1336,20 @@
         // The runtime displays two sentences itself. Which language is
         // decided by the slide's `text.lang`, not the runtime, which does
         // not know the document. English is the fallback.
+        // Was der Saal sieht. Flach und in Sekunden: die Laufzeit kennt
+        // keine Typst-Dauer, und ein verschachteltes Dictionary waere dort
+        // nur eine zweite Stelle, an der ein fehlender Schluessel auffangen
+        // werden muesste.
+        + ",\"room\":" + json.encode((
+            clockStep: if "clock" in room and "step" in room.clock {
+              let s = room.clock.step
+              if type(s) == duration { s.seconds() } else { s }
+            } else { 1 },
+            clockKeys: if "clock" in room and "digits" in room.clock {
+              room.clock.digits
+            } else { true },
+            bell: room.at("bell", default: none),
+          ))
         + ",\"words\":" + json.encode((
             noNote: worte.no-note,
             help: worte.help,

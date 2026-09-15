@@ -245,6 +245,7 @@ three steps, and `→` goes to the next one wherever it is.
 | `Home`, `End` | first and last step, without motion |
 | `o`, `Esc` | overview of all slides |
 | `f` | full screen |
+| `1`…`9` | that many minutes as a clock on the slide; `0` ends it |
 | `n` | open the speaker view in a second window |
 | `?` | the key map |
 
@@ -290,6 +291,27 @@ A deck can order less of it:
 
 A tile that is switched off takes its keys with it, and they leave the key bar
 with them.
+
+## What reaches the room
+
+`speaker-view` says what only the speaker sees; `room` says what reaches the
+class. The clock is the one they share: `1` to `9` start it in whichever window
+has the keyboard, so a single machine at a beamer needs no second window at all.
+
+```typ
+#show: presentation.with(room: (
+  clock: (step: 5),                          // the clock reads in five-second steps
+  sounds: (a: "airhorn.mp3"),                // a key, a sound, played in the hall
+  bell: "08:15",                             // when the lesson begins
+))
+```
+
+`step` calms a clock that would otherwise jump every second while the class is
+working; the last five seconds still count down singly. A sound file travels
+beside the HTML like any other media, and the package ships none of its own. And
+`bell` is what a `video(ends-at: auto)` ends on: the runtime reads the video's
+length and starts it far enough in that its last frame falls on that minute, so
+the music before the lesson stops as the lesson starts.
 
 ## On paper
 
