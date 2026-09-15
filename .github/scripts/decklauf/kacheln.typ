@@ -12,7 +12,7 @@
 // Geprüft wird in `pruefe-decks.js`, `kachelProbe`, an der HTML-Ausgabe und
 // ohne Browser: was hier zu sehen ist, entsteht in Typst.
 
-#import "@preview/typstage:0.1.1": *
+#import "@preview/typstage:0.1.2": *
 
 #show: presentation.with(
   title: [Kacheln mit Kurve],

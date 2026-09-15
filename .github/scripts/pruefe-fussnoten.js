@@ -24,7 +24,7 @@ const arg = (n, v) => { const i = process.argv.indexOf(n); return i > 0 ? proces
 const CHROME = arg("--browser",
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
 
-const DECK = `#import "@preview/typstage:0.1.1": *
+const DECK = `#import "@preview/typstage:0.1.2": *
 #show: presentation.with(theme: themes.lesson, title: [Fußnoten])
 
 == Aufdecken
@@ -46,7 +46,7 @@ const anmerkungen = `(function(){
   const paket = fs.mkdtempSync(path.join(os.tmpdir(), "typstage-fn-pkg-"));
   for (const raum of ["schule", "preview"]) {
     fs.mkdirSync(path.join(paket, raum, "typstage"), { recursive: true });
-    fs.symlinkSync(WURZEL, path.join(paket, raum, "typstage", "0.1.1"));
+    fs.symlinkSync(WURZEL, path.join(paket, raum, "typstage", "0.1.2"));
   }
   fs.writeFileSync(path.join(tmp, "deck.typ"), DECK);
   try {

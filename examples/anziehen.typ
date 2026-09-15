@@ -14,7 +14,7 @@
 // And `overflow: "error"`: a talk about design that shipped a slide running
 // off its own canvas would be arguing against itself.
 
-#import "@preview/typstage:0.1.1": *
+#import "@preview/typstage:0.1.2": *
 
 // ── The palette ────────────────────────────────────────────────────────────
 // Five of the eight entries. `surface`, `border` and `inverted` are not named

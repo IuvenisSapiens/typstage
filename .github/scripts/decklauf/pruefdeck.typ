@@ -17,7 +17,7 @@
 // hinzufügt, schreibt hin, was am Deck kaputtgehen muss, damit der Lauf es
 // meldet. Wer etwas wegnimmt, nimmt eine Prüfung weg.
 
-#import "@preview/typstage:0.1.1": *
+#import "@preview/typstage:0.1.2": *
 
 #show: presentation.with(
   title: [Prüfdeck],

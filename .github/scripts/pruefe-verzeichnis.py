@@ -21,7 +21,7 @@ import os, subprocess, sys, tempfile
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-KOPF = '''#import "@preview/typstage:0.1.1": *
+KOPF = '''#import "@preview/typstage:0.1.2": *
 #show: presentation.with(title: [V], slide-level: 3)
 = Teil eins
 == Kapitel A
@@ -59,7 +59,7 @@ def main():
         for raum in ("schule", "preview"):
             ziel = os.path.join(paket, raum, "typstage")
             os.makedirs(ziel, exist_ok=True)
-            os.symlink(WURZEL, os.path.join(ziel, "0.1.1"))
+            os.symlink(WURZEL, os.path.join(ziel, "0.1.2"))
         klagen = []
 
         # 1. `when` je Eintrag. Das Deck prüft sich selbst: eine Renderfunktion,

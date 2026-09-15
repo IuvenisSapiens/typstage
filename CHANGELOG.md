@@ -62,6 +62,12 @@ All notable changes to this package are recorded here. The format follows
 
 ### Changed
 
+- **The runtime files are now `typstage-0.1.2.css` and `typstage-0.1.2.js`.**
+  They carry the version, so a deck with `assets: "files"` writes and links the
+  new names; nothing changes for the default, which embeds them. The published
+  0.1.1 stays exactly as it is on Universe -- its directory is frozen, and this
+  is the version that follows it.
+
 - **The pinned clock survives blacking out.** `b` used to hide every clock, on
   the reasoning that whoever blacks out wants to see nothing. That was right for
   the full-screen clock, which covers the hall anyway, and wrong for the pinned

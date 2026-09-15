@@ -23,7 +23,7 @@ import os, re, subprocess, sys, tempfile
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-RUMPF = """#import "@preview/typstage:0.1.1": *
+RUMPF = """#import "@preview/typstage:0.1.2": *
 #show: presentation.with(title: [Konvergenz])
 
 == Folie
@@ -53,7 +53,7 @@ FAELLE = {
 OFFEN = {}
 
 # `camera` zielt auf ein `pin` und braucht deshalb einen eigenen Rumpf.
-KAMERA = """#import "@preview/typstage:0.1.1": *
+KAMERA = """#import "@preview/typstage:0.1.2": *
 #show: presentation.with(title: [Konvergenz])
 
 == Folie
@@ -86,7 +86,7 @@ def main():
         for raum in ("schule", "preview"):
             ziel = os.path.join(paket, raum, "typstage")
             os.makedirs(ziel, exist_ok=True)
-            os.symlink(WURZEL, os.path.join(ziel, "0.1.1"))
+            os.symlink(WURZEL, os.path.join(ziel, "0.1.2"))
         klagen = []
         pflicht = [(name, RUMPF.format(aufruf=a)) for name, a in FAELLE.items()]
         pflicht.append(("camera", KAMERA))

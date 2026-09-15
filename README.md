@@ -7,7 +7,7 @@ the handout as PDF from that same file.**
 
 [![Badge linking to the typstage manual](https://img.shields.io/badge/docs-manual-green)](https://loewe1000.github.io/typstage/)
 [![Badge linking to seventeen example decks](https://img.shields.io/badge/demo-seventeen%20decks-blue)](https://loewe1000.github.io/typstage/beispiele/en.html)
-[![Badge linking to the changelog for version 0.1.1](https://img.shields.io/badge/changelog-0.1.1-lightgrey)](CHANGELOG.md)
+[![Badge linking to the changelog for version 0.1.2](https://img.shields.io/badge/changelog-0.1.2-lightgrey)](CHANGELOG.md)
 ![Badge showing the license this package is released under](https://img.shields.io/github/license/Loewe1000/typstage)
 
 ```bash
@@ -46,7 +46,7 @@ One source, three outputs:
 This file compiles, as it stands, with both commands above.
 
 ```typ
-#import "@preview/typstage:0.1.1": *
+#import "@preview/typstage:0.1.2": *
 
 #show: presentation.with(
   title: [The Pythagorean Theorem],
@@ -140,7 +140,7 @@ Nothing to install. Import it and Typst fetches the package on the first
 compile:
 
 ```typ
-#import "@preview/typstage:0.1.1": *
+#import "@preview/typstage:0.1.2": *
 ```
 
 To work on the package itself, clone it under the local package path. A clone
@@ -149,7 +149,7 @@ that sits there is found before the published one, so the same
 
 ```bash
 git clone https://github.com/Loewe1000/typstage \
-  ~/Library/Application\ Support/typst/packages/preview/typstage/0.1.1
+  ~/Library/Application\ Support/typst/packages/preview/typstage/0.1.2
 ```
 
 On Linux that path is `~/.local/share/typst/packages/preview/…`, on Windows
@@ -449,7 +449,7 @@ single run.
 
 The price stands in the list above: an experimental export, files measured in
 megabytes, outlines instead of text, five themes rather than a hundred, and a
-version number that begins with a zero. Mosaic is at 0.0.1 and this at 0.1.1;
+version number that begins with a zero. Mosaic is at 0.0.1 and this at 0.1.2;
 neither of us has earned a habit yet.
 
 `examples/` holds three decks adapted from Mosaic's own, so that part of the
