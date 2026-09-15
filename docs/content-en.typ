@@ -2647,6 +2647,24 @@ takes the full width; from three on they stand *beside*. Under a slide at least
 four lines remain: a 4:3 slide that would otherwise take the whole height at two
 per page is made narrower for them.
 
+== Bookmarks
+
+The PDF carries an outline, like any other Typst document: one entry per
+slide, sections above them, the title slide at the top. In a reader that is
+the sidebar you jump with instead of paging.
+
+None of it is visible. Each slide places a heading that `hide` strips of ink
+and `place` takes out of the flow; it exists only to be bookmarked. The detour
+is needed because the headings that cut the deck into slides become
+dictionaries on the way and never reach the document, so without the silent
+heading there would be nothing for Typst to build an outline from.
+
+A heading a deck writes inside a slide body gets *no* bookmark of its own. It
+would otherwise sit beside the slide's own, and under `pages: "step"` once per
+step page as well -- the same name several times, on pages that do not show
+it. A slide without a title stays out of the outline; an empty entry is worse
+than none.
+
 == What the paper leaves out — and what to plan for
 
 #table(

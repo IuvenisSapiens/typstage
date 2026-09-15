@@ -1002,7 +1002,16 @@
                  + counter(footnote).update(0)
                  + (if wechselt { theme-state.update(thema(s)) } else { none })
                  + slide-body(s, style, geo, thema(s), overflow: overflow,
-                              schritt: k, nr: nr))
+                              schritt: k, nr: nr,
+                              // Abschnitte auf ihrer Ebene, Folien eine
+                              // darunter, die Titelfolie ganz oben. So
+                              // haengen die Folien im Verzeichnis unter dem
+                              // Abschnitt, zu dem sie gehoeren.
+                              buchtiefe: if s.kind == "section" {
+                                s.at("depth", default: 1)
+                              } else if s.kind == "title" { 1 } else {
+                                facts.at(i).data.at("levels", default: ()).len() + 1
+                              }))
         }
       }
       seiten.join(pagebreak(weak: true))

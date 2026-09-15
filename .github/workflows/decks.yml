@@ -164,6 +164,15 @@ jobs:
           ffmpeg -version >/dev/null 2>&1 || sudo apt-get install -y ffmpeg
           node .github/scripts/pruefe-video-frist.js
 
+      # Trägt das PDF ein Lesezeichenverzeichnis? Ein Foliensatz ohne ist im
+      # Reader ein Stapel ohne Griff. Gelesen wird die Datei selbst, über
+      # qpdf -- Lesezeichen sind eine Eigenschaft des PDF und keine der
+      # Anzeige, und ein Browser sieht davon nichts.
+      - name: Das PDF trägt Lesezeichen
+        run: |
+          qpdf --version >/dev/null 2>&1 || sudo apt-get install -y qpdf
+          python3 .github/scripts/pruefe-lesezeichen.py
+
       # Tragen alle drei Sprachen dieselben Schlüssel? Ein fehlender fällt
       # still auf den englischen Rückfall in `wort(k, …)` zurück -- kein
       # Fehler, keine Meldung, und in der französischen Ansicht steht plötzlich

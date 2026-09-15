@@ -56,6 +56,7 @@ readers who are not in this repository.
 | `pruefe-uhr-ziffern.js` | the digits set the class clock, and a `cue()` slide keeps them |
 | `pruefe-klang.js` | a key plays a sound, in the hall and not at the desk |
 | `pruefe-video-frist.js` | a video ends on the minute the lesson begins |
+| `pruefe-lesezeichen.py` | the PDF carries an outline, one entry per slide |
 | `pruefe-woerter.py` | de, en and fr carry the same runtime words |
 | `pruefe-cue-pfeil.js` | a `cue()` group claims the arrow only when due |
 | `pruefe-cue-folien.js` | a `cue()` group stays on its slide, a layer on its point |

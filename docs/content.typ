@@ -3340,6 +3340,25 @@ Fehlt die Datei, meldet die Laufzeit das beim Laden und nicht erst, wenn jemand
 drückt: bei einem fehlenden Bild sieht man ein leeres Rechteck, bei einem
 fehlenden Ton nichts.
 
+== Lesezeichen
+
+Das PDF trägt ein Verzeichnis, wie jedes andere Typst-Dokument auch: ein
+Eintrag je Folie, Abschnitte darüber, die Titelfolie ganz oben. Im Reader ist
+das die Leiste, mit der man springt, statt zu blättern.
+
+Sichtbar ist davon nichts. Jede Folie legt dafür eine Überschrift, der `hide`
+die Tinte und `place` den Platz nimmt; sie steht nur da, um ein Lesezeichen zu
+tragen. Nötig ist der Umweg, weil die Überschriften, die das Deck in Folien
+schneiden, dabei zu Wörterbüchern werden und das Dokument nie erreichen --
+ohne die stille Überschrift gäbe es nichts, woraus Typst ein Verzeichnis bauen
+könnte.
+
+Eine Überschrift, die ein Deck in einen Folienrumpf schreibt, bekommt *kein*
+eigenes Lesezeichen. Sie bekäme sonst eines neben dem der Folie, und unter
+`pages: "step"` je Schrittseite noch eines -- derselbe Name mehrfach, auf
+Seiten, auf denen er nicht steht. Eine Folie ohne Titel bleibt aus dem
+Verzeichnis heraus; ein leerer Eintrag ist schlechter als keiner.
+
 == Was auf dem Papier fehlt -- und was man dafür vorsieht
 
 #table(

@@ -60,6 +60,21 @@ All notable changes to this package are recorded here. The format follows
   the free ones listed, and a missing file is reported at load rather than when
   somebody presses the key.
 
+- **The PDF carries an outline again.** A deck used to produce no bookmarks at
+  all: the headings that cut it into slides become dictionaries on the way and
+  never reach the document, so there was nothing for Typst to build an outline
+  from, and the reader's sidebar stayed empty. Each slide now carries a real
+  heading that sets nothing -- `hide` takes its ink, `place` its place in the
+  flow -- and exists only to be bookmarked. Sections sit at their own depth
+  with their slides below them, and the title slide at the top. Measured over
+  five example decks: 75 pages pixel for pixel unchanged, and the HTML of three
+  of them byte for byte. Under `pages: "step"` the entry belongs to the slide and not to
+  each of its step pages. A heading a deck writes inside a slide body no longer
+  produces a bookmark of its own: it used to, and under `pages: "step"` it was
+  emitted once per step page, so the same name appeared several times pointing
+  at pages that did not show it. Reported as bookmarks that "deviate from that
+  generated in normal Typst file".
+
 ### Changed
 
 - **The runtime files are now `typstage-0.1.2.css` and `typstage-0.1.2.js`.**

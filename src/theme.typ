@@ -27,7 +27,7 @@
 #import "config.typ": *
 #import "internal.typ": (cue-basis, deck-info, folien-notizen, html-output,
                         marker, note-state, notiz-marke-ab,
-                        papier-schritt,
+                        papier-modus, papier-schritt,
                         papier-zahlen,
                         plain-text, slide-counter, sprite-number, step-cursor,
                         step-here, ueberlauf-pruefen, umgebungs-block)
@@ -218,10 +218,24 @@
 /// den Zustand mit, bekämen alle Seiten einer Folie denselben Aufruf mit
 /// denselben Argumenten -- und Typst gibt für gleichen Inhalt das gemerkte
 /// Layout zurück, also viermal dieselbe Seite.
+/// `buchtiefe` ist die Ebene, auf der diese Folie im Lesezeichenverzeichnis
+/// des PDF steht. Sie kommt als Argument und wird nicht hier aus `deck-info`
+/// gelesen: eine Lesung an dieser Stelle kostete ein Deck mit vielen
+/// Schritten die Konvergenz -- eine Zahl, die aus der laufenden Folie stammt
+/// und in deren eigenen Satz zurueckfliesst, ist genau der Kreis, den dieses
+/// Paket an mehreren Stellen schon einmal gebaut und wieder ausgebaut hat.
 #let slide-body(s, style, geo, t, chrome: true, overflow: "none",
-                schritt: none, nr: none) = block(
+                schritt: none, nr: none, buchtiefe: 1) = block(
   width: geo.width, height: geo.height,
 {
+  // Ueberschriften, die ein Deck selbst in einen Folienrumpf schreibt, tragen
+  // KEIN eigenes Lesezeichen. Sie bekaemen sonst eines neben dem der Folie,
+  // und unter `pages: "step"` je Schrittseite noch eines: gemessen stand
+  // derselbe Name viermal im Verzeichnis und zeigte auf Seiten, auf denen er
+  // gar nicht steht. Genau das hat ein Melder als "deviate from normal Typst"
+  // beschrieben. Das Lesezeichen der Folie unten setzt `bookmarked` als
+  // Argument und sticht diese Regel damit aus.
+  set heading(bookmarked: false)
   papier-schritt.update(schritt)
   // A mark at the end of the slide, so that a footer inside it can ask the
   // step cursor how far it got. The mark carries the slide's running number,
@@ -486,8 +500,40 @@
         schritte: html-output.get()))
     }
   }
+  // ── Das Lesezeichen dieser Folie ──────────────────────────────────────
+  //
+  // Ein Foliensatz ohne Lesezeichen ist im Reader ein Stapel ohne Griff. Ein
+  // gewoehnliches Typst-Dokument bekommt eines umsonst, weil seine
+  // Ueberschriften im Dokument stehen; hier stehen sie nicht mehr, denn sie
+  // schneiden das Deck in Folien und werden dabei zu Woerterbuechern
+  // (present.typ, `split-body`). Der Folientitel ist danach `text` und keine
+  // Ueberschrift mehr -- gemessen: `query(heading).len()` ist in jedem Deck 0,
+  // und ein PDF von hier trug ueberhaupt kein /Outlines.
+  //
+  // Also eine echte Ueberschrift, die nichts setzt: `hide` nimmt ihr die
+  // Tinte, `place` den Platz im Fluss. `outlined: false` haelt sie aus einem
+  // `outline()`, das ein Deck selbst setzt; `bookmarked: true` ist der einzige
+  // Zweck. Gemessen an fuenf Beispieldecks: 75 Seiten Bild fuer Bild
+  // unveraendert, und das HTML von drei Decks bytegleich.
+  //
+  // Nur auf der ERSTEN Seite einer Folie. Ohne `pages: "step"` traegt die
+  // einzige Seite die *letzte* Schrittzahl, darum die Frage nach dem Modus und
+  // nicht bloss `schritt == 1`.
+  //
+  // Und nichts im Browser: dort fuehrt die Laufzeit durch das Deck, und ein
+  // Lesezeichen gibt es nicht.
+  let lesezeichen = place(top + start, context {
+    let erste = schritt == none or schritt == 1 or papier-modus.get() != "step"
+    let titel = s.at("title", default: none)
+    // Eine Folie ohne Titel hat nichts zu benennen; ein leerer Eintrag im
+    // Verzeichnis ist schlechter als keiner.
+    let leer = titel == none or plain-text(titel).trim() == ""
+    if html-output.get() or not erste or leer { [] } else {
+      hide(heading(level: buchtiefe, outlined: false, bookmarked: true, titel))
+    }
+  })
   // Last, because only here has the cursor seen every reveal of the slide.
-  navigations-ziel + schritt-summe
+  navigations-ziel + schritt-summe + lesezeichen
 })
 
 /// A hook that wraps a document template around every body and every sprite.
@@ -595,7 +641,12 @@
         // `start` again, so nothing in it reads from the wrong side.
         align(top + left, scale(w / geo.width * 100%, origin: top + left,
               slide-body(item.slide, style, geo, thema(item.slide),
-                         overflow: overflow, nr: item.fakten.nr)))
+                         overflow: overflow, nr: item.fakten.nr,
+                         buchtiefe: if item.slide.kind == "section" {
+                           item.slide.at("depth", default: 1)
+                         } else if item.slide.kind == "title" { 1 } else {
+                           item.fakten.data.at("levels", default: ()).len() + 1
+                         })))
       }) <ts-handout-frame>]
     }
 
