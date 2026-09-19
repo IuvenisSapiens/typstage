@@ -1,6 +1,6 @@
 // Appearing, moving and staggering.
 
-#import "internal.typ": (auto-morph-nr, cue-basis, deck-info,
+#import "internal.typ": (auto-morph-nr, cue-basis, deck-info, nackt,
                         papier-modus, papier-schritt,
                         drift-ausweg, drift-modus,
                         drift-satz, drift-toleranz, durchsichtig,
@@ -300,7 +300,13 @@
         // erst am Dokumentende auf. Gemessen: auf allen drei Seiten der
         // Endwert. Übereinander liegen die Fassungen gefahrlos, weil die
         // unzutreffenden `hide` bekommen und nur ihren Platz behalten.
-        block(width: w, height: h, {
+        //
+        // `nackt`, hier und im Browserzweig: `w` und `h` sind ohne den Einzug
+        // einer `set block`-Regel des Decks gemessen, und mit ihm stauchte
+        // dieser Kasten die Fassung um ihn. Unter `#set block(inset: 8pt)`
+        // brach der Text eines eigenen Blocks des Decks darin um und lief unten
+        // aus dessen Rahmen, in beiden Ausgaben. Dasselbe in `build`.
+        block(..nackt, width: w, height: h, {
           for (i, v) in items.enumerate() {
             place(align, anim-kern(
               v,
@@ -329,7 +335,7 @@
     let mname = if morph == true {
       "ts-alternatives-" + str(auto-morph-nr.get().first())
     } else if morph != false { name-of(morph) }
-    block(width: w, height: h, {
+    block(..nackt, width: w, height: h, {
       for (i, v) in items.enumerate() {
         // Ein Morph mit ausgeschriebenem `start` zieht den Zeiger selbst auf
         // seinen Schritt, aus dem Argument und ohne Lesung, wie die Fassung
@@ -1462,7 +1468,8 @@
         // stünde in einem `layout` und löste sich erst am Dokumentende auf.
         let letzt = steps - 1
         let stufen-von(i) = if at != auto { at.at(i) } else { erster + i }
-        block(width: breite, height: hoehe, {
+        // `nackt` wie in `alternatives`, hier und im Browserzweig (siehe dort).
+        block(..nackt, width: breite, height: hoehe, {
           for (i, st) in stufen.enumerate() {
             let bereich = if i == letzt { str(stufen-von(i)) + "-" } else {
               str(stufen-von(i)) + "-" + str(stufen-von(i + 1) - 1)
@@ -1482,7 +1489,7 @@
     // die Stufen lückenlos aufeinanderfolgen -- ein ausgeschriebenes `at:`
     // nennt eigene Nummern mit Lücken dazwischen, die `track` nicht kennt.
     let auto-kette = at == auto and start == auto
-    block(width: breite, height: hoehe, {
+    block(..nackt, width: breite, height: hoehe, {
       for (i, s) in stufen.enumerate() {
         // Jede Stufe hält genau ihren Schritt, die letzte den Rest der Folie.
         // Eine Stufe, die bliebe, läge unter der nächsten und würde ein
@@ -1800,10 +1807,17 @@
       // Papier über die Folie. Gemessen an einer 320x190pt-Zeichnung in
       // `scene(width: 200pt, height: 100pt)`: sie deckte zwei von drei
       // Textzeilen darunter zu, während der Browser sie am Kasten abschnitt.
+      //
+      // Und `nackt`, hier und im Browserzweig: dort ist dieser Kasten eine
+      // `box`, hier ein `block`, und jeder nahm nur die Regel seiner eigenen
+      // Art an. Unter `#set block(inset: 8pt)` stand die Szene auf Papier um
+      // den Einzug weiter rechts und tiefer als im Browser, 15 px bei 1600 px
+      // Bühnenbreite; unter `#set box(inset: 8pt)` im Browser 16 px weiter als
+      // auf Papier.
       if still != auto {
-        block(width: width, height: height, clip: true, still)
+        block(..nackt, width: width, height: height, clip: true, still)
       } else {
-        block(width: width, height: height, clip: true, {
+        block(..nackt, width: width, height: height, clip: true, {
           for i in range(stops.len()) {
             place(top + left, anim-kern(
               male(stops.at(i)),
@@ -1849,9 +1863,12 @@
         drift-satz(if im-deck() { deck-info.get().data.slide.number } else { 0 },
                    erster, befund.bilder, befund.lagen, befund.breit, befund.hoch)
       }
+      // `nackt` wie der Block auf Papier (siehe dort), das Standbild und jedes
+      // Bild der Reihe. Ohne das zog `#set box(fill: …, stroke: …)` nur im
+      // Browser einen Kasten um die Szene.
       track(
         "scene",
-        box(width: width, height: height, clip: true, bilder.first()),
+        box(..nackt, width: width, height: height, clip: true, bilder.first()),
         at: str(erster) + "-",
         extra: (
           stops: stops.len(), tween: tween, from: erster, enter: enter,
@@ -1862,7 +1879,7 @@
           // sichtbar auseinander.
           pull: if duration == auto { none } else { duration },
         ),
-        raw-frames: bilder.map(b => box(
+        raw-frames: bilder.map(b => box(..nackt,
           width: width, height: height, clip: true, b,
         )),
       )

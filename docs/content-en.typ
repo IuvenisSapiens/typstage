@@ -1445,8 +1445,8 @@ What travels is the slide: background and the layer of revealed parts above it,
 with the same transform. The furniture does *not* -- footer, page number, progress
 and running header sit as their own layer above the stage, hold still while the
 slide grows underneath them, and stay legible. The title travels; it stands in the
-body. What leaves the frame is cut at the edge of the stage, and drawn ink stays
-put.
+body, and so does a footer built by hand into the body. What leaves the frame is
+cut at the edge of the stage, and drawn ink stays put.
 
 === How far it goes
 
@@ -3428,7 +3428,10 @@ values.
 `equal: true` makes every column the height of the tallest; without it each box
 stands as tall as its own text, and two cards side by side look differently
 weighted. The row is measured once and its height handed on as a length, which
-is why `equal` reaches `card` and `callout` rather than arbitrary content.
+is why `equal` reaches `card` and `callout` rather than arbitrary content. To
+reveal one of them, put the `anim` inside the box, `card[#anim[…]]`, not the box
+into an `anim`: in the browser a revealed box stands only as tall as its own
+text.
 
 === tiles: the grid that numbers its own reveals
 
@@ -3807,9 +3810,12 @@ for a video. An ordinary `show` rule reaches it -- no theme key, no fork.
 Two kinds of rule cover all of it. The *surfaces* -- grounds, bands, hairlines,
 bars, boxes -- take `set rect(..)`, `set block(..)`, `set circle(..)` or
 `set line(..)`. The *type* takes `set text(..)`. Both apply identically in HTML
-and PDF, with one exception: the six labels under /Media and handout/ are drawn
+and PDF, with two exceptions: the six labels under /Media and handout/ are drawn
 only in the PDF, because the browser puts the real `<video>` or `<iframe>` in
-their place.
+their place; and `ts-slide-progress` under `progress: "bar"` and `"top"`. In
+the browser the runtime draws that bar itself, so that it can grow on a slide
+change, in the theme's colour and height: no rule on the label or on `rect`
+reaches it there. Under `progress: "tick"` such a rule reaches both outputs.
 
 #warning[
   *For the surfaces* the short form works and the long one does not:
@@ -3882,7 +3888,9 @@ content, see the next box.
 The slide's *arrangement* is not reachable either. How tall the header builds,
 how far the rule sits under the title, where the bar goes -- no `show` rule
 reaches into that. The theme keys are there for it: `head-gap`, `band-height`,
-`rule-size` and the rest.
+`rule-size` and the rest. What a rule can do is move a finished piece as a
+whole: `move` on `ts-slide-footer` shifts the number, see "Moving the built-in
+number".
 
 #warning[
   A rule on `block` or `rect` reaches *inwards*: it holds for the labelled
@@ -4178,6 +4186,40 @@ everything at once, and `step.number` equals `step.total`.
   building block that consumes a step, and the PDF names the same number.
 ]
 
+=== Moving the built-in number
+
+The theme places the footer, and no rule reaches that place. What stands there
+can still be moved as a whole, with a rule on `ts-slide-footer` that wraps it
+in `move`. `move` shifts the drawing and leaves everything around it where it
+was, so the number moves by the same amount on paper and in the browser:
+
+#show-code[```typ
+#show <ts-slide-footer>: move.with(dx: 14pt, dy: 8pt)
+#show: presentation
+```]
+
+Positive values go right and down. Like every label rule it stands *before*
+`#show: presentation`. The running header of `header: "run"`, where
+`themes.lesson` carries its number, moves the same way with a rule on
+`ts-slide-header-text` -- the whole line, section title included, while the
+hairline under it stays where it is. `presentation(margin: …)` moves the number
+as well, and the body with it: the number keeps the side margin's distance from
+the edge. A margin in `em` counts against the theme's type size, in the PDF and
+in the browser alike.
+
+#warning[
+  *Not with the page.* The browser has no page. `page.width`, `page.height`
+  and `page.margin` report the document's page there (Typst's A4 sheet unless
+  the deck sets one) instead of the slide, and `here().position()` reports
+  (0, 0) -- a `move` or a `place` computed from them lands somewhere else in
+  the HTML than in the PDF.
+  `counter(page)` counts pages, of which the HTML has none, so it stays at 1;
+  the slide number is `info().slide.number`. And `#set page(footer: …)`,
+  `numbering:` or `foreground:` draw into the page margin or over the page: a
+  slide has no margin, and Typst's HTML export drops page rules altogether, so
+  a number drawn that way shows in the PDF at most and never in the HTML.
+]
+
 === Where a hand-built footer goes
 
 typstage draws no footer on a title or a section slide, and nothing belongs in
@@ -4199,6 +4241,17 @@ On an ordinary slide it goes into the body:
 #footline
 The text of the slide.
 ```]
+
+At the top of the body, that is: before the first `#pause`, and not inside
+`anim`, `stagger`, `alternatives` or any other building block that reveals.
+Behind a `#pause` the footer belongs to its run and stands level with the run's
+last line instead of at the foot of the slide, in both outputs -- as long as it
+is a `place`. Pushed down with `#v(1fr)` instead, it reaches the foot of the
+slide in the PDF and falls below the stage in the browser. Inside a reveal the
+browser sets the piece in a frame of its own that begins where the piece
+begins, and a `place(bottom + …)` in there lands lower in the HTML than in the
+PDF, down to below the stage. At the top it aligns against the body, and does
+so in both.
 
 On the title and the section slides it has to go into the theme: both are
 functions, and a function wrapped around another adds to it instead of
@@ -4230,6 +4283,10 @@ replacing it.
   A footer placed in the body sits at the bottom of the *body*, not at the
   bottom of the slide; the theme's `foot-gap` lies in between. A `dy:` on the
   `place` moves it where it belongs.
+
+  Being part of the body, it is part of the slide: a `camera` takes it along
+  and it can leave the frame, while the built-in number stays put (see "What
+  travels along and what stays put").
 ]
 
 #warning[

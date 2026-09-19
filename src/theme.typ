@@ -27,7 +27,7 @@
 #import "config.typ": *
 #import "internal.typ": (cue-basis, deck-info, folien-notizen, html-output,
                         leerer-titel, titel-hat-text,
-                        marker, note-state, notiz-marke-ab,
+                        marker, nackt, note-state, notiz-marke-ab,
                         papier-modus, papier-schritt, papier-verborgen,
                         papier-zahlen, im-dokument,
                         plain-text, slide-counter, sprite-number, step-cursor,
@@ -122,21 +122,68 @@
   let k = geo.scale
   let m = margins(geo)
   let inner = geo.width - m.left - m.right
-  block(width: geo.width, height: geo.height, {
-    // Die Schrift des Themes, ausdruecklich. Auf dem Papier liegt die Zier
-    // in der Seite und erbt sie von `slide-body`; im Browser ist sie eine
-    // eigene Ebene ueber der Buehne und damit ausserhalb jenes Geltungs-
-    // bereichs. Ohne diese Zeile fielen laufender Kopf und Foliennummer dort
-    // auf Typsts Vorgabeserife zurueck -- in jedem Deck mit einer Grotesk,
-    // also fast allen, und nur im HTML. Nachgemessen an `unterrichten`.
+  // `nackt`, aus demselben Grund wie die Schrift darunter: auf Papier liegt
+  // dieser Block in `slide-body`, im Browser ist er die Wurzel eines eigenen
+  // Rahmens, und eine `set block`-Regel des Decks erreichte beide verschieden.
+  // Ein `#set block(inset: 10pt)` vor `presentation` rückte die Zahl nur im
+  // HTML um 10pt nach links oben (auf Papier hob der Block von `slide-body` es
+  // auf), und ein `#set block(fill: …)` legte diesen Block als Fläche über
+  // die Folie: auf Papier über Grund und Titelband, im Browser über alles,
+  // den Rumpf eingeschlossen.
+  block(..nackt, width: geo.width, height: geo.height, {
+    // Schrift, Größe und Farbe des Themes, wie `slide-body` sie für den Rumpf
+    // setzt. Auf dem Papier liegt die Zier in der Seite und erbt sie von
+    // dort; im Browser ist sie eine eigene Ebene über der Bühne und damit
+    // außerhalb jenes Geltungsbereichs.
+    //
+    // Die Schrift fehlte dort einmal ganz: laufender Kopf und Foliennummer
+    // fielen im HTML auf Typsts Vorgabeserife zurück -- in jedem Deck mit
+    // einer Grotesk, also fast allen. Nachgemessen an `unterrichten`.
+    //
+    // Die Größe fehlte bis zu Issue #16, und sie trägt jede Länge in `em`,
+    // die hier aufgelöst wird: der Rand aus `presentation(margin: 1em)`,
+    // `foot-gap` und der Versatz eines `am-ende`. Auf Papier galt dafür
+    // `t.size * k` (24pt im Standardthema), im Browser die Schrift des
+    // Dokuments (11pt) -- mit `margin: 1em` stand die Zahl im HTML 13pt weiter
+    // rechts, bei 1600 px Bühnenbreite 25 px, und mit einem eigenen Versatz
+    // zur Kante verschwand ihre letzte Ziffer unter dem Rand der Bühne,
+    // während das PDF sie ganz zeigte. `themes.lesson` verrutschte den
+    // Laufkopf ebenso nach links oben, eine Fußlinie mit `foot-gap: 2em`
+    // um 26pt nach unten.
+    //
+    // Größe und Farbe aber nur im Browser. Auf Papier stehen sie schon da,
+    // gesetzt von `slide-body` um diese Zier herum, und ein zweites `set`
+    // zählte eine Themengröße in `em` doppelt: mit `themes.default + (size:
+    // 2em)` und `margin: 1em` rückte die Nummer im PDF sonst um 22pt nach
+    // links, die Laufzeile von `themes.lesson` mit `size: 1.8em` um 24pt ein.
     set text(..font-args(t.font))
+    set text(size: t.size * k, fill: t.ink) if html-output.get()
+    // Und alles darin `nackt`. Ein `rect` nimmt in Typst 0.15 Einzug, Fläche
+    // und Rand einer `set block`-Regel an: unter `#set block(inset: 8pt)` kam
+    // die Leiste auf Papier als Block von 8pt Höhe heraus, um den Einzug vom
+    // Rand abgerückt, während die Laufzeit im Browser ihre eigene zieht,
+    // 2,5 Folienpunkte hoch und von der Kante an. Eine Label-Regel des Decks
+    // steht näher an ihrer Form und sticht diese Zeile weiterhin aus.
+    //
+    // Nackt sind aber nur die Rahmen des Pakets. Was das Deck selbst in die
+    // Zier legt -- einen `block` aus einer Regel auf `ts-slide-footer` oder
+    // `ts-slide-header-text` --, bekommt die Regel des Decks zurück, wie der
+    // Rumpf in `track` und die Zeile einer Anmerkung. Ohne das verlor unter
+    // `#set block(inset: 6pt)` ein Kasten, den eine solche Regel um die
+    // Nummer legt, seinen Einzug, auf Papier und im Browser. Gelesen hier, wo
+    // noch die Regel des Decks gilt.
+    let deck-block = (inset: block.inset, outset: block.outset, fill: block.fill,
+                      stroke: block.stroke, radius: block.radius, clip: block.clip,
+                      width: block.width, height: block.height)
+    let des-decks(it) = { set block(..deck-block); it }
+    set block(..nackt)
     // The textbook's running header: page number on the left, chapter on
     // the right, a hairline underneath. It belongs to the layer above the
     // stage, not to the slide. It stays in place while paging, as does
     // the footer, otherwise the orientation it is meant to give would
     // travel out with the slide.
     if t.header == "run" and laufzeile {
-      let zeile = text(size: 11.5pt * k, fill: t.muted, [#{
+      let zeile = text(size: 11.5pt * k, fill: t.muted, des-decks[#{
         str(n)
         if sect != none [ #h(1fr) #sect ]
       } <ts-slide-header-text>])
@@ -158,7 +205,7 @@
     // restyles as a whole, the number is the part it may want smaller or in
     // another color on its own. Both attach, because the outer one lands on
     // the enclosing group rather than on the same element.
-    let zahl = [#[#{
+    let zahl = des-decks[#[#{
       if t.footer == "fraction" { str(n) + " / " + str(total) } else { str(n) }
     } <ts-slide-number>] <ts-slide-footer>]
     if t.footer == "center" {
@@ -248,9 +295,15 @@
 /// Schritten die Konvergenz -- eine Zahl, die aus der laufenden Folie stammt
 /// und in deren eigenen Satz zurueckfliesst, ist genau der Kreis, den dieses
 /// Paket an mehreren Stellen schon einmal gebaut und wieder ausgebaut hat.
+///
+/// Der Block ist `nackt`: er ist die Seite, und eine `set block`-Regel des
+/// Decks gilt dessen eigenen Blöcken, nicht ihr. Ein `#set block(inset:
+/// 10pt)` vor `presentation` rückte sonst auf Papier alles darin um 10pt ein,
+/// den Grund der Folie und die Zier eingeschlossen -- die Zier dort, aber nicht
+/// im Browser (siehe `slide-chrome`).
 #let slide-body(s, style, geo, t, chrome: true, overflow: "none",
                 schritt: none, nr: none, buchtiefe: 1) = block(
-  width: geo.width, height: geo.height,
+  ..nackt, width: geo.width, height: geo.height,
 {
   // Ueberschriften, die ein Deck selbst in einen Folienrumpf schreibt, tragen
   // KEIN eigenes Lesezeichen. Sie bekaemen sonst eines neben dem der Folie,
@@ -549,8 +602,14 @@
     //
     // Eine Folie mit `bleed` gar keins: das Bild reicht bis an die Kante, und
     // eine Nummer, eine Haarlinie oder die Leiste lägen mitten darin.
+    //
+    // `dx` und `dy` ausdrücklich null: ein `place` ohne sie nimmt, was eine
+    // `set place`-Regel des Decks sagt. Im Browser steht die Zier in keinem
+    // `place`, sondern als eigener Rahmen über der Bühne; ein
+    // `#set place(dx: 10pt, dy: 10pt)` vor `presentation` verschob sie also
+    // nur auf Papier, gemessen um 10pt nach rechts unten.
     if chrome and randlos == none {
-      place(top + left, slide-chrome(geo, t, laufzeile: titel))
+      place(top + left, dx: 0pt, dy: 0pt, slide-chrome(geo, t, laufzeile: titel))
     }
 
     // The room the deck's content gets, and the one measure the overflow
@@ -674,8 +733,31 @@
       } else { () }
       let verborgen(f) = not im-browser and papier-verborgen(f, marken, k-seite)
       if fn.len() > 0 {
+        // `nackt`, dieser Block und alles darin, wie die Zier: im Browser
+        // steht jede Anmerkung als Sprite von der vollen Breite `inner` in
+        // ihrem Schlitz, und eine `set block`-Regel des Decks machte die
+        // Schlitze um ihre Einzüge schmaler und höher -- die Laufzeit
+        // stauchte den Sprite hinein. Gemessen unter `#set block(inset: 8pt)`
+        // an einer langen Anmerkung: ohne die Regel darin stand sie im Browser
+        // 8pt höher als auf Papier und endete 27pt früher, ohne das Argument
+        // am Block endete sie 13pt früher.
+        //
+        // Nackt sind aber nur die Rahmen des Pakets. Die Zeile der Anmerkung
+        // bekommt die Regel des Decks zurück, wie der Rumpf in `track`: der
+        // Sprite (`notiz-sprites` in render.typ) setzt sie mit ihr, und der
+        // Schlitz muss so hoch sein wie sie dort. Gelesen hier, vor dem
+        // Zurücksetzen. Ohne das verlor unter `#set block(inset: 8pt)` ein
+        // eigener Block in einer Anmerkung auf Papier seinen Einzug, und im
+        // Browser stauchte die Laufzeit den höheren Sprite in den zu
+        // niedrigen Schlitz: bei 1600 px Bühnenbreite stand die Anmerkung
+        // 223 px neben ihrem Ort, auf gut zwei Drittel verkleinert.
+        let deck-block = (inset: block.inset, outset: block.outset,
+                          fill: block.fill, stroke: block.stroke,
+                          radius: block.radius, clip: block.clip,
+                          width: block.width, height: block.height)
         place(bottom + left, dx: m.left, dy: -(t.foot-gap + 12pt) * k,
-          block(width: inner, {
+          block(..nackt, width: inner, {
+            set block(..nackt)
             set text(size: t.size * 0.62 * k, fill: t.muted)
             set par(leading: 0.5em, spacing: 0.35em)
             block(above: 0pt, below: 0.45em, {
@@ -691,7 +773,7 @@
                   "typstage: a slide cannot carry more than "
                   + str(notiz-marke-ab) + " footnotes.")
                 let zahl = counter(footnote).at(f.location()).first()
-                let zeile = notiz-zeile(t, k, zahl, f.body)
+                let zeile = { set block(..deck-block); notiz-zeile(t, k, zahl, f.body) }
                 block(above: if i == 0 { 0pt } else { 0.35em }, below: 0pt,
                       if im-browser {
                         block(width: 100%, fill: marker(notiz-marke-ab + i),
@@ -782,6 +864,9 @@
   set figure(numbering: nummern.figure) if nummern != none
   set math.equation(numbering: nummern.equation) if nummern != none
   set heading(numbering: nummern.heading) if nummern != none
+  // Die Blockregel vom Ort des Elements (siehe `block` im Stil, den `track`
+  // mitgibt).
+  set block(..s.style.at("block", default: (:)))
   body
 }
 

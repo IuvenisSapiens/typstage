@@ -104,7 +104,14 @@ function aufraeumenAnmelden(profil, kind) {
 
 async function starte(binaer) {
   const profil = fs.mkdtempSync(path.join(os.tmpdir(), "typstage-cdp-"));
-  const port = 9200 + Math.floor(Math.random() * 700);
+  // Den Port vergibt das Betriebssystem (`0`), und Chrome schreibt ihn in die
+  // erste Zeile von `DevToolsActivePort` im eigenen Profil. Gewürfelt aus
+  // 9200-9899, wie bisher, konnte er schon einem anderen Chrome gehören -- dem
+  // einer Probe, die daneben läuft. Der neue kam dann nicht an den Port, und
+  // dieser Lauf sprach mit dem fremden: nachgestellt mit einem fremden Chrome
+  // auf dem gewürfelten Port, dessen Seite dieser Lauf dann las. Gesehen hatte
+  // das ein Prüfer, der mehrere Proben zugleich laufen ließ, als Bildschirmfoto
+  // eines fremden Decks.
   const kind = spawn(binaer, [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--mute-audio",
     "--force-device-scale-factor=1", "--hide-scrollbars",
@@ -112,20 +119,44 @@ async function starte(binaer) {
     // hier zählt jede davon als fremde Herkunft und wird abgelehnt.
     "--allow-file-access-from-files",
     `--user-data-dir=${profil}`, "--window-size=1600,900",
-    `--remote-debugging-port=${port}`, "about:blank"
+    "--remote-debugging-port=0", "about:blank"
   ], { stdio: "ignore" });
   if (!einmalGetan) { einmalGetan = true; alteProfileFegen(); wachHalten(); }
   aufraeumenAnmelden(profil, kind);
+  // Und für SIGKILL ein Wächter außerhalb von node, im Aufruf gleich dem in
+  // `bidi.js`. Die Haken oben erreicht ein SIGKILL nicht, und der Besen beim
+  // nächsten Start fegt nur Ordner, die sechs Stunden alt sind -- den Chrome
+  // darin nimmt er nicht mit. Gemessen ohne Wächter: node mit SIGKILL
+  // beendet, liefen nach 20 s noch sieben Chrome-Prozesse, und das Profil
+  // lag. Der Wächter schläft, solange node lebt, und nimmt danach nur einen
+  // Chrome, der noch DIESES Profil im Aufruf trägt.
+  try {
+    spawn("/bin/sh", ["-c",
+      'while kill -0 "$1" 2>/dev/null; do sleep 2; done; '
+      + 'if ps -p "$2" -o command= 2>/dev/null | grep -qF -- "$3"; then '
+      + 'kill "$2" 2>/dev/null; sleep 3; kill -9 "$2" 2>/dev/null; fi; '
+      + 'rm -rf -- "$3"', "waechter", String(process.pid), String(kind.pid), profil],
+      { detached: true, stdio: "ignore" }).unref();
+  } catch (e) { /* ohne Wächter wie bisher */ }
 
-  let ziel = null;
+  let port = 0, ziel = null;
   for (let i = 0; i < 120 && !ziel; i++) {
     await schlaf(250);
+    if (!port) {
+      try {
+        port = +fs.readFileSync(path.join(profil, "DevToolsActivePort"), "utf8").split("\n")[0];
+      } catch (e) { /* noch nicht geschrieben */ }
+      if (!port) continue;
+    }
     try {
       const liste = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
       ziel = liste.find(x => x.type === "page" && x.webSocketDebuggerUrl);
     } catch (e) { /* noch nicht oben */ }
   }
-  if (!ziel) { kind.kill(); throw new Error("Chrome meldete sich nicht auf " + port); }
+  if (!ziel) {
+    kind.kill();
+    throw new Error("Chrome meldete sich nicht" + (port ? " auf " + port : ", kein DevToolsActivePort"));
+  }
 
   const verbindung = await verbinde(ziel.webSocketDebuggerUrl, kind, profil);
   // Ein zweites Fenster, das das Deck selbst geöffnet hat (Taste `n`). Es

@@ -86,10 +86,19 @@ function alteProfileFegen() {
 
 async function starte(binaer) {
   const profil = fs.mkdtempSync(path.join(os.tmpdir(), "typstage-bidi-"));
-  const port = 9800 + Math.floor(Math.random() * 150);
+  // Den Port vergibt das Betriebssystem (`0`), wie in `cdp.js` und aus
+  // demselben Grund: ein gewürfelter konnte schon dem Browser einer Probe
+  // gehören, die daneben läuft, und dieser Lauf sprach dann mit ihm. Firefox
+  // nennt den Port in der Zeile "WebDriver BiDi listening on ws://..." auf
+  // stderr; die geht in eine Datei im eigenen Profil statt in eine Leitung,
+  // die node leeren müsste, solange Firefox lebt.
+  const fehlerDatei = path.join(profil, "typstage-stderr.txt");
+  const fd = fs.openSync(fehlerDatei, "w");
   const kind = spawn(binaer, ["--headless", "--no-remote", "--profile", profil,
-    "--remote-debugging-port", String(port), "about:blank"],
-    { stdio: "ignore", env: Object.assign({}, process.env, { MOZ_HEADLESS: "1" }) });
+    "--remote-debugging-port", "0", "about:blank"],
+    { stdio: ["ignore", "ignore", fd],
+      env: Object.assign({}, process.env, { MOZ_HEADLESS: "1" }) });
+  fs.closeSync(fd);
   alteProfileFegen();
   aufraeumenAnmelden(profil, kind);
   // Und fuer SIGKILL ein Waechter ausserhalb von node. Die Haken oben
@@ -108,11 +117,18 @@ async function starte(binaer) {
       { detached: true, stdio: "ignore" }).unref();
   } catch (e) { /* ohne Waechter wie bisher */ }
 
-  let ws = null;
+  let ws = null, adresse = null;
   for (let i = 0; i < 120 && !ws; i++) {
     await schlaf(250);
+    if (!adresse) {
+      try {
+        const m = /WebDriver BiDi listening on (ws:\/\/[^\s]+)/.exec(fs.readFileSync(fehlerDatei, "utf8"));
+        if (m) adresse = m[1];
+      } catch (e) { /* noch nichts geschrieben */ }
+      if (!adresse) continue;
+    }
     try {
-      const s = new WebSocket(`ws://127.0.0.1:${port}/session`);
+      const s = new WebSocket(`${adresse}/session`);
       await new Promise((r, j) => {
         s.addEventListener("open", r); s.addEventListener("error", j);
       });
@@ -123,7 +139,7 @@ async function starte(binaer) {
     kind.kill();
     try { fs.rmSync(profil, { recursive: true, force: true }); } catch (e) {}
     offeneProfile.delete(profil);
-    throw new Error("Firefox meldete sich nicht auf " + port);
+    throw new Error("Firefox meldete sich nicht" + (adresse ? " auf " + adresse : ", keine BiDi-Adresse auf stderr"));
   }
 
   // Reisst die Leitung ab, weil Firefox mitten im Lauf stirbt, bekam bisher

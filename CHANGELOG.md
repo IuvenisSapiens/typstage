@@ -290,6 +290,79 @@ All notable changes to this package are recorded here. The format follows
 
 ### Fixed
 
+- **The slide number stands in the browser where it stands in the PDF.**
+  Reported in issue #16: "6/34" whole in the PDF, "6/3" in the browser, its
+  last digit under the edge of the stage. In the browser the chrome -- number,
+  running header, footer line, progress -- is a layer of its own above the
+  stage and missed what the page gives it on paper: it resolved every length in
+  `em` against the document's 11pt instead of the theme's size. With
+  `presentation(margin: 1em)` the number stood 13pt further right, 25 pixels on
+  a 1600-pixel stage, and a shift of its own towards the corner pushed its last
+  digit under the edge -- the picture of the report, rebuilt on
+  `palettes.parchment`; the report names no `em`, so whether that was its cause
+  is open. `#set place(dx: …)` before the show rule moved the chrome on paper
+  only, `#set block(inset: …)` in the browser only, `#set block(fill: …)`
+  covered the slide body in the browser, and `#set page(flipped: true)` turned
+  every page upright. In the browser the chrome now takes the theme's size, a
+  deck's `set place` no longer reaches its place nor `set block` its frame, and
+  the page is never flipped; the print view and the speaker view follow. The
+  manuals gained "Moving the built-in number", and
+  `.github/scripts/pruefe-zier.js` compares the chrome in Chrome with the PDF
+  page. The example decks come out as before, apart from the progress bar
+  below.
+
+- **The progress bar is as thick in the browser as on paper.** The runtime drew
+  it 2.5 CSS points high, 3.33 pixels in any window, while the theme means 2.5
+  points of the *slide*: 4.75 pixels on a 1600-pixel stage, 5.7 on a 1920-pixel
+  one, 9.5 on a 3200-pixel one -- and 1.1 on a phone held upright, where the
+  browser's bar came out three times as thick as the printed one. Its height is
+  now a share of the stage, 0.5279 % on the default canvas, and measured at 375,
+  800, 1600, 1920 and 3200 pixels, with `themes.night`'s bar along the top and
+  on a 4:3 deck, it matches the PDF page within a pixel. Eight of the seventeen
+  example decks carry a bar, and their HTML differs in that one style value,
+  two bytes longer, and in nothing else.
+
+- **A deck's `set block` no longer lends its inset, fill, stroke, width or
+  height to the frames the package builds around content.** In Typst 0.15 a
+  `rect` and a `layout` take a `set block`'s inset, fill and stroke as well,
+  and the browser lays every revealed piece out in such frames, which paper
+  does not have. Under `#set block(inset: 8pt)` a word behind a `#pause` came
+  out in the browser at less than half its size and 424 pixels off on a
+  1600-pixel stage, an `anim(place(bottom + right, …))` vanished, and a
+  `scene` and a `flipbook` stood up to 77 pixels further right and 58 lower
+  than on paper; in both outputs the frames of `alternatives` and `build`
+  squeezed a block of the deck until its text ran out of it. Under
+  `#set block(width: 80%)` a block behind a `#pause` came out 236 pixels
+  narrower in the browser, and a long footnote was squeezed into 80 % of the
+  slide there. These frames, the chrome, the footnote block and the page now
+  take none of it -- on paper a footnote now runs the full width too --, while
+  the body of a revealed piece, the text of a footnote and a block the deck
+  puts into the chrome keep the deck's rule, in the sprite as well -- the body
+  of a revealed piece also when the rule stands after `#show: presentation`,
+  which reaches a footnote and the chrome in neither output. Still reached,
+  alike in both outputs: the theme's grounds, bands and rules and the frame of
+  the slide body.
+
+- **A deck's `set box` and `set rect` no longer reach the frames only the
+  browser draws.** There a `scene` and a `flipbook` stand in a `box`, a
+  `morph` in a line sits in one, and a revealed piece holds its place with a
+  marker that is a `rect`. Under `#set box(inset: 8pt)` all three stood 16
+  pixels further right and lower than on paper, under `#set box(fill: …,
+  stroke: …)` the browser alone drew a frame around a scene and a flip book,
+  and under `#set rect(outset: 8pt)` a run behind a `#pause` stood 15 pixels
+  further left, fitted into the larger marker.
+
+- **A footnote under a margin in `em` breaks in the browser where it breaks on
+  paper.** Its sprite resolved the margin against the document's 11pt instead
+  of the theme's size, the gap issue #16 found in the chrome: under
+  `presentation(margin: 1em)` it set a long footnote 26pt wider than the slot
+  that holds its place, broke it one word later than the PDF, and the runtime
+  squeezed it into the slot, its end 10 pixels short on a 1600-pixel stage. The
+  sprite now sets the theme's size and the footnote block's, as the slot does,
+  and the sixth deck of `pruefe-zier.js` carries such a footnote. The block's
+  size matters under a theme size in `em`, where the slot sets it twice; the
+  thirteenth deck carries a footnote under `themes.default + (size: 1.3em)`.
+
 - **The print view carries no stage progress bar.** `#ts-fortschritt` was left
   out of the print rule, so printing from the browser put the bar of the slide
   the talk stood on across the first page, over the bar that page carries itself.

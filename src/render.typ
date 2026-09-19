@@ -1,8 +1,8 @@
 // Turning tracked elements into HTML.
 
 #import "config.typ": *
-#import "internal.typ": (folien-notizen, notiz-marke-ab, notiz-selektoren,
-                        sprite-number)
+#import "internal.typ": (folien-notizen, nackt, notiz-marke-ab,
+                        notiz-selektoren, sprite-number)
 #import "theme.typ": notiz-zeile, with-style
 
 /// Die Anmerkungen einer Folie als Sprites.
@@ -42,7 +42,35 @@
       // Nur die Abweichung von der Vorgabe reist mit, wie bei jedem Sprite:
       // ein Deck ohne `dim` sieht danach aus wie eines von gestern.
       ..if s.at("after", default: none) != none { ("data-after": s.after) } else { (:) },
-    ), html.frame(block(width: inner, notiz-zeile(t, geo.scale, zahl, f.body))))
+    // `nackt` wie der Block der Anmerkungen in `slide-body`: dort steht der
+    // Schlitz in voller Breite `inner`, und so breit muss auch der Sprite
+    // setzen. Mit dem Einzug einer `set block`-Regel stand eine lange
+    // Anmerkung im Browser sonst 253pt weiter rechts, auf ein Drittel ihrer
+    // Breite gestaucht.
+    //
+    // Und in der Schriftgröße des Themes, wie der Schlitz in `slide-body`:
+    // `inner` trägt einen Rand in `em`, und der zählte hier gegen die
+    // Schrift des Dokuments (11pt) statt gegen die der Folie. Mit
+    // `presentation.with(margin: 1em)` rechnete der Sprite so im Standardthema
+    // mit zweimal 11pt Rand statt zweimal 24pt und setzte 26pt breiter als
+    // sein Schlitz. Gemessen brach er eine lange Anmerkung ein Wort später
+    // um, und die Laufzeit stauchte ihn hinein -- ihr Ende stand bei 1600 px
+    // Bühnenbreite 10 px zu weit links.
+    //
+    // Und darin die Größe des Anmerkungsblocks, wie in `slide-body`: dort
+    // setzt der Block `t.size * 0.62` und `notiz-zeile` noch einmal. Bei einer
+    // Größe in `pt` ist das zweite Setzen ohne Wirkung, bei einer in `em`
+    // zählt es mit -- mit `themes.default + (size: 1.3em)` setzte der Sprite
+    // ohne diese Zeile 1,24-mal so groß wie sein Schlitz, und die Laufzeit
+    // rückte ihn beim Einpassen bei 1600 px Bühnenbreite um 143 px nach
+    // rechts (Fall 13 in pruefe-zier.js).
+    ), html.frame({
+      set text(size: t.size * geo.scale)
+      block(..nackt, width: inner, {
+        set text(size: t.size * 0.62 * geo.scale)
+        notiz-zeile(t, geo.scale, zahl, f.body)
+      })
+    }))
   }).join()
 }
 
@@ -227,8 +255,8 @@
       // Gleichung im ersten Bild bei (1) und im letzten bei (4).
       s.raw-frames.map(f => html.elem("div", attrs: (class: "ts-frame"),
         sprite-klammer(s, ov,
-          html.frame(block(width: s.width, height: s.height,
-                           template(with-style(s, block(
+          html.frame(block(..nackt, width: s.width, height: s.height,
+                           template(with-style(s, block(..nackt,
                              width: s.region.width, height: s.region.height,
                              f)))))))).join())
   } else {
@@ -275,14 +303,21 @@
       // stands. Measured: the box sat right, the glyphs 293pt beside it,
       // exactly half the difference between region and frame. An explicit
       // `align` in the body still wins, since it sits further in.
-      let inhalt = template(with-style(s, block(
+      //
+      // Alle drei Blöcke `nackt`: auf Papier steht der Rumpf ohne sie, und
+      // eine `set block`-Regel des Decks setzte ihren Einzug hier zweimal um
+      // den Rumpf (siehe `nackt` in internal.typ). Gemessen unter `#set
+      // block(inset: 8pt)`: ein Wort hinter `#pause` stand im Browser 16pt
+      // weiter rechts und tiefer als auf Papier, und ein `anim(place(bottom +
+      // right, …))` war dort nicht mehr zu sehen.
+      let inhalt = template(with-style(s, block(..nackt,
         width: s.region.width, height: s.region.height, s.body)))
       // In der Klammer, damit die Zähler darin mit dem Stand des Hintergrunds
       // beginnen und die Folie danach nichts erbt (siehe `sprite-klammer`).
       sprite-klammer(s, ov, html.frame(if s.pad == 0pt {
-        block(width: s.width, height: s.height, inhalt)
+        block(..nackt, width: s.width, height: s.height, inhalt)
       } else {
-        block(width: s.width + 2 * s.pad, height: s.height + 2 * s.pad,
+        block(..nackt, width: s.width + 2 * s.pad, height: s.height + 2 * s.pad,
               place(top + left, dx: s.pad, dy: s.pad, inhalt))
       }))
     })

@@ -1,7 +1,7 @@
 // Video, embedded documents and Typst-drawn animation, plus what takes their
 // place on paper.
 
-#import "internal.typ": (track, fit-verbot, html-output, name-of,
+#import "internal.typ": (track, fit-verbot, html-output, name-of, nackt,
                          slide-counter)
 #import "config.typ": doc-word
 
@@ -229,13 +229,20 @@
   // dort zählt ein ausgeschriebenes `at` hinter Schritt eins mit, und nur dort
   // fehlt das Bild unter `pages: "step"` auf den Seiten, auf denen der Browser
   // es nicht zeigt.
-  track("flipbook", block(width: width, height: height,
+  //
+  // `nackt`, wie der Kasten einer Szene, hier und im Browserzweig: dort steht
+  // eine `box`, hier ein `block`, und jeder nahm nur die Regel seiner eigenen
+  // Art an. Unter `#set block(inset: 8pt)` stand das Bild auf Papier um den
+  // Einzug weiter rechts und tiefer als im Browser, unter `#set box(inset:
+  // 8pt)` im Browser weiter als auf Papier, und `#set box(fill: …, stroke: …)`
+  // zog nur im Browser einen Kasten darum.
+  track("flipbook", block(..nackt, width: width, height: height,
                           if still == auto { render(0.0) } else { still }),
         at: at)
 } else {
   track(
     "flipbook",
-    box(width: width, height: height, clip: true, render(0.0)),
+    box(..nackt, width: width, height: height, clip: true, render(0.0)),
     at: at,
     extra: (fps: fps, loop: loop, pingpong: pingpong, enter: enter),
     // How `t` is distributed over the frames depends on the playback mode:
@@ -251,7 +258,7 @@
     // With `pingpong`, on the other hand, `t = 1` is the turning point and
     // belongs to the sequence, as it does for a single playthrough, where
     // it is the end state.
-    raw-frames: range(frames).map(i => box(
+    raw-frames: range(frames).map(i => box(..nackt,
       width: width, height: height, clip: true,
       render(if frames <= 1 { 0.0 }
              else if loop and not pingpong { i / frames }

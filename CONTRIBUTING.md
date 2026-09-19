@@ -69,6 +69,7 @@ readers who are not in this repository.
 | `pruefe-ueberlauf.py` | no example deck runs over its slide |
 | `pruefe-vollbild.py` | `bleed` reaches the edges and takes the chrome off, a slide without a title has no running header, what may stand above `bleed` is kept, and every misplaced `bleed` stops with its message |
 | `pruefe-vollbild.js` | sprites inside `bleed` sit on the canvas, morphs fly on and off it, the progress bar hides and comes back, the print view carries no chrome there |
+| `pruefe-zier.js` | number, running header, footer line and progress bar stand in the browser where they stand on the PDF page -- with margins and a theme size in `em`, under a deck's `set place`, `set block` and `set page(flipped: true)`, moved with `move` as the manual shows, and at 3200 pixels; revealed pieces, a line without area, a scene, a flip book and footnotes -- one with a block of its own -- too under a deck-wide `set block`, one after the show rule and one that sets a width; a scene, a flip book, a `morph` in a line and a run behind `#pause` under `set box` and `set rect`; and a long footnote under a margin and under a theme size in `em` |
 | `pruefe-desmos.js` | the Desmos bridge, by hand (see below) |
 
 A full deck run takes about 25 minutes, longer than a laptop stays awake. On
@@ -142,7 +143,7 @@ node .github/scripts/pruefe-decks.js
 
 No npm and no Playwright. Chrome is reached over the DevTools protocol and
 Firefox over WebDriver BiDi, with what node 22 already brings; the two drivers
-together are 423 lines, 285 of them once comment and blank lines are taken out.
+together are 541 lines, 355 of them once comment and blank lines are taken out.
 Whether this package can be checked should not
 depend on a several hundred megabyte download. Playwright may be put beside it
 for WebKit or for the two window case; it is not a prerequisite.

@@ -714,6 +714,45 @@
   )
 }
 
+/// Ein Rahmen des Pakets, den eine `set block`-Regel des Decks nicht erreicht:
+/// `block(..nackt, width: …, …)` für den Rahmen selbst, `set block(..nackt)`
+/// für alles darin. Und `box(..nackt, …)` für die Kästen, in denen Szene und
+/// Daumenkino im Browser stehen: die nähmen sonst eine `set box`-Regel an.
+///
+/// Für die Kästen, die es nur in *einer* Ausgabe gibt oder in beiden an
+/// verschiedener Stelle, und für die, deren Maß ohne die Regel gemessen ist.
+/// Die Regel des Decks gilt dessen eigenen Blöcken, und die setzen sich in PDF
+/// und HTML gleich; ein Rahmen, den nur eine Seite kennt, gab sie aber nur
+/// dort weiter. Und in Typst 0.15 nehmen auch ein `rect` und ein `layout`
+/// Einzug, Fläche und Rand einer `set block`-Regel an. Gemessen bei 1600 px
+/// Bühnenbreite unter `#set block(inset: 8pt)` vor `presentation`: die
+/// Foliennummer stand im HTML 15 px weiter links oben als im PDF, die Leiste
+/// war auf Papier ein eingerückter Block von 8pt Höhe, ein Wort hinter
+/// `#pause` kam im Browser auf weniger als die Hälfte verkleinert und 424 px
+/// neben seinem Ort heraus, ein `anim(place(bottom + right, …))` gar nicht
+/// mehr auf die Bühne. Ein `#set block(fill: …)` legte den Rahmen der Zier als
+/// Fläche über die Folie, im HTML samt Rumpf.
+///
+/// Breite und Höhe ebenso. Unter `#set block(width: 80%)` nahm das `layout`
+/// eines verfolgten Elements die 80 % selbst an, und ein Block des Decks darin
+/// kam auf 80 % davon: hinter `#pause` im Browser 236 px schmaler als auf
+/// Papier. Die Abstände (`spacing`, `above`, `below`) setzt `nackt` nicht
+/// zurück, und für einen Block im Rumpf verschieben sie nichts. Das `layout`
+/// eines `anim` steht im Browser aber als Block im Fluss und bekommt den
+/// Blockabstand, wo der Rumpf auf Papier den Abstand seines Inhalts behält:
+/// bei 1600 px Bühnenbreite stand ein Absatz in `anim` unter
+/// `#set block(spacing: 0.8em)` im Browser 18 px höher als auf Papier, eine
+/// enge Liste in `anim` direkt hinter einem Absatz schon ohne jede Regel
+/// 25 px tiefer. Das ist älter als `nackt` und nicht behoben.
+///
+/// Was das Deck selbst setzt, bekommt seine Regel zurück: der Rumpf in
+/// `track`, die Zeile einer Anmerkung, ein Block, den eine Label-Regel in die
+/// Zier legt -- jeweils als `deck-block`, gelesen, wo die Regel noch gilt. Wo
+/// es einen Kasten auf beiden Seiten gleich gibt, etwa den eines `card`,
+/// bleibt die Regel des Decks, wie sie ist.
+#let nackt = (inset: 0pt, outset: 0pt, fill: none, stroke: none, radius: 0pt,
+              clip: false, width: auto, height: auto)
+
 
 /// The running step cursor: the highest step handed out on this slide so far.
 ///
@@ -2386,8 +2425,12 @@
   // asked in the first place. Measured: all seventeen example decks come out
   // of the PDF pixel for pixel as before.
   if not html-output.get() {
+    // `nackt`: dieser Block ist der Bereich, den im Browser der Sprite
+    // bekommt (`region`, siehe unten), und dort trägt er den Stil des Decks
+    // ebenso wenig. Mit ihm stand unter `#set block(inset: 8pt)` ein
+    // `anim(align(center, …))` auf Papier 8pt tiefer als im Browser.
     let leib = if not inline and width == auto and will-fuellen(body) {
-      block(width: 100%, body)
+      block(..nackt, width: 100%, body)
     } else { body }
     // `zaehlen` zuerst, der `context` danach: so liest er den Zeiger, nachdem
     // dieses Element ihn weitergestellt hat. Nachgemessen an einem Deck mit
@@ -2485,7 +2528,28 @@
     // the marker would reserve the room for a step number the body no longer
     // prints.
     step-here.update(a => a + (erster,))
+    // Alles ab hier `nackt`, und nur der Rumpf bekommt die Regel des Decks
+    // zurück. `layout` ist in Typst 0.15 selbst ein Block und nimmt wie ein
+    // `rect` Einzug, Fläche und Rand einer `set block`-Regel an; darin stehen
+    // die Hülle, die Marke -- ein `rect` -- und der verborgene Rumpf, und
+    // nichts davon gibt es auf Papier. Ohne diese Zeile stand unter `#set
+    // block(inset: 8pt)` vor `presentation` alles darin 8pt versetzt, die
+    // Marke kam 16pt schmaler und niedriger heraus, und die Laufzeit skalierte
+    // den Sprite hinein: bei 1600 px Bühnenbreite ein Wort hinter `#pause` auf
+    // weniger als die Hälfte verkleinert und 410 px neben seinem Ort. Eine
+    // `#set block(fill: …)` legte eine Fläche hinter jedes verfolgte Element.
+    //
+    // Der Rumpf dagegen braucht die Regel: der Sprite setzt ihn später mit
+    // ihr, und die Marke muss so viel Platz halten, wie er dort einnimmt. Ohne
+    // sie stand ein zweiter Lauf hinter `#pause` im Browser 16pt höher als auf
+    // Papier, weil der erste um seinen Einzug zu niedrig gemessen war. Gelesen
+    // hier, vor dem Zurücksetzen.
+    let deck-block = (inset: block.inset, outset: block.outset, fill: block.fill,
+                      stroke: block.stroke, radius: block.radius, clip: block.clip,
+                      width: block.width, height: block.height)
+    set block(..nackt)
     layout(available => context {
+      let leib = { set block(..deck-block); body }
       // Measured under the same width the element has in the background. That
       // measurement travels outward so the sprite gets exactly the same
       // layout. Otherwise a `width: 100%` inside the free frame would come to
@@ -2508,8 +2572,8 @@
       //
       // If the height is unbounded, the second measurement returns 0 and
       // the maximum falls back to the first.
-      let natural = measure(body, width: room)
-      let bounded = measure(body, width: room, height: available.height)
+      let natural = measure(leib, width: room)
+      let bounded = measure(leib, width: room, height: available.height)
       let m = (
         width: calc.max(natural.width, bounded.width),
         height: calc.max(natural.height, bounded.height),
@@ -2547,6 +2611,14 @@
         // danach stand bei (1) statt (10).
         numbering: (figure: figure.numbering, equation: math.equation.numbering,
                     heading: heading.numbering),
+        // Und die Blockregel, wie sie am Ort des Elements galt: `deck-block`,
+        // gelesen vor dem `nackt`. Die Marke misst den Rumpf mit ihr (`leib`),
+        // und der Sprite muss ihn ebenso setzen. Eine Regel vor `#show:
+        // presentation` erreicht ihn ohnehin, eine dahinter oder in der Folie
+        // nicht: unter `#set block(inset: 8pt)` hinter der Show-Regel war der
+        // Rahmen eines eigenen Blocks in `anim` im Browser 30 px zu klein und
+        // sein Text 16 px nach links oben verschoben, in `alternatives` 150 px.
+        block: deck-block,
       )
       // Only what *wants* to fill gets the full space. Everything else
       // stays as wide as its content, or a tracked element in an `auto`
@@ -2616,11 +2688,20 @@
       // A `box` is inline and puts its baseline on the bottom edge, and with a
       // two-line list item the bullet would drop a line. Block content gets a
       // `block`.
+      //
+      // Die Hülle `nackt` und die Marke ohne `outset`: beide gibt es nur im
+      // Browser, und die `box` eines Elements im Lauf nähme eine `set
+      // box`-Regel des Decks an, die Marke als `rect` ein `set rect(outset:
+      // …)`. Gemessen bei 1600 px Bühnenbreite: unter `#set box(inset: 8pt)`
+      // stand ein `morph` im Lauf im Browser 16 px weiter rechts und tiefer
+      // als auf Papier, unter `#set rect(outset: 8pt)` ein Lauf hinter
+      // `#pause` 15 px weiter links, weil die Laufzeit den Sprite in die um
+      // den `outset` größere Marke setzte.
       let shell = if inline { box } else { block }
-      shell(width: w, height: m.height, {
+      shell(..nackt, width: w, height: m.height, {
         place(top + left, dx: -luft, dy: -luft,
               rect(width: w + 2 * luft, height: m.height + 2 * luft,
-                   fill: marker(n), stroke: none))
+                   fill: marker(n), stroke: none, outset: 0pt))
         // `hide` lays out but does not draw: the space is right, the content
         // is only visible in the overlay.
         // Same region as during measuring: otherwise a relative measure
@@ -2630,7 +2711,7 @@
         place(top + left, hide(block(
           width: region.width,
           height: if available.height == float("inf") { auto } else { available.height },
-          body)))
+          leib)))
       })
       // Und wo dieser Rumpf im Hintergrund endet, als Marke mit dem Ort seines
       // Beginns als Wert. Der Sprite zählt denselben Rumpf ein zweites Mal;

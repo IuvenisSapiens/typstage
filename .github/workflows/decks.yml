@@ -120,6 +120,16 @@ jobs:
       - name: bleed im Browser
         run: node .github/scripts/pruefe-vollbild.js
 
+      # Steht die Zier im Browser, wo sie im PDF steht? Gemeldet in Issue #16:
+      # im PDF „6/34", im Browser „6/3", die letzte Ziffer unter dem Rand der
+      # Bühne. Im Browser ist die Zier eine eigene Ebene über der Bühne und
+      # bekam nicht mit, was ihr auf Papier die Seite gibt -- die Schriftgröße,
+      # gegen die ein Rand in `em` zählt --, und eine `set`-Regel des Decks
+      # erreichte sie nur auf einer Seite. Dreizehn kleine Decks, jedes als
+      # Seite aus Typst und als Bildschirmfoto aus Chrome, Tinte gegen Tinte.
+      - name: Die Zier steht im Browser wie im PDF
+        run: node .github/scripts/pruefe-zier.js
+
       # Springt das Inhaltsverzeichnis wirklich? Typst schreibt interne Ziele
       # als erzeugte DOM-Namen, und ob der Klick auf dem richtigen Schritt
       # landet, sagt nur der Browser. Der Rückweg ist der Teil, an dem eine

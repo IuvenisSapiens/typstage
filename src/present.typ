@@ -1318,7 +1318,12 @@
     drift-bericht(drift)
     deck-ende
   } else if target() != "html" {
-    set page(width: geo.width, height: geo.height, margin: 0pt)
+    // `flipped: false` ausdrücklich. Ein `#set page(flipped: true)` vor
+    // `presentation` vertauschte sonst Breite und Höhe: die Seite stand
+    // hochkant, 473,56 x 841,89pt, und die rechte Hälfte jeder Folie samt
+    // Foliennummer lag außerhalb des Blattes, während der Browser, der die
+    // Bühne aus `geo` zieht, alles zeigte.
+    set page(width: geo.width, height: geo.height, margin: 0pt, flipped: false)
     theme-state.update(thema-hell)
     // Said out loud, not left to the default. `bundle()` writes several
     // documents from one compilation, and a state carries on from one into the
@@ -1779,10 +1784,20 @@
         // `presentation()` an drei Stellen mit leerem Rumpf. `all.first()`
         // warf dort "array is empty" und hielt den ganzen Bau an.
         let fs = if all.len() > 0 { fortschritt-stil(geo, thema(all.first())) }
+        // Die Höhe als Anteil der Bühne, nicht in `pt`. `fs.hoehe` ist in
+        // Punkten der *Folie* gemessen, und ein Folienpunkt ist im Browser so
+        // groß, wie die Bühne es gerade macht; ein CSS-`pt` dagegen ist immer
+        // 4/3 Pixel. Die Leiste stand darum als einziges Stück Zier fest da,
+        // während alles um sie mitwuchs: bei 1600 px Bühnenbreite 3,33 px hoch
+        // statt der 4,75 px, die das PDF in derselben Breite zeigt, bei
+        // 1920 px 3,33 statt 5,7, am Telefon dreimal so dick wie auf Papier.
+        // Mit Prozent der Bühnenhöhe (`#ts-stage` trägt sie ausdrücklich, aus
+        // `fit()`) steht sie in jedem Fenster im Verhältnis des PDF.
         if fs != none {
           html.elem("div", attrs: (
             id: "ts-fortschritt",
-            style: "height:" + str(calc.round(fs.hoehe.pt(), digits: 2)) + "pt;"
+            style: "height:"
+                 + str(calc.round(fs.hoehe / geo.height * 100, digits: 4)) + "%;"
                  + "background:" + fs.farbe.to-hex() + ";"
                  + (if fs.oben { "top:0" } else { "bottom:0" })
                  // Grows from the edge the writing starts at. The stylesheet

@@ -20,7 +20,7 @@
 // --- Warum ohne npm ----------------------------------------------------------
 // Chrome ist über das DevTools-Protokoll erreichbar, Firefox über
 // WebDriver-BiDi, beides mit dem, was node selbst mitbringt (`decklauf/cdp.js`
-// und `decklauf/bidi.js`, zusammen 423 Zeilen, 285 ohne Kommentar- und
+// und `decklauf/bidi.js`, zusammen 541 Zeilen, 355 ohne Kommentar- und
 // Leerzeilen). Playwright wäre bequemer,
 // aber dann hinge die Frage „ist dieses Paket prüfbar" an einem Download von
 // einigen hundert Megabyte. Wer WebKit oder den Zwei-Fenster-Fall dazunehmen

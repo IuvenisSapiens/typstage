@@ -1719,7 +1719,8 @@ Ausschnitt, ganze Folie.
 Gefahren wird die Folie: ihr Hintergrund und die Ebene der eingeblendeten Teile
 darüber. Die Folienzier fährt *nicht* mit -- Fußzeile, Seitenzahl, Fortschritt
 und laufender Kopf stehen still und bleiben lesbar. Der Titel der Folie fährt
-dagegen mit; er steht im Rumpf.
+dagegen mit; er steht im Rumpf, und ebenso eine Fußzeile, die man selbst in den
+Rumpf baut.
 
 Was aus dem Bild fährt, wird an der Kante der Bühne abgeschnitten. Auch die
 Tinte bleibt stehen, wo sie gezogen wurde: Was jemand auf die Folie malt,
@@ -4115,7 +4116,10 @@ als zwei Spalten sind erlaubt -- dann bekommen alle dieselbe Breite, sofern
 `equal: true` macht alle Spalten gleich hoch; ohne das steht jeder Kasten so
 hoch wie sein eigener Text. Ein `height: 100%` im Kasten täte es nicht, weil
 ein Prozentmaß gegen die *Region* auflöst und nicht gegen die Rasterzeile;
-deshalb wirkt `equal` nur auf `card` und `callout`.
+deshalb wirkt `equal` nur auf `card` und `callout`. Soll einer davon
+aufgedeckt werden, gehört das `anim` in den Kasten, `card[#anim[…]]`, und nicht
+der Kasten in ein `anim`: im Browser steht ein aufgedeckter Kasten nur so hoch
+wie sein eigener Text.
 
 === tiles -- das Kachelraster
 
@@ -4474,7 +4478,11 @@ Die *Flächen* nehmen `set rect(..)`, `set block(..)`, `set circle(..)` oder
 `set line(..)`; die *Schriften* nehmen `set text(..)`. Beides wirkt zur
 Übersetzungszeit und steht deshalb gleich in HTML und PDF -- ausgenommen die
 sechs Labels unter /Medien und Handout/, die im Browser dem echten `<video>`
-oder `<iframe>` weichen.
+oder `<iframe>` weichen, und `ts-slide-progress` bei `progress: "bar"` und
+`"top"`: diesen Balken zieht im Browser die Laufzeit selbst, damit er beim
+Folienwechsel wachsen kann, in Farbe und Höhe des Themes, und dort erreicht
+ihn keine Regel auf das Label oder auf `rect`. Bei `progress: "tick"` erreicht
+eine solche Regel beide Ausgaben.
 
 #warning[
   *Bei den Flächen* wirkt die Kurzform, die Langform nicht:
@@ -4536,7 +4544,9 @@ bekommen ihre Höhe als `auto`, und `auto` schlägt keine Regel.
 Bei den Chrome-Flächen, den Grundflächen und dem Handout-Rahmen wirkt weder
 das eine noch das andere. Nicht erreichbar ist auch die *Anordnung* der Folie:
 Kopfhöhe, Abstand der Titellinie, Sitz des Balkens entstehen in `place` und
-`layout`. Dafür sind die Theme-Schlüssel da.
+`layout`. Dafür sind die Theme-Schlüssel da. Was eine Regel kann, ist ein
+fertiges Stück als Ganzes verschieben: `move` auf `ts-slide-footer` rückt die
+Nummer, siehe „Die eingebaute Nummer verschieben“.
 
 #warning[
   Eine Regel auf `block` oder `rect` reicht nach *innen*: Sie gilt für die
@@ -4777,6 +4787,42 @@ muss deshalb *in* den Einblendungen sitzen, denn der Browser setzt nichts neu:
 Auf dem Papier gibt es keinen laufenden Schritt: die Seite zeigt die Folie im
 Endzustand, und `step.number` ist dort gleich `step.total`.
 
+=== Die eingebaute Nummer verschieben
+
+Die Fußzeile setzt das Theme, und an ihren Platz kommt keine Regel heran. Was
+dort steht, lässt sich aber als Ganzes verschieben: mit einer Regel auf
+`ts-slide-footer`, die es in `move` legt. `move` verschiebt die Zeichnung und
+lässt alles darum stehen, wo es war -- die Nummer rückt also auf Papier und im
+Browser um dasselbe Stück:
+
+#show-code[```typ
+#show <ts-slide-footer>: move.with(dx: 14pt, dy: 8pt)
+#show: presentation
+```]
+
+Positive Werte gehen nach rechts und nach unten. Wie jede Label-Regel steht sie
+*vor* `#show: presentation`. Die Laufzeile von `header: "run"`, in der
+`themes.lesson` seine Nummer trägt, rückt ebenso mit einer Regel auf
+`ts-slide-header-text` -- als ganze Zeile samt Abschnittstitel, während die
+Haarlinie darunter stehenbleibt. Auch `presentation(margin: …)` verschiebt die
+Nummer, und den Rumpf mit ihr: sie hält den Abstand des seitlichen Randes zur
+Kante. Ein Rand in `em` zählt gegen die Schriftgröße des Themes, im PDF und im
+Browser gleich.
+
+#warning[
+  *Nicht über die Seite.* Der Browser hat keine Seite. `page.width`,
+  `page.height` und `page.margin` nennen dort die Seite des Dokuments (ohne
+  eigene Seitenregel Typsts Blatt A4) statt der Folie, und `here().position()`
+  nennt (0, 0) -- ein `move` oder `place`, das daraus rechnet, landet im HTML
+  woanders als im PDF.
+  `counter(page)` zählt Seiten, und das HTML hat keine, also bleibt er bei 1;
+  die Foliennummer ist `info().slide.number`. Und `#set page(footer: …)`,
+  `numbering:` oder `foreground:` zeichnen in den Seitenrand oder über die
+  Seite: eine Folie hat keinen Rand, und Typsts HTML-Ausgabe verwirft
+  Seitenregeln ganz. Eine so gezeichnete Nummer steht höchstens im PDF und nie
+  im HTML.
+]
+
 === Wohin die eigene Fußzeile gehört
 
 Auf einer Titel- oder Abschnittsfolie zeichnet typstage keine Fußzeile, und in
@@ -4800,6 +4846,16 @@ Auf einer gewöhnlichen Folie steht sie im Rumpf:
 Der Text der Folie.
 ```]
 
+Oben im Rumpf also: vor der ersten `#pause` und nicht in `anim`, `stagger`,
+`alternatives` oder einem anderen Baustein, der aufdeckt. Hinter einer `#pause`
+gehört die Fußzeile zu ihrem Lauf und steht auf der Höhe seiner letzten Zeile
+statt am Fuß der Folie, in beiden Ausgaben -- solange sie ein `place` ist. Mit
+`#v(1fr)` nach unten geschoben steht sie dagegen im PDF am Fuß der Folie und im
+Browser unter der Bühne. In einer Einblendung setzt der Browser das Stück in
+einen eigenen Rahmen, der dort beginnt, wo das Stück beginnt, und ein
+`place(bottom + …)` darin landet im HTML tiefer als im PDF, bis unter die
+Bühne. Oben richtet sie sich am Rumpf aus, und das in beiden.
+
 Auf Titel- und Abschnittsfolien muss sie ins Theme: beide Bilder sind
 Funktionen, und eine Funktion, die eine andere umschließt, ergänzt sie.
 
@@ -4822,6 +4878,10 @@ Funktionen, und eine Funktion, die eine andere umschließt, ergänzt sie.
   Eine im Rumpf platzierte Fußzeile sitzt am unteren Rand des *Rumpfes*, nicht
   der Folie; dazwischen liegt der `foot-gap` des Themes. Ein `dy:` am `place`
   schiebt sie dorthin, wo sie hin soll.
+
+  Als Teil des Rumpfes ist sie Teil der Folie: eine `camera` nimmt sie mit, und
+  sie kann aus dem Bild fahren, während die eingebaute Nummer stehenbleibt
+  (siehe „Was mitfährt und was stehenbleibt“).
 ]
 
 #warning[
