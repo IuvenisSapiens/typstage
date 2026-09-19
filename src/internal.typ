@@ -378,6 +378,31 @@
 /// it is refused rather than quietly ignored.
 #let offenes-ende(sel) = sel.split(",").any(t => t.trim().ends-with("-"))
 
+/// Steht ein Selektor auf diesem Schritt?
+///
+/// `min-step` und `max-step` sagen nur, wo ein Selektor anfängt und wo er
+/// aufhört. Was dazwischen fehlt -- der dritte Schritt in `"2,4-"`, der zweite
+/// in `"1,3"` --, sagt erst diese Frage.
+///
+/// Gerechnet wie `activeAt` in der Laufzeit, und zwar Teil für Teil, damit
+/// Papier und Browser dieselbe Antwort geben: an Kommas getrennt, leere Teile
+/// übergangen, ein Teil ohne Bindestrich genau dieser Schritt, sonst ein
+/// Bereich vom ersten Bindestrich aus, dessen fehlender Anfang 1 heißt und
+/// dessen fehlendes Ende das Ende der Folie. Was die Laufzeit nicht als Zahl
+/// liest -- `"2-3-4"` gibt ihr `NaN` --, deckt dort keinen Schritt, und hier
+/// deckt es auch keinen.
+#let steht-auf(sel, s) = {
+  let zahl(t) = if t.trim().match(regex("^[0-9]+$")) != none { int(t.trim()) }
+  sel.split(",").map(t => t.trim()).filter(t => t != "").any(t => {
+    let k = t.position("-")
+    if k == none { return zahl(t) == s }
+    let a = if k == 0 { 1 } else { zahl(t.slice(0, k)) }
+    let rest = t.slice(k + 1)
+    let b = if rest == "" { s } else { zahl(rest) }
+    a != none and b != none and s >= a and s <= b
+  })
+}
+
 /// Does a selector cover the first step?
 ///
 /// Decides whether a morph is already present when the slide is entered.
@@ -395,9 +420,9 @@
   })
 }
 
-/// All morphs of the document: each entry is slide, name and whether it
-/// stands from step one. Checked at the end: a delayed morph must not share
-/// its name with one on the slide before it, or the flight there is lost.
+/// All morphs of the document: each entry is slide, name and the place where
+/// that slide's sprites are read. Checked at the end: a delayed morph must not
+/// share its name with one on the slide before it, or the flight there is lost.
 /// The adaptive groups of a slide: name -> (start, count).
 ///
 /// Die Punkte einer `cue`-Gruppe stehen als Funde im Dokument, nicht in
@@ -433,9 +458,18 @@
 
 /// Dasselbe für `stagger`, damit `stagger-layer` den Schritt eines Stückes
 /// nachschlagen kann. Eingetragen wird nur, was einen Namen trägt.
+///
+/// Geleert wird es am Anfang jeder Folie, an denselben drei Stellen wie
+/// `szene-gruppen`: eine Gruppe gehört zu einer Folie, und ein
+/// `stagger-layer`, der einen Namen nur von der Folie davor nennt, meldet
+/// sich, statt still auf einem fremden Schritt zu stehen.
 #let stagger-gruppen = state("typstage-stagger", (:))
 
 /// Die Szenen einer Folie: Name -> (start, stops).
+///
+/// `start` ist der Schritt des ersten Halts, wenn die Szene ihn mit `start:`
+/// ausschreibt, und sonst der Ort ihres `context`, an dem `scene-layer` den
+/// Zeiger selbst liest (siehe dort).
 ///
 /// Dasselbe Buch wie nebenan, aus demselben Grund. `scene` traegt ein, auf
 /// welchem Schritt welcher Halt steht; `scene-layer` schlaegt nach und legt
@@ -464,7 +498,22 @@
 /// seiner Folie: `flugFolie` paart über den Folienrand hinweg nach Namen, und
 /// ein Name, der auf der Nachbarfolie noch einmal vorkäme, ergäbe einen Flug,
 /// den niemand geschrieben hat.
-#let auto-morph-nr = state("typstage-automorph", 0)
+///
+/// Ein `counter` und kein `state`, und ohne `typstage-` im Namen: so fasst ihn
+/// `sprite-klammer` (render.typ) wie die Nummer einer Abbildung. Ein Wirt --
+/// `anim`, eine Kachel von `tiles` -- setzt seinen Rumpf für den Sprite ein
+/// zweites Mal, hinter der Folie, und die Kopie zählte als `state` noch einmal
+/// hoch: gemessen an `#anim[#alternatives(morph: true, [R], [T])]` auf zwei
+/// Folien die Namen 1 und 3 und im HTML acht Meldungen, an
+/// `#tiles([K], stagger(morph: true)[R][T])` auf zwei Folien neun, und die
+/// zweite Folie legte R und T beide auf Schritt 6 statt auf 3 und 4 wie das
+/// Papier. Als `counter` setzt die Klammer die Kopie auf den Stand des
+/// Hintergrunds zurück: Namen 1 und 2, keine Meldung, R und T auf 3 und 4. Und
+/// `zaehler-je-dokument` stellt ihn in jedem Dokument eines Bündels außer dem
+/// ersten zurück: ein HTML-Dokument hinter dem Handzettel desselben Rumpfes,
+/// von Hand mit `document()` gebaut, hieß vorher `ts-alternatives-2`, allein
+/// `ts-alternatives-1`, und kommt jetzt Byte für Byte wie allein heraus.
+#let auto-morph-nr = counter("ts-automorph")
 
 #let kamera-liste = state("typstage-kamera", ())
 
@@ -573,17 +622,6 @@
   )
 }
 
-/// The height of the row a box is currently standing in, or `none`.
-///
-/// `side-by-side(equal: true)` measures its columns, fixes the largest
-/// height and records it here; `card` and `callout` read it and then fill
-/// their cell. There is no way around this detour: a `height: 100%` inside
-/// the box resolves against the *region*, not against the grid row, and
-/// would therefore be slide-high instead of row-high. Verified: two boxes
-/// with `height: 100%` in a grid with `rows: auto` both came out 250 pixels
-/// tall on a 278-pixel-tall page. Only an explicitly set row height turns
-/// `100%` into the row.
-#let zeilen-hoehe = state("typstage-zeile", none)
 
 /// The running step cursor: the highest step handed out on this slide so far.
 ///
@@ -611,6 +649,39 @@
 /// `scene` etwa fängt dort an, wo der Vortrag gerade steht.
 #let schritt-vorruecken(boden: 2, um: 1) = step-cursor.update(c => calc.max(c + um, boden))
 
+/// Der Wähler `was`, beschränkt auf das Dokument, in dem gefragt wird.
+///
+/// `bundle()` schreibt mehrere Dokumente aus einer Übersetzung, und Typst 0.15
+/// führt die Introspektion über das ganze Bündel: ein `query` sieht die Funde
+/// aller Dokumente, und ein Verweis auf einen Ort in einem anderen Dokument
+/// wird zu einem Verweis in dessen Datei. Gemessen an einem Deck aus einer
+/// Agenda mit `contents()` und zwei Abschnitten, als Bündel aus HTML, Foliensatz
+/// und Handzettel: die Einträge im Foliensatz und im Handzettel zeigten nach
+/// `talk.html#typstage-slide-target-1`, der Rückverweis der Abschnittsseiten in
+/// der HTML und im Foliensatz nach `handout.pdf#typstage-contents`; mit
+/// `html: none` zeigten die Einträge des Handzettels in `slides.pdf`. Auf
+/// dieselbe Weise stand auf Seite 1 des Foliensatzes jede Anmerkung dreimal
+/// (siehe `folien-notizen`).
+///
+/// Das Dokument eines Ortes nennt Typst nicht: `location` hat keine Methode
+/// dafür, nachgesehen mit `here().document()`. Aber `document` ist ein
+/// Element mit Ort, und das letzte, das vor dem Ort beginnt, ist seines. Seine
+/// Grenzen stehen vom ersten Lauf an fest, und die Abfrage kostet keinen Lauf:
+/// gemessen blieb die Zahl der Layoutläufe auf allen 17 Beispieldecks in allen
+/// vier Ausgaben dieselbe, ebenso in jedem Bündel aus ihnen, mit einer Seite je
+/// Folie und Schritt für Schritt, mit und ohne HTML.
+///
+/// Außerhalb eines Bündels gibt es kein `document`-Element; dann bleibt der
+/// Wähler, wie er war, und ein einzelnes Deck fragt genau wie vorher.
+///
+/// Muss in einem `context` stehen.
+#let im-dokument(was) = {
+  let davor = query(std.selector(document).before(here()))
+  if davor.len() == 0 { was } else {
+    std.selector(was).within(davor.last().location())
+  }
+}
+
 /// Which slide we are on. Only used to scope things that a companion package
 /// looks up across the whole document. A query sees every slide at once and
 /// has to be able to tell them apart.
@@ -624,14 +695,41 @@
   // Nach Folie *und* Name getrennt, denn die Ziffern beginnen auf jeder Folie
   // wieder bei 1: ohne die Folie im Schlüssel sähen zwei gleichnamige Gruppen
   // wie eine mit lauter doppelten Ziffern aus.
+  //
+  // Nur die Punkte des eigenen Dokuments. In `bundle(pages: "step", handout:
+  // …)` sahen die Berichte der HTML und des Handzettels sonst die Schrittseiten
+  // des Foliensatzes, auf denen jede Gruppe einmal je Schritt steht, und brachen
+  // mit "gives a digit to two points on one slide" ab, obwohl keine Ziffer
+  // doppelt vergeben war -- dieselbe Lage, die der Foliensatz selbst mit seinem
+  // Verzicht auf den Bericht umgeht. Gemessen: `tour` und `vortragen` als
+  // solches Bündel bauten nicht, mit oder ohne HTML, allein in allen drei
+  // Ausgaben schon.
+  //
+  // Und nicht aus einem Sprite, wie bei `folien-notizen`. Steht eine Gruppe in
+  // einem Wirt -- `anim(cue(…))`, eine Fassung von `alternatives` --, setzt
+  // die Überlagerung den Rumpf des Wirts ein zweites Mal, hinter der Folie,
+  // wo die Gruppe schon alle ihre Punkte hat, und die Kopie legte ihre Punkte
+  // mit den Nummern dahinter noch einmal ab. Gemessen an fünf Punkten in
+  // einem `anim`: im Browser "would get a point 10", auf Papier nichts.
+  //
+  // `state("typstage-sprite-nr")` ist `sprite-number`, das erst weiter unten
+  // in dieser Datei steht.
   let gruppen = (:)
-  for m in query(<typstage-cue-punkt>) {
+  for m in query(im-dokument(<typstage-cue-punkt>)).filter(m =>
+      state("typstage-sprite-nr", none).at(m.location()) == none) {
     let folie = slide-counter.at(m.location()).first()
     let schluessel = str(folie) + "|" + m.value.name
     gruppen.insert(schluessel, gruppen.at(schluessel, default: ()) + (m.value.nr,))
   }
   for (schluessel, nrn) in gruppen {
     let name = schluessel.split("|").slice(1).join("|")
+    let zu-hoch = nrn.filter(x => x > 9)
+    assert(zu-hoch.len() == 0, message:
+      "typstage: cue(\"" + name + "\") would get a point "
+      + str(if zu-hoch.len() == 0 { 0 } else { calc.min(..zu-hoch) })
+      + " on this slide, and the room calls points with the keys 1 to 9. "
+      + "Split the group, or reach the rest with the pointer instead of a "
+      + "digit.")
     let sortiert = nrn.sorted()
     let doppelt = sortiert.dedup()
     assert(doppelt.len() == sortiert.len(), message:
@@ -683,12 +781,44 @@
 /// Must be called inside a context.
 #let im-deck() = deck-info.get() != none
 
-/// Meldet einen Halt an: einen Schritt, auf dem sich auf Papier etwas ändert.
+/// Die Schrittzahl jeder Folie auf Papier, unter ihrer Nummer, geschrieben am
+/// Ende von `slide-body` und gelesen von `info()`.
 ///
-/// `pages: "step"` setzt nur diese Schritte. Was auf Papier nichts zeigt --
-/// eine Kamerafahrt etwa -- meldet sich nie und bekommt deshalb auch keine
-/// eigene Seite, statt zweimal identisch dazustehen.
+/// Die Seitenzahl unter `pages: "step"` kommt nicht mehr von hier, sondern vom
+/// Zeiger an der Marke `typstage-papier-ende` (siehe `presentation`): der Weg
+/// über diesen Zustand ist einen Layoutlauf länger, und mit ihm brauchte jedes
+/// Beispieldeck die fünf Läufe, die Typst erlaubt. Was auf Papier nichts zeigt
+/// -- eine Kamerafahrt etwa -- rückt den Zeiger dort nicht vor und bekommt
+/// deshalb auch keine eigene Seite, statt zweimal identisch dazustehen.
 #let papier-zahlen = state("typstage-papier-zahlen", (:))
+
+/// `papier-zahlen`, wie das Dokument es hinterlässt, in dem gefragt wird.
+///
+/// `final()` ist der Stand am Ende des ganzen Bündels. Jedes Dokument trägt
+/// seine Folien unter derselben Nummer ein, und es gilt, wer zuletzt schreibt:
+/// gemessen an drei `document()` in einem Bündel, das erste und das zweite mit
+/// `pages: "step"`, das dritte ohne. Auf Folie 2 des dritten steht kein
+/// Schritt, und dem ersten fehlte darum die zweite Schrittseite seiner Folie 2,
+/// dem zweiten die seiner Folie 2 ebenso -- zwei und vier Seiten statt drei und
+/// fünf.
+///
+/// Die Seitenzahl liest die Schleife in `presentation` inzwischen an der Marke
+/// `typstage-papier-ende`; gelesen wird dieser Zustand nur noch von `info()`.
+/// Dort gilt dasselbe: an drei solchen Dokumenten, Folie 2 mit drei und fünf
+/// Schritten im ersten und zweiten, nannte `info().step.total` mit `final()`
+/// auf allen Seiten beider 1, hiermit 3 und 5.
+///
+/// Das Ende eines Dokuments ist der Anfang des nächsten, und dort liest der
+/// Zustand, was bis dahin geschrieben war. Das letzte Dokument und ein Deck
+/// außerhalb eines Bündels lesen weiter `final()`.
+///
+/// Muss in einem `context` stehen.
+#let papier-zahlen-hier() = {
+  let danach = query(std.selector(document).after(here()))
+  if danach.len() == 0 { papier-zahlen.final() } else {
+    papier-zahlen.at(danach.first().location())
+  }
+}
 
 /// `"slide"` oder `"step"`, einmal am Anfang des Papierzweigs gesetzt.
 ///
@@ -700,18 +830,50 @@
 /// Dokument liefe in eine Rückkopplung, die Typst nach fünf Läufen aufgibt.
 #let papier-modus = state("typstage-papier-modus", "slide")
 
-#let papier-halt(von, bis) = {
-  let schluessel = str(von) + "|" + repr(bis)
-  papier-halte-roh.update(d => if schluessel in d { d } else {
-    d + ((schluessel): (von: von, bis: bis))
-  })
-}
-
-/// Steht ein Element mit dieser Spanne auf dem Schritt, der gerade gesetzt
-/// wird? Ausserhalb von `pages: "step"` steht alles.
-#let papier-zeigt(von, bis) = {
-  let k = papier-schritt.get()
-  k == none or (k >= von and (bis == none or k <= bis))
+/// Steht ein Element mit dieser Spanne auf der Seite, die gerade gesetzt wird?
+///
+/// Zwei Regeln, und sie gelten nicht für dieselben Elemente.
+///
+/// Was *ersetzt* wird -- jede Fassung einer `alternatives` außer der letzten,
+/// jede Stufe eines `build`, jeder Halt einer `scene` außer dem letzten --,
+/// steht nur auf den Schritten seiner Spanne, sonst lägen die Fassungen
+/// übereinander. Der Handzettel setzt keinen Schritt (`k == none`), dort steht
+/// darum nur, was nicht ersetzt wird.
+///
+/// Alles andere hält, was `anim` verspricht: auf Papier tut `after` nichts.
+/// Eine Seite je Folie zeigt alle Schritte auf einmal, also steht dort auch,
+/// was im Browser seine Spanne schon wieder verlassen hat. Nur `pages: "step"`
+/// blättert wie der Vortrag: was noch nicht dran ist, fehlt, und was gegangen
+/// ist, ist gegangen. Was gedimmt ruht, ist nicht gegangen und bleibt.
+///
+/// Bis zur Schrittfassung galt das ohne Ausnahme; mit ihr kam die geschlossene
+/// Spanne für alle Elemente und beschnitt auch die Seite je Folie. Gemessen an
+/// `stagger(dim: true)[Eins][Zwei][Drei]`: auf Papier stand nur „Drei", ohne
+/// jede Meldung, und `mosaic-manifesto` druckte eine von drei Fragen. Der
+/// Handzettel dagegen druckte die Fassungen einer `alternatives` übereinander.
+///
+/// Eine Spanne ist nicht immer lückenlos. `anim(at: "1,3")` steht auf Schritt
+/// eins, fehlt auf zwei und steht auf drei wieder -- im Browser; auf Papier
+/// kannte diese Funktion nur Anfang und Ende und setzte es unter
+/// `pages: "step"` auch auf die Seite von Schritt zwei. Gemessen an einer Folie
+/// mit `"2,4-"`, `(1, 3)`, `"1-2,4"` (gedimmt), `"2-3,5"` und `"5"`: vier
+/// Elemente standen auf drei von fünf Schrittseiten, auf denen die Laufzeit
+/// sie verbirgt. Deshalb fragt die Seite jetzt `steht-auf`, dieselbe Regel wie
+/// `activeAt`. Eine Lücke ist nur in der Schrittfassung eine Lücke; die Seite
+/// je Folie und der Handzettel zeigen weiter alles, was nicht ersetzt wird. Und
+/// sie ist auch für Gedimmtes eine: die Laufzeit dimmt erst hinter dem letzten
+/// Schritt der Spanne, in der Lücke steht nichts.
+///
+/// `k` nimmt den Schritt von außen, statt ihn noch einmal zu lesen: gebraucht
+/// vom Anmerkungsblock unter `pages: "step"`, der ihn schon gelesen hat (siehe
+/// `papier-verborgen`).
+#let papier-zeigt(sel, ersetzt: false, bleibt: false, k: auto) = {
+  let k = if k == auto { papier-schritt.get() } else { k }
+  if k == none { return not ersetzt }
+  if steht-auf(sel, k) { return true }
+  if k < min-step(sel) or ersetzt { return false }
+  if papier-modus.get() != "step" { return true }
+  bleibt and not offenes-ende(sel) and k > max-step(sel)
 }
 
 
@@ -808,6 +970,42 @@
     + "\"1-3\" or \"2,4\". Steps are counted from 1, so 0 is never a place. "
     + "An unreadable one used to make the element vanish for the whole slide "
     + "without a word.")
+  // Eine umgedrehte Spanne ist lesbar und trotzdem keine. `"4-2"` deckt im
+  // Browser keinen Schritt (`activeAt` will s >= 4 und s <= 2) und auf Papier
+  // ebenso wenig (`steht-auf`, dieselbe Rechnung) -- aber wie weit sie reicht,
+  // sagen beide verschieden: `endeBei` liest die 2, `max-step` die 4.
+  // Gemessen an `anim(at: "4-2")` neben `anim(at: 2)`: die Folie bekam vier
+  // Schritte, die letzten drei gleich; die Seite je Folie und der Handzettel
+  // druckten das Element, das der Vortrag nie zeigt, die Schrittseiten nicht.
+  // Mit `after: "dimmed"` rechnen die Funktionen der Laufzeit es auf Schritt 3
+  // und 4 gedimmt, ohne dass es je voll dagestanden hätte, und die
+  // Schrittseiten lassen es weiter weg. Welche Lesart gemeint war, weiß nur,
+  // wer es geschrieben hat.
+  //
+  // Geprüft wird Teil für Teil wie in `steht-auf`, auch in einer Liste, die
+  // `selector` genauso an Kommas zusammenfügt. Kein Teil des Pakets baut selbst
+  // eine umgedrehte, die hier ankäme: nur `anim` und `morph` fragen hier, und
+  // aus dem Paket ruft sie nur noch `#pause`, mit `auto`
+  // (`alternatives(morph: …)` geht inzwischen selbst an `track`).
+  // Was `build`, `cue`, `stagger` und `auto-auswahl` bauen, geht an `track`
+  // direkt und steigt ohnehin: `build(at:)` verlangt steigende Zahlen, und
+  // `auto-auswahl` schreibt `"von-bis"` nur, wenn `bis > von`.
+  let teile = if type(at) == array { at.map(x => str(x)) } else { (str(at),) }
+  let verkehrt = teile.join(",").split(",").map(t => t.trim()).find(t => {
+    let g = t.match(regex("^(\\d+)\\s*-\\s*(\\d+)$"))
+    g != none and int(g.captures.at(0)) > int(g.captures.at(1))
+  })
+  // Die Meldung entsteht nur, wenn es eine gibt: die Argumente von `assert`
+  // werden auch dann ausgewertet, wenn alles stimmt, und `str(none)` bricht ab.
+  if verkehrt != none {
+    let (bis, von) = verkehrt.split("-").map(t => t.trim())
+    assert(false, message:
+      "typstage: " + wo + "(" + feld + ": " + repr(at) + ") -- the range \""
+      + verkehrt + "\" runs backwards. A range is written from its first step "
+      + "to its last: \"" + von + "-" + bis + "\" for steps " + von + " to "
+      + bis + ". A backwards one used to cover no step in the browser, while "
+      + "the page for the slide printed the element anyway.")
+  }
 }
 
 #let selector(at) = {
@@ -1033,13 +1231,121 @@
 /// Und nicht aus einem Sprite: der Rumpf eines verfolgten Elements wird in der
 /// Überlagerung ein zweites Mal gesetzt, seine Fußnoten kämen sonst doppelt.
 ///
+/// Und nur aus dem eigenen Dokument (`im-dokument`). Folie und Seite zählen in
+/// jedem Dokument eines Bündels von vorn, und im Browser meldet jeder Ort
+/// Seite 1. Gemessen an zwei Folien mit je einer Fußnote als Bündel aus HTML,
+/// Foliensatz und Handzettel: auf Seite 1 des Foliensatzes stand die Anmerkung
+/// dreimal, im Handzettel die der ersten Folie dreimal und die der zweiten
+/// zweimal, in der HTML ebenso.
+///
 /// Muss in einem `context` stehen.
-#let folien-notizen(nr, seite: none) = query(footnote).filter(f => {
+#let folien-notizen(nr, seite: none) = query(im-dokument(footnote)).filter(f => {
   let ort = f.location()
   (deck-info.at(ort).nr == nr
    and (seite == none or ort.page() == seite)
    and sprite-number.at(ort) == none)
 })
+
+/// Die Spanne einer Anmerkung, deren Fußnote in mehreren Ketten steckt.
+///
+/// `eigen` ist der Eintrag der innersten Kette, `meine` die Nummern aller
+/// Sprites, in denen die Fußnote steht, `liste` ist `sprites.get()`.
+///
+/// Die innerste Kette allein genügt nicht. In der Laufzeit ist nichts
+/// sichtbarer als das, worin es steckt (`zustand`): ein Sprite wird von seinem
+/// Wirt gedeckelt, die Kette hinauf. Eine Anmerkung hat keinen Wirt -- ihre
+/// Marke steht im Fuß der Folie und nicht in einem Sprite --, also deckelte sie
+/// niemand. Gemessen im Browser an `alternatives([Aussen eins #anim(at: "1-")
+/// [innen#footnote[n-innen]]], [Aussen zwei#footnote[n-zwei]])`: auf Schritt
+/// zwei beide Sprites der ersten Fassung bei Deckkraft 0, die Anmerkung
+/// „n-innen" mit `data-at="1-"` bei 1. Ebenso eine Fußnote in einem `stagger`
+/// in einer Fassung. Die Schrittseite blendete sie richtig aus, weil dort jede
+/// Kette ihre eigene Marke an die Fußnote hängt (`papier-verborgen`).
+///
+/// Gerechnet wird darum, was die Laufzeit für die Marke rechnet: je Schritt der
+/// Zustand jeder Kette wie in `eigenerZustand` -- 2 steht, 1 ruht gedimmt, 0
+/// fort --, ein fehlendes `after` vom Wirt geerbt wie in `erbt`, und davon das
+/// Minimum. Hinter der höchsten Zahl aller Selektoren ändert sich keine Kette
+/// mehr, dort endet die Rechnung.
+///
+/// Das Ergebnis muss wieder ein `data-at` mit höchstens `after: "dimmed"` sein,
+/// und nicht jedes Minimum ist eines: gedimmt ruhen kann eine Anmerkung nur
+/// hinter ihrer Spanne und bis zum Ende der Folie. Ein gedimmtes Stück in einer
+/// Fassung, die danach geht -- `alternatives([#stagger(dim: true)[A][B]], [C])`
+/// --, ruht erst und geht dann. Dann bekommt die Anmerkung die Schritte, auf
+/// denen ihre Marke zu sehen ist, ohne Dimmen: sie steht, solange die Marke
+/// steht, in voller Stärke, wie auf der Schrittseite, wo nichts gedimmt wird.
+/// Kein Schritt zeigt damit eine Anmerkung ohne Marke oder eine Marke ohne
+/// Anmerkung.
+///
+/// Alle Zahlen des Ergebnisses sind Anfänge und Enden von Teilen der Selektoren
+/// der Ketten, und die stehen auf derselben Folie: die Schrittzahl, die die
+/// Laufzeit aus allen `data-at` einer Folie abliest, bleibt dieselbe. Wo das
+/// Minimum der innersten Kette gleicht, bleibt `eigen` Zeichen für Zeichen.
+///
+/// Gelesen wird nichts Neues: `sprites.get()` liest die Überlagerung ohnehin,
+/// an derselben Stelle.
+#let notiz-kette(eigen, meine, liste) = {
+  let innen = calc.max(..meine)
+  let ketten = ()
+  for n in meine.sorted().dedup() {
+    let sp = liste.at(n - 1, default: none)
+    if sp == none { return eigen }
+    // Die Bilder einer `scene` oder eines `flipbook` setzen den Fußnotenzähler
+    // nicht auf den Stand des Hintergrunds (`sprite-markup`), ihre Fußnoten
+    // zählen in der Überlagerung einfach weiter -- und tragen damit die Nummern
+    // von Fußnoten *hinter* ihnen. Eine solche Nummer sagt also nicht, dass die
+    // Fußnote im Bild steckt, und als äußere Kette zählt ein Bild darum nicht;
+    // es bleibt beim Schritt der innersten Kette wie bisher. Gemessen an
+    // `anim(at: "1")[Eins#footnote[…]]`, einer Szene mit Fußnote und `start: 3`,
+    // dann `anim(at: "1")[Zwei#footnote[…]]`: ohne diese Zeile bekam die
+    // Anmerkung zu „Zwei" `data-at="0"` und stand nie.
+    if sp.raw-frames != none and n != innen { continue }
+    let after = sp.extra.at("after", default: none)
+    let wirt = if ketten.len() > 0 { ketten.last() }
+    let erbt = if after == none and wirt != none and wirt.at == sp.at {
+      wirt.after
+    } else { after }
+    ketten.push((at: sp.at, after: after, dim: erbt == "dimmed"))
+  }
+  if ketten.len() < 2 { return eigen }
+  let stand(at, dim, s) = if steht-auf(at, s) { 2 } else if (
+    dim and not offenes-ende(at) and s > max-step(at)) { 1 } else { 0 }
+  let bis = calc.max(max-step(eigen.at), ..ketten.map(k => max-step(k.at))) + 1
+  let schritte = range(1, bis + 1)
+  let soll = schritte.map(s => calc.min(..ketten.map(k => stand(k.at, k.dim, s))))
+  let ist = schritte.map(s => stand(eigen.at, eigen.after == "dimmed", s))
+  if soll == ist { return eigen }
+  // Die Schritte, auf denen `gilt` zutrifft, als Selektor. Ein Lauf bis `bis`
+  // bleibt offen, denn dahinter ändert sich nichts mehr.
+  let spanne(gilt) = {
+    let teile = ()
+    let von = none
+    for s in schritte {
+      if gilt(soll.at(s - 1)) {
+        if von == none { von = s }
+        if s == bis { teile.push(str(von) + "-") }
+      } else if von != none {
+        teile.push(if von == s - 1 { str(von) } else { str(von) + "-" + str(s - 1) })
+        von = none
+      }
+    }
+    // „Nie": `activeAt` liest `"0"` als Schritt null, und den gibt es nicht.
+    if teile.len() == 0 { "0" } else { teile.join(",") }
+  }
+  let letzter = schritte.filter(s => soll.at(s - 1) == 2).at(-1, default: 0)
+  let ruht = soll.last() == 1 and schritte.all(s => {
+    let z = soll.at(s - 1)
+    z == 2 or z == (if s > letzter { 1 } else { 0 })
+  })
+  if soll.all(z => z != 1) {
+    (at: spanne(z => z == 2), delay: eigen.delay, after: none)
+  } else if ruht {
+    (at: spanne(z => z == 2), delay: eigen.delay, after: "dimmed")
+  } else {
+    (at: spanne(z => z >= 1), delay: eigen.delay, after: none)
+  }
+}
 
 /// Zu jeder Anmerkung dieser Folie der Schritt, ab dem sie stehen soll.
 ///
@@ -1057,7 +1363,8 @@
 ///
 /// Muss in einem `context` stehen.
 #let notiz-selektoren(nr) = {
-  let kopien = query(footnote).filter(f => {
+  // Aus dem eigenen Dokument, wie `folien-notizen` darunter.
+  let kopien = query(im-dokument(footnote)).filter(f => {
     let ort = f.location()
     deck-info.at(ort).nr == nr and sprite-number.at(ort) != none
   }).map(f => (zahl: counter(footnote).at(f.location()).first(),
@@ -1075,7 +1382,11 @@
       let kette = str(calc.max(..meine))
       let j = rang.at(kette, default: 0)
       rang.insert(kette, j + 1)
-      raus.push(buch.at(kette + "/" + str(j), default: vorgabe))
+      let eigen = buch.at(kette + "/" + str(j), default: vorgabe)
+      // In mehr als einer Kette deckeln die äußeren mit (`notiz-kette`).
+      raus.push(if meine.dedup().len() < 2 { eigen } else {
+        notiz-kette(eigen, meine, sprites.get())
+      })
     }
   }
   raus
@@ -1415,9 +1726,323 @@
     + "instead of stopping; drift: \"none\" does not measure at all.")
 } }
 
+// ── Eine Fassung hält, bis die nächste kommt ─────────────────────────────────
+//
+// Ein Element mit `at: auto` und `offen: false` -- jede Fassung einer
+// `alternatives` außer der letzten, jede Stufe eines `build`, jeder Halt einer
+// `scene`, jedes Stück eines `stagger(dim: true)` -- stand bisher auf genau
+// dem Schritt, den der Zeiger ihm gab. Das stimmt, solange der Rumpf selbst
+// nichts aufdeckt. Trägt er eine eigene Kette, vergibt die ihre Schritte
+// *hinter* diesem einen, und dort ist das Element schon wieder gegangen: die
+// Laufzeit deckelt ein inneres Element mit seinem Wirt, `hide` auf Papier tut
+// dasselbe. Gemessen an `alternatives([Eins], alternatives([A], [B]),
+// [Drei])` unter `pages: "step"`: fünf Seiten, auf der zweiten bis vierten
+// nichts, „A" und „B" auf keiner; im Browser `data-at` 2, 3 und `4-`, und auf
+// den Schritten 3 und 4 war nichts zu sehen.
+//
+// Die Spanne reicht darum bis vor den Schritt, den das nächste Stück bekommt.
+// Das ist der Zeigerstand am Ende des eigenen Rumpfes: das nächste Stück rückt
+// von dort aus um eins weiter. Ohne Kette im Rumpf ist das der eigene Schritt,
+// und dann steht die Zahl allein da -- Byte für Byte die Spanne von vorher.
+
+/// Die Marke hinter dem Rumpf, an der `auto-auswahl` den Zeiger abliest.
+///
+/// Sie trägt den Ort des `context`, der sie setzt, und nichts sonst. Daran
+/// findet ein Element seine eigene: eine Fassung mit einer Kette darin hat die
+/// Marken ihrer inneren Fassungen *vor* der eigenen, und unter `pages: "step"`
+/// steht dieselbe Folie mehrmals da. Ein Ort folgt dem Bau des Dokuments und
+/// keiner Lesung.
+///
+/// Gesucht wird nur *innerhalb* dieses `context` (`within`), nicht hinter ihm
+/// (`after`). Die eigene Marke steht darin, zuletzt, hinter denen der inneren
+/// Elemente. Hinter ihm stehen dagegen die Marken aller folgenden Folien und
+/// Seiten, und jedes Element mit geschlossener Spanne holte sie alle einmal je
+/// Lauf ab -- das wächst mit dem Quadrat des Decks. Gemessen an 80 Folien mit
+/// je einem vierteiligen `stagger(dim: true)` und einer dreiteiligen
+/// `alternatives` unter `pages: "step"`: 7,0 s ohne Marke, 39,4 s mit `after`,
+/// 8,5 s mit `within`.
+///
+/// Ohne Leerzeichen vor dem Label: `[#metadata(1) <x>]` ergibt gemessen
+/// `sequence(metadata(value: 1), [ ])`, also ein Leerzeichen im Fluss neben dem
+/// Rumpf, das dort nichts zu suchen hat.
+#let spannen-marke() = [#metadata(here())<typstage-spannen-ende>]
+
+/// Der Bereich eines Elements mit `at: auto`, als Zeichenkette für `data-at`.
+///
+/// Offen vom Zeigerstand hier bis zum Folienende, oder geschlossen bis zum
+/// Zeigerstand an der eigenen `spannen-marke`. Die Lesung steht im `context`
+/// des Elements und nicht im Aufruf -- dieselbe Lehre wie bei einem `at` als
+/// Funktion: ein `context`, der einen gelesenen Wert als Argument mitträgt,
+/// bekommt in jedem Lauf, in dem die Lesung noch wechselt, eine neue
+/// Identität.
+///
+/// Und sie fließt nicht in den Satz zurück, an dem sie hängt. Der Zeiger rückt
+/// bei `at: auto` ohne die Spanne vor, also hängt auch die Schrittzahl der
+/// Folie -- und unter `pages: "step"` ihre Seitenzahl -- nicht an ihr. Was sie
+/// bestimmt, ist auf Papier `hide` oder nicht, im Browser `data-at`. Im ersten
+/// Lauf kennt die Abfrage keine Marke, dann bleibt es bei einem Schritt wie
+/// bisher. Gemessen: die Zahl der Layoutläufe blieb auf allen 17 Beispieldecks
+/// in allen vier Ausgaben dieselbe (Schrittfassung 5, Seite je Folie 4,
+/// Handzettel 3 oder 4, HTML 4 oder 5), ebenso auf einem Deck aus 40 Folien
+/// mit doppelt verschachtelten Fassungen, einer Fußnote in einer inneren
+/// Fassung und `cue`-Schichten daneben.
+///
+/// `std.selector`, weil `selector` in dieser Datei die Umformung der
+/// Schrittwahl ist. Muss in einem `context` stehen, hinter `zaehlen`.
+///
+/// `ort` ist der Ort des `context` von `track`, wenn nicht dort gefragt wird:
+/// der Anmerkungsblock stellt dieselbe Frage für eine Fußnote im Rumpf (siehe
+/// `papier-spanne`).
+#let auto-auswahl(offen, ort: none) = {
+  let von = if ort == none { step-cursor.get() } else { step-cursor.at(ort) }
+  let von = von.first()
+  if offen { return str(von) + "-" }
+  let hier = if ort == none { here() } else { ort }
+  let marke = query(std.selector(<typstage-spannen-ende>).within(hier))
+    .rev().find(m => m.value == hier)
+  let bis = if marke == none { von } else {
+    calc.max(von, step-cursor.at(marke.location()).first())
+  }
+  if bis > von { str(von) + "-" + str(bis) } else { str(von) }
+}
+
+/// Die Spanne eines verfolgten Elements auf Papier, als ganzer Selektor -- mit
+/// seinen Lücken, wie `papier-zeigt` ihn braucht.
+///
+/// Steht einmal da, weil zwei Stellen sie brauchen und dasselbe herausbekommen
+/// müssen: `track` für den Rumpf und der Anmerkungsblock unter
+/// `pages: "step"` für die Anmerkungen darin (siehe `papier-kette`).
+///
+/// `ort: none` liest im umgebenden `context`, so wie `track` immer gelesen
+/// hat. Mit einem Ort liest sie *dort* -- am `context` von `track` --, und
+/// dieselbe Lesung am selben Ort gibt im selben Lauf denselben Wert. Ein `at`
+/// als Funktion bekommt den Ort deshalb mitgereicht; die drei Schichten lesen
+/// damit `.at(ort)` statt `.get()`.
+#let papier-spanne(at, offen, ort: none) = {
+  let at = if type(at) == function { at(ort) } else { at }
+  if at == auto { auto-auswahl(offen, ort: ort) } else { selector(at) }
+}
+
+/// Eine Fußnote im Rumpf eines verfolgten Elements, auf Papier: sie selbst,
+/// und davor eine Marke mit den Zutaten der Entscheidung, ob dieses Element
+/// auf dem gesetzten Schritt steht.
+///
+/// Gebraucht vom Anmerkungsblock jeder Papierfassung (`papier-verborgen`).
+/// Eine Fußnote in verborgenem Inhalt bleibt ein Fund für `query(footnote)` und
+/// zählt weiter -- das muss sie, sonst trüge die nächste Marke eine andere
+/// Nummer als im Browser --, aber ihre Anmerkung gehört noch nicht an den Fuß
+/// der Seite. Gemessen an `alternatives([Fassung eins#footnote[note-eins]],
+/// [Fassung zwei#footnote[note-zwei]])`: auf der Seite von Schritt 1 stand oben
+/// nur „Fassung eins", unten aber beide Anmerkungen.
+///
+/// Warum die *Zutaten* reisen und nicht die Entscheidung. Der erste Entwurf
+/// zählte im Papierzweig einen Zustand hoch, solange ein Element verborgen
+/// blieb, und der Anmerkungsblock las ihn am Ort der Fußnote. Das ist ein Lauf
+/// mehr, als der Rumpf braucht: die Entscheidung fällt aus Lesungen des vorigen
+/// Laufs, und wer sie liest, liest sie noch einen Lauf später. Die Entscheidung
+/// einer Schicht auf einer neuen Schrittseite steht aber schon heute erst im
+/// fünften Lauf fest. Gemessen: `scene` mit `scene-layer` und Fußnote,
+/// dahinter eine weitere Folie -- "value of `state("typstage-papier-verdeckt")`
+/// did not converge", beobachtet 0, 0, 0, 0, 1 und am Ende 0, und die
+/// Anmerkung fehlte auch auf den Seiten, auf denen die Schicht schon stand.
+/// Ebenso bei `cue-layer`, sobald die Folie danach Schritte hat.
+///
+/// Die Marke trägt nur, was ohne jede Lesung feststeht: den Ort der Fußnote,
+/// den Ort des `context` in `track` -- ein Ort folgt dem Bau des Dokuments, wie
+/// `fnort` im Sprite-Datensatz --, das `at`, wie es übergeben wurde, und drei
+/// Wahrheitswerte. `papier-verborgen` rechnet daraus mit `papier-spanne` und
+/// `papier-zeigt` dasselbe wie `track`, liest am Ort von `track` und hat damit
+/// im selben Lauf dieselbe Antwort wie der Rumpf.
+///
+/// Eine Marke je Fußnote und nicht zwei Zustandsmarken um den Rumpf. Die lagen
+/// in jedem verfolgten Element im Fluss, auch wo keine Fußnote steht, und das
+/// blieb nicht folgenlos: gemessen wichen in fünf der siebzehn Beispieldecks,
+/// keines mit einer Fußnote, einzelne Seiten ab -- auf der nachgesehenen
+/// (`anziehen`, Seite 8) der PDF-Inhaltsstrom gleich, im Bild eine Textzeile
+/// mit Punkten, die um eine Stufe von 255 abwichen. Mit der Regel bleibt ein
+/// Deck ohne Fußnote, wie es war. Und keine Zustandsmarke um die Fußnote: die
+/// Fußnote hat ihren Ort *vor* dem, was eine `show`-Regel aus ihr macht, und
+/// eine dort geschobene Marke gilt an diesem Ort noch nicht -- gemessen an
+/// einem Dokument aus einer Fußnote: der Zustand an ihrem Ort war die leere
+/// Liste. Den Ort nennt die Marke deshalb selbst.
+///
+/// Eine innere Kette setzt ihre eigene Regel dazu; beide greifen, und vor der
+/// Fußnote stehen dann beide Marken.
+#let papier-kette(it, satz) = {
+  [#metadata((fussnote: it.location(), ..satz)) <typstage-papier-kette>]
+  it
+}
+
+/// Ist diese Fußnote auf dem Schritt `k` verborgen, weil eines der verfolgten
+/// Elemente um sie herum dort verborgen ist? Siehe `papier-kette`.
+///
+/// `marken` ist `query(<typstage-papier-kette>)`, einmal je Anmerkungsblock
+/// gefragt statt einmal je Fußnote. Muss in einem `context` stehen.
+///
+/// `k: none` ist die Seite je Folie und der Handzettel. Dort ist verborgen,
+/// was ersetzt wird -- dieselbe Antwort wie `papier-zeigt` mit `none`, nur ohne
+/// vorher die Spanne zu lesen, die diese Antwort nicht braucht.
+#let papier-verborgen(f, marken, k) = {
+  let meine = marken.filter(m => m.value.fussnote == f.location())
+  if k == none { return meine.any(m => m.value.ersetzt) }
+  meine.any(m => {
+    let r = m.value
+    not papier-zeigt(papier-spanne(r.at, r.offen, ort: r.ort),
+                     ersetzt: r.ersetzt, bleibt: r.bleibt, k: k)
+  })
+}
+
+// ── Labels unter `pages: "step"` ────────────────────────────────────────
+//
+// Unter `pages: "step"` setzt `presentation` denselben Folienrumpf einmal je
+// Schritt, und ein Label im Rumpf steht damit so oft im Dokument, wie die
+// Folie Schritte hat. Einen Verweis darauf lehnt Typst ab: `#figure(…) <abb>`,
+// dahinter `#pause` und `Siehe @abb.` brach mit "label `<abb>` occurs multiple
+// times in the document" ab, als Seite je Folie und als Handzettel nicht.
+//
+// Die Seiten nach der ersten setzen darum eine Abbildung, eine Gleichung und
+// eine Überschrift ohne ihr Label -- die drei, auf die ein Verweis zeigen
+// kann. Der Verweis findet sie genau einmal, auf der ersten Seite der Folie,
+// dort, wo sie aufschlägt, und trägt dieselbe Nummer wie auf jeder
+// Schrittseite: das Element ohne Label zählt weiter (siehe `zaehler-klammer`
+// in present.typ). Ebenso findet ein `query(<abb>)` des Decks eines je Folie.
+//
+// Alle drei und nicht nur die, auf die ein Verweis zeigt. Das war der erste
+// Entwurf, und er fragte `query(ref)` im `context` von `track`. Ein `ref`
+// trägt aber das Element, auf das er zeigt, und das hängt daran, ob das Label
+// eindeutig ist -- also an genau dem, was die Abfrage entscheidet, und das
+// auf einer neuen Schrittseite erst einen Lauf später. Gemessen an einer
+// `figure` in einem `anim` und `@abb` auf der Folie danach: "query for ref
+// elements did not stabilize". Ohne Abfrage liest nichts hier etwas, das es
+// nicht schon las.
+//
+// Was es kostet: ein Label ist auch der Griff einer `show`-Regel, und auf den
+// späteren Seiten erreicht eine Regel auf das Label einer Abbildung, Gleichung
+// oder Überschrift diese nicht mehr. Gemessen an einer Folie mit `#pause`:
+// eine Bildunterschrift, rot über `show <rot>: set text(fill: red)`, ist auf
+// der ersten Schrittseite rot und auf der zweiten schwarz. Eine Regel auf die
+// Art (`show figure`) wirkt weiter, ebenso eine auf jedes andere Label: ein
+// Wort, auf dieselbe Weise gefärbt, bleibt auf beiden Seiten rot, und keines
+// der siebzehn Beispieldecks ändert sich auf irgendeiner Seite. Die Labels des
+// Pakets (`ts-…`, `typstage-…`) hängen an keinem der drei und bleiben ohnehin
+// überall.
+//
+// Warum nicht umbenennen: ein zweites Label auf demselben Element nimmt Typst
+// an, meldet aber "content labelled multiple times", und das in jedem Deck,
+// das es trifft. Und warum nicht eine `show`-Regel, die das Label abnimmt: das
+// Element ist in dem Moment, in dem eine Regel es sieht, schon mit seinem
+// Label eingetragen -- gemessen stand `#show <x>: none` vor zwei gelabelten
+// Abbildungen, und `query(<x>)` fand weiter beide. Bleibt, das Element neu zu
+// bauen, bevor es gesetzt wird.
+//
+// Das reicht so weit, wie Inhalt vor dem Setzen sichtbar ist: der Rumpf der
+// Folie, und in `track` der Rumpf jedes aufdeckenden Elements -- `#pause`,
+// `anim`, `alternatives`, `stagger`, `tiles` --, jeweils durch Folgen, `set`-
+// und `show`-Regeln und die Blöcke der Typst-Bibliothek hindurch, die unten
+// stehen; `side-by-side` gibt seine Spalten als `grid` zurück und wird mit
+// erreicht, mit `equal: true` nicht mehr. In einen `context` sieht kein Gang
+// hinein, und in einen Listenpunkt, eine Tabelle oder eine Form auch nicht.
+// Gemessen bleibt ein Label in `card`, `callout`, `statement`, `fit`,
+// `side-by-side(equal: true)`, `anim(card[…])`, `build`, in einem Punkt
+// einer Liste (`- $ x $ <gl>`, auch als Punkt einer `cue`-Gruppe) und in den
+// drei Schichten mehrfach, und ein Verweis darauf bricht ab wie vorher.
+//
+// Die Schichten (`scene-layer`, `cue-layer`, `stagger-layer`) nimmt `track`
+// ausdrücklich aus. Ihr Schritt kommt aus einer Lesung und steht auf einer
+// neuen Schrittseite einen Lauf später fest als bei `anim`, das Label fiele
+// also noch einen Lauf später weg -- und die Klammer der Zähler fragt die
+// Abbildungen, Gleichungen und Überschriften zwischen ihren Marken ab und
+// sähe das Element wechseln. Gemessen an `ziehen` und `vortragen` mit einer
+// gelabelten Gleichung in einer `scene-layer` bzw. `cue-layer` unter
+// `pages: "step"`, ohne jeden Verweis: vorher keine Meldung, mit dem Abnehmen
+// zwei ("did not converge", die Abfrage `equation.after(…).before(…)`), und
+// ein Verweis darauf brach trotzdem ab. Das kleinste Deck: eine Folie mit
+// `anim(at: 2)`, eine mit `scene` und `scene-layer("s", 2)[$ s $ <g>]`, eine
+// mit `anim`.
+//
+// Gemessen an elf Beispieldecks, die in Überschriften geschrieben sind, mit
+// je drei gelabelten Abbildungen in einem `anim` und einem Verweis darauf:
+// vorher je drei Fehler, jetzt keiner, und vier Layoutläufe wie ohne sie. Eine
+// Folie, deren einzige Kette eine gelabelte Abbildung trägt, braucht allein
+// einen Lauf mehr, vier statt drei: `track` liest auf einer neuen Schrittseite
+// seinen Schritt erst einen Lauf später an seinem Ort, das Label fällt dort
+// also einen Lauf später weg, und wer die Abbildungen zählt, zählt noch einmal.
+
+/// Ein Inhalt, in dem Abbildungen, Gleichungen und Überschriften ohne ihr
+/// Label stehen, soweit ein Gang sie erreicht -- oder `none`, wenn er keine
+/// erreicht. `none` und nicht derselbe Inhalt zum Vergleich: Typst vergleicht
+/// Inhalt ohne sein Label, eine Abbildung mit und ohne `<abb>` sind gleich.
+///
+/// Neu gebaut wird nur, was einen Verweis tragen kann, und auf dem Weg dorthin
+/// nur Behälter, deren Aufruf feststeht. Ein Behälter mit eigenem Label bleibt,
+/// wie er ist: sein Label käme beim Neubau nicht mit.
+#let ohne-verweislabel-neu(c) = {
+  if type(c) != content { return none }
+  let f = c.func()
+  let art = repr(f)
+  // Eine Folge von Kindern, im Aufruf `stack(..)` und `grid(..)`, in der
+  // Auszeichnung `sequence`.
+  let kinder-neu(kinder) = {
+    let neu = kinder.map(ohne-verweislabel-neu)
+    if neu.all(n => n == none) { return none }
+    neu.zip(kinder).map(((n, k)) => if n == none { k } else { n })
+  }
+  if art == "sequence" {
+    let neu = kinder-neu(c.children)
+    return if neu != none { neu.join() }
+  }
+  if art == "styled" {
+    let neu = ohne-verweislabel-neu(c.child)
+    return if neu != none { f(neu, c.styles) }
+  }
+  let felder = c.fields()
+  let label = felder.remove("label", default: none)
+  if label != none {
+    let name = str(label)
+    if (f in (figure, math.equation, heading)
+        and not name.starts-with("ts-") and not name.starts-with("typstage-")) {
+      let rumpf = felder.remove("body")
+      return f(rumpf, ..felder)
+    }
+    return none
+  }
+  if f in (block, box, pad, hide, grid.cell, align, place, columns) {
+    if "body" not in felder { return none }
+    let neu = ohne-verweislabel-neu(felder.remove("body"))
+    if neu == none { return none }
+    // `align` und `place` nehmen ihre Ausrichtung, `columns` seine Zahl nur
+    // nach Stellung, und nur, wenn sie dasteht.
+    let vorn = ()
+    for n in ("alignment", "count") {
+      if n in felder { vorn.push(felder.remove(n)) }
+    }
+    return f(..vorn, neu, ..felder)
+  }
+  if f in (stack, grid) and "children" in felder {
+    let neu = kinder-neu(felder.remove("children"))
+    return if neu != none { f(..neu, ..felder) }
+  }
+  none
+}
+
+/// Derselbe Gang, und was er nicht ändert, kommt unverändert zurück.
+#let ohne-verweislabel(c) = {
+  let neu = ohne-verweislabel-neu(c)
+  if neu == none { c } else { neu }
+}
+
+/// Der Rumpf eines verfolgten Elements, wie ihn die Seite setzt, die gerade
+/// entsteht: auf einer Schrittseite nach der ersten ohne die Labels, auf die
+/// ein Verweis zeigen kann. Muss in einem `context` stehen.
+#let schrittkopie(body) = {
+  let k = papier-schritt.get()
+  if k == none or k < 2 or papier-modus.get() != "step" { return body }
+  ohne-verweislabel(body)
+}
+
 #let track(kind, body, at: "1-", extra: (:), raw-frames: none, inline: false,
            width: auto, dim-freiwillig: false, boden: 2, offen: true,
-           vorruecken: 1) = {
+           vorruecken: 1, ersetzt: false, zaehlt: true) = {
   // Der eine Trichter, durch den jeder Auftritt und jeder Abgang muss --
   // `anim`, `stagger`, `alternatives`, `cue`, `build`, `scene`, `flipbook`,
   // `embed`, `video`, `tiles`. Deshalb steht die Prüfung hier und nicht
@@ -1455,7 +2080,7 @@
     let innen = track(kind, body.body, at: at, extra: extra,
                       raw-frames: raw-frames, inline: inline, width: width,
                       dim-freiwillig: dim-freiwillig, boden: boden, offen: offen,
-                      vorruecken: vorruecken)
+                      vorruecken: vorruecken, ersetzt: ersetzt, zaehlt: zaehlt)
     let dx = body.at("dx", default: 0pt)
     let dy = body.at("dy", default: 0pt)
     // Eine nicht genannte Ausrichtung ist nicht dasselbe wie `auto`. Ein
@@ -1502,6 +2127,42 @@
   // bullets beside them along: in a two-column slide the text next to an
   // applet belongs at step one, not behind the applet's tweens.
   //
+  // „Von Anfang an da" gilt aber nur, solange das `at` beim Vorgabewert
+  // bleibt. Ein Video, eine Einbettung, ein Daumenkino oder ein Morph mit
+  // ausgeschriebenem `at` hinter Schritt eins -- `video(at: 2)`,
+  // `embed(at: "2,4-")` -- *erscheint*, und dann zieht es den Zeiger nach wie
+  // ein `anim`. Vorher tat es das nicht, und Papier und Browser zählten
+  // verschieden: die Laufzeit nimmt die höchste Zahl aus jedem `data-at` der
+  // Folie, der Zeiger nur die aus einem `anim`. Gemessen an einem
+  // `video(at: "2,4-")` allein auf seiner Folie: im Browser vier Schritte, auf
+  // Papier einer. Die Seite je Folie setzte darum Schritt eins, und das Video
+  // fehlte auf ihr; unter `pages: "step"` fehlte es ganz. Im HTML hielt die
+  // Prüfung am Deckende `anim(at: "2-3", after: "dimmed")` neben einem
+  // `video(at: 4)` an, weil die Folie für sie nur drei Schritte hatte. Und
+  // ein `anim` hinter einem `video(at: 3)` kam auf Schritt zwei, vor das
+  // Video -- anders als hinter einem `anim(at: 3)`, wo das Handbuch es
+  // verspricht: „Eine ausgeschriebene Zahl setzt ihn neu".
+  //
+  // Nur hinter eins. `"1-"` bleibt ohne Update, sonst begänne ein `stagger`
+  // neben dem Applet (Boden 1) auf Schritt zwei statt auf eins -- genau das,
+  // was der Absatz oben ausschließt. Und nur diese vier Arten: eine `scene`
+  // zieht den Zeiger selbst nach, und ihr `at` ist bei `start: auto` aus einer
+  // Lesung gerechnet; ein Update daran wäre der Kreis, den sie vermeidet.
+  //
+  // Einer ginge diesen Kreis: `alternatives(morph: …)` mit `start: auto`
+  // reicht im Browser jeder Fassung ihr `at` aus dem gelesenen Zeiger herein,
+  // als Morph (mit `track` und `at: auto` wie `stagger(morph:)` konvergierte
+  // er in einer Kachel nicht, siehe dort). Er ruft
+  // `track` darum mit `zaehlt: false` und rückt den Zeiger je Fassung selbst
+  // vor, mit einem Update ohne Gelesenes, so wie Papier die Fassungen als
+  // `anim` mit `at: auto` zählt. Vorher reservierte er seine Schritte gar
+  // nicht: eine Folie mit `anim`, zwei solchen Aufrufen und einem `anim` hinter
+  // jedem hatte im Browser fünf Schritte, die beiden überlappten auf Schritt
+  // 4, auf Papier acht. Hing das Nachziehen hier an seinem gelesenen `at`,
+  // stimmte die Zahl, aber ein `anim` und dahinter zwei `tiles` mit je einem
+  // solchen Aufruf in der zweiten Kachel liefen im Browser nicht mehr
+  // zusammen: acht Meldungen, vorher und jetzt keine.
+  //
   // The cursor runs in *both* outputs, and that is why the accounting stands
   // above the branch below. Nothing is revealed on paper, but `info().step`
   // has to report the same count there as in the browser, and the count is
@@ -1512,9 +2173,33 @@
   // Assigned to a name here, but placed further down all the same: a counter
   // only moves where its update stands in the document. Left in the `let` it
   // would join into the value instead of reaching the page.
-  let zaehlen = if im-deck() {
+  //
+  // `zaehlt: false` bestellt das Vorrücken ab. Gebraucht von `scene-layer`:
+  // eine Schicht sitzt auf einem Halt, den ihre Szene schon vergeben hat, und
+  // ihr Schritt ist aus einer Lesung gerechnet. Rückte sie den Zeiger daran
+  // vor, schlösse sich der Ring Zeiger -> Szene -> Schicht -> Zeiger.
+  //
+  // Ein `at`, das eine Funktion ist, wird erst im `context` unten aufgerufen,
+  // und dort in *demselben* wie die Lesung von `papier-schritt`. Gebraucht von
+  // den drei Schichten (`scene-layer`, `cue-layer`, `stagger-layer`): ihr
+  // Schritt kommt aus einer Lesung. Stand er als fertige Zeichenkette im
+  // Aufruf, trug ihn der `context` darunter mit, und wo die Lesung von Lauf
+  // zu Lauf noch wechselte, bekam der `context` jedes Mal eine neue Identität
+  // und las seinerseits erst einen Lauf später an seinem Ort. Gemessen an
+  // einer Folie mit einem Schritt vor einer Szene mit Schicht, unter
+  // `pages: "step"`: "did not converge", und mit der Funktion nicht mehr.
+  // Vorrücken kann so ein Element nicht, der Zeiger kennt die Zahl nicht.
+  //
+  // Die Funktion nimmt einen Ort oder `none`. Hier ist es immer `none`: gelesen
+  // wird im eigenen `context`. Einen Ort reicht nur der Anmerkungsblock unter
+  // `pages: "step"` herein, der dieselbe Lesung am Ort dieses `context`
+  // nachholt (siehe `papier-kette`).
+  assert(type(at) != function or not zaehlt, message:
+    "typstage (intern): ein `at` als Funktion braucht `zaehlt: false`.")
+  let erscheint = kind in ("video", "embed", "flipbook", "morph")
+  let zaehlen = if zaehlt {
     if at == auto { schritt-vorruecken(boden: boden, um: vorruecken) }
-    else if kind == "anim" {
+    else if kind == "anim" or (erscheint and max-step(selector(at)) > 1) {
       step-cursor.update(c => calc.max(c, max-step(selector(at))))
     }
   } else { [] }
@@ -1543,26 +2228,57 @@
     // dieses Element ihn weitergestellt hat. Nachgemessen an einem Deck mit
     // zwei `anim` und einem dreiteiligen `stagger`: 2, 3 und 1, 2, 3.
     return zaehlen + context {
-      let selected = if at == auto {
-        str(step-cursor.get().first()) + (if offen { "-" } else { "" })
-      } else { selector(at) }
-      let von = min-step(selected)
-      let bis = if offenes-ende(selected) { none } else { max-step(selected) }
+      // Der ganze Selektor und nicht nur Anfang und Ende: eine Lücke in der
+      // Spanne ist auf ihrer Schrittseite eine Lücke (siehe `papier-zeigt`).
+      let selected = papier-spanne(at, offen)
+      let bleibt = extra.at("after", default: none) == "dimmed"
+      // Die Zutaten dieser Entscheidung an jede Fußnote im Rumpf, sichtbar
+      // oder nicht: die Frage stellt der Anmerkungsblock, und er stellt sie
+      // selbst (siehe `papier-kette`).
+      //
+      // Ohne Bedingung auf die Fassung, die dafür erst `papier-modus` lesen
+      // müsste. Die Marke zeichnet nichts und schiebt nichts: gemessen an
+      // `tour` mit elf eingestreuten Fußnoten stehen die Seite je Folie und
+      // der Handzettel Bild für Bild wie vorher da.
+      let satz = (ort: here(), at: at, offen: offen, ersetzt: ersetzt,
+                  bleibt: bleibt)
+      show footnote: it => papier-kette(it, satz)
       // `hide` statt Weglassen: der Platz bleibt stehen, und die Seiten einer
       // Folie liegen übereinander, statt bei jedem Schritt neu umzubrechen.
-      if papier-zeigt(von, bis) { leib } else { hide(leib) }
+      // Auf einer Schrittseite nach der ersten ohne die Labels, auf die ein
+      // Verweis zeigen kann (siehe `ohne-verweislabel`). Nicht in den drei
+      // Schichten, deren `at` eine Funktion ist: dort kostete es gemessen die
+      // Konvergenz gültiger Decks (siehe dort).
+      let leib = if type(at) == function { leib } else { schrittkopie(leib) }
+      if papier-zeigt(selected, ersetzt: ersetzt, bleibt: bleibt) {
+        leib
+      } else { hide(leib) }
+      // Hinter dem Rumpf, damit der Zeiger dort die Kette darin schon gezählt
+      // hat, und außerhalb von `hide`: die Marke gehört dem Element, nicht
+      // seinem Inhalt.
+      if at == auto and not offen { spannen-marke() }
     }
   }
   zaehlen
   element-counter.step()
   context {
     let n = element-counter.get().first()
-    // `offen: false` gibt einen einzelnen Schritt statt einer offenen Spanne --
-    // was `alternatives` für alle Fassungen außer der letzten braucht: eine
-    // Fassung tritt ab, wenn die nächste kommt, sie bleibt nicht liegen.
-    let selected = if at == auto {
-      str(step-cursor.get().first()) + (if offen { "-" } else { "" })
-    } else { selector(at) }
+    // `offen: false` gibt eine geschlossene Spanne statt einer offenen -- was
+    // `alternatives` für alle Fassungen außer der letzten braucht: eine
+    // Fassung tritt ab, wenn die nächste kommt, sie bleibt nicht liegen. Wie
+    // weit sie reicht, sagt `auto-auswahl`.
+    let at = if type(at) == function { at(none) } else { at }
+    // Dasselbe für einen Wert in `extra`: eine Funktion wird erst hier
+    // aufgerufen, in diesem `context`, und reist nicht als fertige Zahl im
+    // Aufruf mit. Gebraucht von `cue` für `ad-nr`, die Nummer eines Punktes,
+    // die am Stand der Gruppe hängt -- und dieser Stand ist im Sprite eines
+    // Wirts ein anderer als im Hintergrund (siehe dort).
+    //
+    // Nur hier und nicht im Papierzweig oben: der liest aus `extra` nur
+    // `after`, und das ist nie eine Funktion.
+    let extra = extra.pairs().map(((k, v)) =>
+      (k, if type(v) == function { v(none) } else { v })).to-dict()
+    let selected = if at == auto { auto-auswahl(offen) } else { selector(at) }
     // The step this element first stands on, and what `info().step.number`
     // reads inside its body. It travels into the sprite as well, because the
     // body is laid out a second time there, long after the cursor has run on
@@ -1654,6 +2370,18 @@
         leading: par.leading, par-spacing: par.spacing,
         justify: par.justify, first-line-indent: par.first-line-indent,
         hanging-indent: par.hanging-indent,
+        // Und ob gezählt wird. Eine Gleichung und eine Überschrift zählen nur
+        // nummeriert, und ein `#set math.equation(numbering: …)` im Rumpf des
+        // Decks erreicht den Sprite nicht: der Inhalt eines `alternatives`,
+        // `stagger`, `build`, `cue` oder `anim` steht dort außerhalb der
+        // Regel. Gemessen an sechs Folien mit je einer Gleichung darin: im
+        // Browser trug keine eine Nummer, auf Papier jede. Und die
+        // Klammer um jeden Sprite (`sprite-klammer` in render.typ) nimmt
+        // zurück, was der Hintergrund gezählt hat -- ohne diese drei Werte ging
+        // sie dort je Sprite um eins zu weit, und die Gleichung der Folie
+        // danach stand bei (1) statt (10).
+        numbering: (figure: figure.numbering, equation: math.equation.numbering,
+                    heading: heading.numbering),
       )
       // Only what *wants* to fill gets the full space. Everything else
       // stays as wide as its content, or a tracked element in an `auto`
@@ -1739,10 +2467,18 @@
           height: if available.height == float("inf") { auto } else { available.height },
           body)))
       })
+      // Und wo dieser Rumpf im Hintergrund endet, als Marke mit dem Ort seines
+      // Beginns als Wert. Der Sprite zählt denselben Rumpf ein zweites Mal;
+      // `sprite-klammer` in render.typ stellt davor auf den Stand am Beginn
+      // zurück und dahinter um das vor, was der Hintergrund nach dieser Marke
+      // noch zählt.
+      [#metadata(fnort) <typstage-rumpf-ende>]
     })
     // The element is done, so whatever stood around it stands again. Popped,
     // never assigned back from a remembered value: see `step-here`.
     step-here.update(a => if a.len() > 0 { a.slice(0, -1) } else { a })
+    // Hinter dem gesetzten Rumpf, aus demselben Grund wie im Papierzweig.
+    if at == auto and not offen { spannen-marke() }
   }
   })
 }

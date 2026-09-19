@@ -476,10 +476,17 @@
 /// `ts-title-slide-title`, `ts-title-slide-subtitle`, `ts-title-slide-rule`
 /// and `ts-title-slide-byline`; on the section slide
 /// `ts-section-slide-ground`, `ts-section-slide-bar`,
-/// `ts-section-slide-title`, `ts-section-slide-rule` and
-/// `ts-section-slide-parent`. A `show` rule on one of them changes type or
-/// fill without a key having to exist for it; the keys below stay what they
-/// are and keep the arrangement.
+/// `ts-section-slide-title`, `ts-section-slide-rule`,
+/// `ts-section-slide-parent` and `ts-section-slide-back`. A `show` rule on one
+/// of them changes type or fill without a key having to exist for it; the keys
+/// below stay what they are and keep the arrangement.
+///
+/// `ts-section-slide-back` is the link back to the contents. It is the one
+/// label of the section slide that a custom `section` function does not draw
+/// and does not take away: the theme places it after that function has run.
+/// Its word follows `text.lang`. It appears only where there is a contents
+/// slide elsewhere in the deck -- a deck with none, or one whose contents
+/// stands on the section slide itself, gets no link.
 ///
 /// The last of those is the line naming the sections a deeper section hangs
 /// under. It exists only from the second structure level on, so a deck at the

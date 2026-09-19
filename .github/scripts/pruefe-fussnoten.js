@@ -15,6 +15,12 @@
 // Fluss und gilt ab Schritt eins, die zweite im ersten Teil und ebenso, die
 // dritte im letzten Teil und erst ab Schritt drei. Ein Deck mit einer
 // einzigen Folie und einer einzigen Fußnote sähe den Unterschied nicht.
+//
+// Dazu eine Kette in einer Kette: eine Fußnote in einem `anim` in der ersten
+// Fassung einer `alternatives`. Ihre Anmerkung folgte nur der inneren Kette,
+// `data-at="1-"`, und stand auf Schritt zwei noch da, als ihre Fassung schon
+// gegangen war -- die Laufzeit deckelt ein Sprite mit seinem Wirt, eine
+// Anmerkung aber sitzt in keinem.
 const { starte, schlaf } = require("./decklauf/cdp.js");
 const { execFileSync } = require("child_process");
 const fs = require("fs"), os = require("os"), path = require("path");
@@ -31,11 +37,19 @@ const DECK = `#import "@preview/typstage:0.1.2": *
 Grund#footnote[GRUND].
 
 #stagger[eins#footnote[EINS]][zwei][drei#footnote[DREI]]
+
+== Verschachtelt
+#alternatives(
+  [Aussen #anim(at: "1-")[innen#footnote[INNEN]]],
+  [Zwei#footnote[ZWEI]],
+)
 `;
 
-// Die Anmerkungen als eigene Elemente, mit ihrer Spanne und ihrer Deckkraft.
-const anmerkungen = `(function(){
-  var e = [].slice.call(document.querySelectorAll('#ts-stage .ts-el.ts-note'));
+// Die Anmerkungen einer Folie als eigene Elemente, mit ihrer Spanne und ihrer
+// Deckkraft. Folie 0 ist die Titelfolie.
+const anmerkungen = (folie) => `(function(){
+  var f = document.querySelectorAll('.ts-slide')[${folie}];
+  var e = f ? [].slice.call(f.querySelectorAll('.ts-el.ts-note')) : [];
   return JSON.stringify(e.map(function(x){
     return { at: x.dataset.at, deckkraft: +(+getComputedStyle(x).opacity).toFixed(2) };
   }));
@@ -69,7 +83,7 @@ const anmerkungen = `(function(){
   await b.taste("ArrowRight");
   await schlaf(1200);
 
-  const erste = JSON.parse(await b.ev(anmerkungen));
+  const erste = JSON.parse(await b.ev(anmerkungen(1)));
   if (erste.length !== 3) {
     klagen.push("die Folie trägt drei Fußnoten, aber " + erste.length
       + " Anmerkung(en) mit eigenem Element. Ohne eigenes Element steht eine "
@@ -91,10 +105,29 @@ const anmerkungen = `(function(){
   // Bis zum dritten Schritt der Folie.
   await b.taste("ArrowRight"); await schlaf(700);
   await b.taste("ArrowRight"); await schlaf(1200);
-  const dritte = JSON.parse(await b.ev(anmerkungen));
+  const dritte = JSON.parse(await b.ev(anmerkungen(1)));
   if (dritte.length === 3 && dritte[2].deckkraft < 0.95) {
     klagen.push("die dritte Anmerkung steht auf Schritt drei nur mit Deckkraft "
       + dritte[2].deckkraft + ". Dort ist ihre Marke da, also gehört sie dazu.");
+  }
+
+  // Auf die verschachtelte Folie, Schritt zwei: die erste Fassung ist fort.
+  await b.taste("ArrowRight"); await schlaf(700);
+  await b.taste("ArrowRight"); await schlaf(1200);
+  const innen = JSON.parse(await b.ev(anmerkungen(2)));
+  if (innen.length !== 2) {
+    klagen.push("die verschachtelte Folie trägt zwei Fußnoten, aber "
+      + innen.length + " Anmerkung(en) mit eigenem Element.");
+  } else {
+    if (innen[0].deckkraft > 0.05) {
+      klagen.push("die Anmerkung aus dem `anim` in der ersten Fassung steht auf"
+        + " Schritt zwei mit Deckkraft " + innen[0].deckkraft + " (data-at "
+        + innen[0].at + "). Ihre Fassung ist dort fort, und mit ihr die Marke.");
+    }
+    if (innen[1].deckkraft < 0.95) {
+      klagen.push("die Anmerkung der zweiten Fassung steht auf Schritt zwei nur"
+        + " mit Deckkraft " + innen[1].deckkraft + ".");
+    }
   }
 
   await b.ende();

@@ -16,10 +16,13 @@
 #import "elements.typ": anim-kern
 #import "internal.typ": (fit-faktor, fit-mass, fit-meldung, fit-toleranz,
                         hat-pause, im-fit, kurve, step-cursor,
-                        umgebungs-block, unloesbar, zeilen-hoehe)
+                        umgebungs-block, unloesbar)
 #import "config.typ": doc-word
 #import "themes.typ": lesbar, theme-state
 #import "richtung.typ": von-rechts
+
+// Die beiden Kaesten, die in `side-by-side(equal: true)` ihre Zeile fuellen.
+#let kasten-marken = selector(label("ts-card")).or(label("ts-callout"))
 
 /// A named box: Beamer's `block`.
 ///
@@ -56,14 +59,6 @@
   // from the textbook: no edge, no rounding, a tinted surface, and the
   // caption sits in color *inside* the box instead of on a bar.
   let stil = t.at("box", default: "bar")
-  // In a row with a fixed height, the box fills it. Otherwise the shorter
-  // of the two would stay at the top and the row would have gained nothing.
-  //
-  // The measure comes as a length, not as `100%`: a percentage here
-  // resolves against the region, not against the grid cell. Measured in
-  // practice, only the box's top edge was visible, because the rest lay
-  // far below the slide.
-  let zeile = zeilen-hoehe.get()
   let eigene-farbe = color != auto
   // In the bar style the color is a *ground* and carries white on it, so it
   // has to stay the theme's strong tone. In the label style the same entry is
@@ -95,15 +90,37 @@
   let aussen = umgebungs-block()
   {
   set block(fill: fill, stroke: stroke, radius: radius)
+  // KEINE Hoehe als Argument: die Zeilenhoehe kommt von der Regel, die
+  // `side-by-side(equal: true)` um sein Raster legt. Ein ausgeschriebenes
+  // Argument -- auch `auto` -- schluege jede `set`-Regel, und die Karte
+  // stuende wieder so hoch wie ihr eigener Text.
   [#block(
-    width: width, height: if zeile == none { auto } else { zeile },
+    width: width,
   {
     // Between the bar and the body, Typst would otherwise add its block
     // spacing: measured at 20pt for 17pt text, which left the text hanging
     // 30pt below the head but only 9pt above the bottom edge. Both blocks
     // give it up; the spacing comes solely from `inset`.
+    // `height: auto` aus demselben Grund wie Grund, Rand und Rundung: die
+    // Regel, die `side-by-side(equal: true)` um sein Raster legt, gilt fuer
+    // den Kasten UND fuer alles in ihm. Ohne diese Ruecknahme wuerde der
+    // farbige Reiter genauso hoch wie die ganze Karte, und der Text liefe
+    // unten heraus -- gemessen an theme-plain, Seite 12.
     set block(spacing: 0pt, fill: aussen.fill, stroke: aussen.stroke,
-              radius: aussen.radius)
+              radius: aussen.radius, height: auto)
+    // Und ein Kasten *in* diesem Kasten ist so hoch wie sein Text. Die Regel
+    // von `side-by-side(equal: true)` trifft ihn sonst ebenfalls, denn sie
+    // fragt nach der Marke und nicht nach der Tiefe: gemessen lief ein
+    // `callout` in einer `card` mit der vollen Zeilenhoehe unten aus der Karte
+    // heraus. Ein `side-by-side` weiter innen legt seine eigene Regel noch
+    // tiefer und behaelt sie.
+    show kasten-marken: set block(height: auto)
+    // Oben, auch wenn die Zeile hoeher ist als die Karte. `side-by-side`
+    // richtet seine Spalten auf `horizon` aus, und das erbte der Inhalt einer
+    // Karte, die ihre Zeile fuellt: der Reiter einer kuerzeren Karte stand in
+    // ihrer Mitte, darueber leere Flaeche. Nur die senkrechte Achse; die
+    // waagrechte faltet sich mit der aeusseren Ausrichtung zusammen.
+    set align(top)
     if title != none and stil == "bar" {
       // No `stroke` here. The bar never had one of its own, so it picks up
       // whatever the document set, and the line above has already put that
@@ -178,7 +195,6 @@
   // color is darkened instead of lightened, and the caption is lightened.
   let grund = if t.inverted { color.darken(68%) } else { color.lighten(90%) }
   let beschriftung = if t.inverted { color.lighten(15%) } else { color.darken(12%) }
-  let zeile = zeilen-hoehe.get()
   // As in `card`: the surface goes through a rule so a label can reach it,
   // and the document's own block style is put back inside.
   let aussen = umgebungs-block()
@@ -189,10 +205,15 @@
   let strich = if von-rechts() { (right: 3.5pt + color) } else { (left: 3.5pt + color) }
   set block(fill: grund, stroke: strich, radius: radius)
   [#block(
-    width: width, height: if zeile == none { auto } else { zeile },
+    width: width,
     inset: inset,
     {
-      set block(fill: aussen.fill, stroke: aussen.stroke, radius: aussen.radius)
+      // `height: auto` wie in `card`: die Zeilenregel gilt auch fuer die
+      // Bloecke im Kasten, und die sollen so hoch bleiben wie ihr Text.
+      set block(fill: aussen.fill, stroke: aussen.stroke,
+                radius: aussen.radius, height: auto)
+      show kasten-marken: set block(height: auto)
+      set align(top)
       // Not text, `v()` and body one after another: between two paragraphs
       // Typst additionally inserts `par.spacing`, 29pt for 24pt text, which
       // adds to the explicit spacing. Measured at 34pt instead of the
@@ -272,8 +293,17 @@
     // yet: the boxes in it are as tall as their content, and that is
     // exactly what the measure should be.
     let h = measure(roh, width: available.width).height
+    // Die Hoehe kommt als `set`-Regel an die Kaesten und nicht als Zustand,
+    // den sie lesen. Eine Lesung IM gemessenen Inhalt waere genau der Kreis,
+    // den dieses Paket verbietet: `measure` loest sie am naechstliegenden
+    // Kasten des wirklichen Dokuments auf, und dort steht das Ergebnis eben
+    // dieser Messung. Unter `pages: "step"` liegt dieselbe Folie mehrfach im
+    // Dokument, der naechstliegende Treffer wechselt, und Typst gibt nach
+    // fuenf Laeufen auf ("a measured element did not stabilize").
+    // `roh` traegt nach diesem Umbau gar keine Introspektion mehr.
+    show kasten-marken: set block(height: h)
     grid(columns: breiten, column-gutter: gutter, align: align, rows: (h,),
-      ..spalten.map(p => zeilen-hoehe.update(h) + p + zeilen-hoehe.update(none)))
+      ..spalten)
   })
 }
 
@@ -285,7 +315,9 @@
 ///
 /// `at` behaves as in `anim`: `auto` takes the next free step. `stride: 0`
 /// makes all tiles appear on the same step and staggers only through
-/// `stagger`, in milliseconds; a wave then runs through the grid.
+/// `stagger`, in milliseconds; a wave then runs through the grid. A tile that
+/// reveals something of its own moves the tiles after it back, as a `stagger`
+/// piece does, whatever the `stride`.
 ///
 /// `duration` and `easing` are those of `anim` and apply to every tile alike:
 /// one grid moves as one thing. `auto` is the presentation's duration and the
@@ -327,16 +359,28 @@
     "typstage: tiles(stride: …) is how many steps lie between two tiles, a "
     + "whole number from 0 upwards; 0 puts them all on the same step. Not "
     + repr(stride))
-  // Resolved once and then incremented, not `auto` per tile, since
-  // otherwise `stride: 0` (all on the same step) could not be expressed at
-  // all.
-  // Bei `stride: 1` vergibt `track` die Schritte selbst (`at: auto`). Ein aus
-  // dem gelesenen Zeiger gerechnetes und hereingereichtes `at` kostet das
-  // Dokument sonst seine Konvergenz, sobald eine Kachel etwas außerhalb des
-  // Flusses trägt. Bei anderem `stride` liegen Lücken dazwischen, die `track`
-  // nicht kennt -- dort bleibt der alte Weg.
-  let auto-kette = at == auto and stride == 1
-  let start = if at == auto { step-cursor.get().first() + 1 } else { at }
+  // Bei `at: auto` vergibt `track` die Schritte selbst, bei jedem `stride`.
+  // Die erste Kachel rückt um eins vor wie jedes `at: auto`, jede weitere um
+  // `stride` (`vorruecken` in `track`); das ergibt dieselbe Folge wie
+  // `start + i * stride`, bei `stride: 0` alle auf demselben Schritt. Derselbe
+  // Weg wie `stagger` (siehe `stueck` dort), und darum rücken wie dort die
+  // Kacheln hinter einer nach, die selbst etwas aufdeckt: gemessen an
+  // `#anim[X]` und `tiles(stride: 0, [A #anim[a]], [B], [C])` im HTML X auf
+  // 2-, A auf 3-, a, B und C auf 4-, unter `pages: "step"` vier Seiten, B und C
+  // mit a auf der vierten.
+  //
+  // Bis dahin galt das nur für `stride: 1`. Jedes andere `stride` las den
+  // Zeiger, rechnete jeder Kachel ihr `at` aus und reichte es herein; das
+  // ausgeschriebene `at` zog den Zeiger nach, der Zeiger gab `papier-zahlen`
+  // die Seitenzahl, und unter `pages: "step"` las jede neu hinzugekommene
+  // Seite einen Stand, der erst einen Lauf später stimmte. Gemessen an einer
+  // Folie mit nichts als `tiles(stride: 2, [A], [B], [C])`: acht Meldungen und
+  // zehn Seiten statt fünf; mit `stride: 0` und einem `anim` dahinter neun
+  // Meldungen und vier Seiten statt zwei.
+  //
+  // Gelesen wird der Zeiger hier nicht mehr. Ein ausgeschriebenes `at` rechnet
+  // aus dem Argument, wie bisher.
+  let auto-kette = at == auto
   // Einmal aufgelöst und nicht je Kachel: die Meldung soll `tiles` heißen und
   // nicht `anim`, und ein Name, den es nicht gibt, ist einmal falsch und nicht
   // neunmal. Derselbe Handgriff wie in `stagger`.
@@ -349,8 +393,9 @@
     align: align,
     ..kacheln.enumerate().map(((i, k)) => anim-kern(
       k,
-      at: if auto-kette { auto } else { start + i * stride },
+      at: if auto-kette { auto } else { at + i * stride },
       boden: 1,
+      vorruecken: if i == 0 { 1 } else { stride },
       enter: enter,
       duration: duration,
       easing: takt,

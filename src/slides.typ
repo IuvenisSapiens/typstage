@@ -2,7 +2,7 @@
 
 #import "themes.typ": lesbar, theme-state
 #import "internal.typ": (clock-state, deck-info, html-output, note-state, notiz-pruefen,
-                        papier-zahlen,
+                        im-dokument, papier-zahlen-hier,
                         uebergang-pruefen,
                         step-cursor, step-jetzt, transition-state)
 
@@ -175,7 +175,10 @@
 ///   count as in `levels`) and `here`, which is `true` only on that section
 ///   slide itself. Comparing an entry's `number` with
 ///   `levels.at(entry.depth - 1).number` says whether it is past, running or
-///   still to come, and that is how a progressive agenda is built.
+///   still to come, and that is how a progressive agenda is built. An equal
+///   number is running only while that level's `index` is not `0`: after a
+///   new part, the last chapter of the part before keeps its number there
+///   and is past.
 ///
 /// Only in a context. *Before* any presentation has run there is nothing to
 /// read and this stops with a message rather than handing out zeros. *After*
@@ -198,10 +201,11 @@
   // through a state, which would cost one layout run too many.
   let gesamt = if not html-output.get() {
     // Auf Papier aus dem Zustand: dort gibt es die Marke nicht, weil eine
-    // Folie mehrere Seiten setzen kann.
-    papier-zahlen.final().at(str(stand.nr), default: 1)
+    // Folie mehrere Seiten setzen kann. Beides, Zustand und Marke, aus dem
+    // eigenen Dokument: in einem Bündel trägt jedes dieselben Foliennummern.
+    papier-zahlen-hier().at(str(stand.nr), default: 1)
   } else {
-    let ende = query(<typstage-slide-end>).find(e => e.value == stand.nr)
+    let ende = query(im-dokument(<typstage-slide-end>)).find(e => e.value == stand.nr)
     if ende == none { 1 } else {
       calc.max(1, step-cursor.at(ende.location()).first())
     }
@@ -254,6 +258,13 @@
 /// first column by available space before flowing into the second.
 /// `from` and `to` select an inclusive, one-based range of directory entries;
 /// `to: auto` selects through the final entry.
+/// `highlight: true` marks the section the talk is in and dims the rest. Where
+/// no listed entry is running -- an opening agenda before the first section,
+/// or a `from`/`to` range the running section falls outside of -- there is
+/// nothing to mark, and the list is then set the way it is without
+/// `highlight` rather than dimmed throughout. Every entry still carries
+/// `when` (`"past"`, `"running"` or `"coming"`) into `number` and `title`, so
+/// a renderer of your own can answer that case differently.
 ///
 /// ```typ
 /// #contents(
@@ -312,16 +323,58 @@
   // Datenmodell entworfen -- `contents()` hat es bisher nur nicht genutzt.
   // Jeder Eintrag bekommt das als `when` mit, auch die eigenen
   // Renderfunktionen: wer die Hervorhebung anders will, baut sie sich daraus.
+  //
+  // Die Nummer allein reicht dafür nicht. Sie geht nie zurück, auch nicht,
+  // wenn die Ebene darüber weiterzieht: `present.typ` leert beim neuen Teil
+  // `title`, `index` und `count` der tieferen Ebenen, `number` behält es als
+  // Fortschritt. Gemessen an `= Teil A / == Kap A1 / === s1 / = Teil B /
+  // === Mitte / == Kap B1`: auf "Mitte" lasen die Ebenen `number` 2 und 1,
+  // "Kap A1" (Nummer 1) kam damit als "running" heraus, während "Teil A"
+  // schon "past" war -- in allen vier Fassungen, und ebenso auf der
+  // Abschnittsfolie "Teil B" selbst, wenn ein Thema dort ein Verzeichnis
+  // setzt. `index` ist 0, solange auf dieser Ebene nichts läuft; bei
+  // gleicher Nummer entscheidet es also zwischen laufend und vorbei. Keine
+  // neue Lesung: es steht in demselben Eintrag, den `info()` schon liefert,
+  // und die 17 Beispieldecks brauchten damit, als die Bedingung dazukam,
+  // dieselben Layoutläufe wie vorher. Nachgemessen im Stand danach: Folien 3
+  // bzw. 4, Schritte 4, Handzettel 3 bzw. 4, HTML 4 bzw. 5.
   let ebenen = info().levels
   let wann = eintrag => {
     if eintrag.depth > ebenen.len() { return "coming" }
-    let hier = ebenen.at(eintrag.depth - 1).number
-    if eintrag.number < hier { "past" }
-    else if eintrag.number == hier { "running" }
-    else { "coming" }
+    let ebene = ebenen.at(eintrag.depth - 1)
+    if eintrag.number < ebene.number { "past" }
+    else if eintrag.number > ebene.number { "coming" }
+    else if ebene.index > 0 { "running" }
+    else { "past" }
   }
   let schritt = if indent == auto { 1.4em } else if indent == none { 0pt }
                 else { indent }
+  // ── Eine Hervorhebung, die nichts hervorhebt ────────────────────────────
+  //
+  // `highlight` verspricht: ein Eintrag steht hell, der Rest tritt zurück.
+  // Wo es diesen einen Eintrag nicht gibt, kann das Versprechen nicht
+  // eingelöst werden -- und gedämpft wurde trotzdem alles. Gemessen auf einer
+  // Eröffnungs-Agenda, also einem `contents()` vor der ersten
+  // Abschnittsüberschrift: `levels.first().number` ist dort 0, kein Eintrag
+  // ist damit "running", und der dunkelste Bildpunkt der ganzen Liste kam auf
+  // 138 von 255 statt auf 1. Eine blasse Liste, die nichts meint. Dieselbe
+  // Lage entsteht mit `from`/`to`, wenn der laufende Abschnitt gar nicht im
+  // gezeigten Bereich liegt.
+  //
+  // Also nur dämpfen, wenn es etwas zu heben gibt. Die Bedingung ist genau
+  // die Umkehrung des Versprechens und wird über die GEZEIGTEN Einträge
+  // gestellt, nicht über die ganze Gliederung -- was nicht auf der Folie
+  // steht, kann dort auch nichts hervorheben. Fällt sie, sieht das
+  // Verzeichnis aus wie ohne `highlight`; das ist keine Notlösung, sondern
+  // die richtige Auskunft: vor dem ersten Abschnitt ist die Agenda eine
+  // Agenda und sonst nichts. Den ersten Eintrag hell zu setzen, weil er als
+  // nächster kommt, wäre eine Behauptung über den Stand des Vortrags, die
+  // nicht stimmt -- dieselbe Haltung, mit der eine Fußzeile auf einer
+  // ungezählten Folie ihr Feld frei lässt, statt eine 0 hineinzuschreiben.
+  //
+  // `entry.when` bleibt davon unberührt: die eigenen Renderfunktionen
+  // bekommen weiter die Wahrheit und entscheiden selbst.
+  let hebt = highlight and entries.any(e => wann(e) == "running")
   // Gedämpft, was nicht läuft -- und nur wenn `highlight` an ist. Sonst sieht
   // ein Verzeichnis aus wie bisher.
   let blass = farbe => farbe.transparentize(55%)
@@ -337,7 +390,7 @@
     entry => text(
       fill: {
         let f = lesbar(t.paper, t.accent, t.strong, t.ink)
-        if highlight and entry.when != "running" { blass(f) } else { f }
+        if hebt and entry.when != "running" { blass(f) } else { f }
       },
       weight: "medium",
       features: (tnum: 1),
@@ -346,15 +399,19 @@
   else { number }
   let title-render = if title == auto {
     (entry, destination) => link(destination)[
-      #text(fill: if highlight and entry.when != "running" { blass(t.ink) }
+      #text(fill: if hebt and entry.when != "running" { blass(t.ink) }
                   else { t.ink },
-            weight: if highlight and entry.when == "running" { "medium" }
+            weight: if hebt and entry.when == "running" { "medium" }
                     else { "regular" })[#entry.title]
     ]
   } else { title }
   let gesetzt = roh => {
     let entry = roh + (when: wann(roh))
-    let destination = query(<typstage-slide-target>)
+    // Das Ziel im eigenen Dokument. In einem Bündel steht jede Folie in
+    // jeder Ausgabe, und `find` nahm das erste Ziel im Bündel: die Einträge
+    // im Foliensatz und im Handzettel zeigten in die HTML (siehe
+    // `im-dokument`).
+    let destination = query(im-dokument(<typstage-slide-target>))
       .find(slide => slide.value == entry.target + 1)
       .location()
     if number == none {
@@ -387,7 +444,17 @@
   }
   let flow = entries.map(entry => block(below: row-gutter, item(entry))).join()
   [
-    #metadata(none) <typstage-contents>
+    // Die Marke trägt die Nummer der Folie, auf der dieses Verzeichnis
+    // steht. Der Rückverweis der Abschnittsseite vergleicht sie mit seiner
+    // eigenen und lässt den Verweis weg, wenn das Verzeichnis auf derselben
+    // Folie liegt -- ein Deck, das sein Verzeichnis über den Themenschlüssel
+    // `section` auf die Abschnittsseiten selbst legt, bekam sonst einen
+    // Verweis auf die Seite, auf der er steht.
+    //
+    // Die Folienzahl und nicht die Seitenzahl: in der HTML-Ausgabe meldet
+    // `location().page()` für jeden Fund 1, ein Vergleich über Seiten hätte
+    // den Verweis dort auf jeder Abschnittsseite verschluckt.
+    #metadata(deck-info.get().nr) <typstage-contents>
     #if layout == "1x2-fill" {
       std.columns(2, gutter: column-gutter)[#flow]
     } else if layout == "1x2" {

@@ -245,6 +245,11 @@ Folie. Die Trennfolien für *beide* Ebenen fallen von selbst an. `slide-level: 1
 macht jede Überschrift zu einer Folie; das Deck hat dann keine Struktur-Ebene
 mehr.
 
+Auch eine Überschrift als Funktionsaufruf zählt nach ihrer Ebene,
+`#heading(level: 3)[…]` wie `===` und `#heading[…]` ohne Ebene wie `=`. Eine
+Zwischenüberschrift, die im Rumpf bleibt und keine Folie beginnt, steht in
+einem Block: `#block(heading(level: 3)[…])`.
+
 Die fünf mitgelieferten Themes zeichnen eine tiefere Ebene ruhiger: der Titel
 wird kleiner, und darüber steht, worunter der Abschnitt hängt. Ein eigenes
 Theme liest dafür `s.depth` und `s.parents` und darf beide übergehen.
@@ -461,13 +466,21 @@ Sie erreicht alle drei Ausgaben: den Browser, die PDF und das Handout neben
 seiner Folie. Steht die Fußnote *in* einer Aufdeckkette, erscheint ihre
 Anmerkung mit ihrer Marke: im Browser wird sie auf demselben Schritt
 eingeblendet, der Folienfuß verrät also nichts, was der Vortrag noch nicht
-gezeigt hat. Ihr Platz steht dabei von Anfang an; es springt nichts, wenn sie
-kommt.
+gezeigt hat. Und sie geht mit ihr, auch aus einer Kette in einer Kette: ein
+`stagger` in einer Fassung einer `alternatives` nimmt seine Anmerkungen mit,
+wenn die Fassung geht. Ihr Platz steht dabei von Anfang an; es springt nichts,
+wenn sie kommt.
 
 #info[
-  Auf Papier steht die Anmerkung vom ersten Schritt ihrer Folie an.
-  `pages: "step"` setzt dieselbe Folie einmal je Schritt; das Papier zeigt, was
-  der Browser einblendet.
+  Auf einer Seite je Folie und im Handout stehen die Anmerkungen der Folie --
+  außer denen, deren Marke in einer Fassung, einer Stufe oder einem Halt steht,
+  den das Papier dort nicht zeigt. Von einer `alternatives` steht nur die letzte
+  Fassung da, also auch nur ihre Anmerkung; der Platz der anderen bleibt frei,
+  und die Nummern sind die des Browsers. `pages: "step"` setzt dieselbe Folie
+  einmal je Schritt, und dort zeigt das
+  Papier, was der Browser einblendet: Eine Anmerkung steht auf den Seiten, auf
+  denen ihre Marke aufgedeckt ist, mit derselben Nummer wie im Browser, und ihr
+  Platz bleibt auf den anderen frei.
 ]
 
 #warning[
@@ -524,6 +537,28 @@ Zweierlei ist zu wissen. Eine `cue`-Gruppe wird an der Tastatur gerufen, auf
 Papier kann sie deshalb nur der geschriebenen Reihenfolge folgen. Und eine
 Kamerafahrt bekommt keine eigene Seite: auf Papier gibt es keine Kamera, ihre
 Seite stünde also zweimal gleich da.
+
+Und zweierlei betrifft das Typst-Dokument darunter. Eine Abbildung, eine
+Gleichung und eine Überschrift tragen ihr Label nur auf der ersten Seite einer
+Folie, die Seiten danach setzen sie ohne. So findet `@abb` sein Ziel genau
+einmal, führt dorthin, wo die Folie aufschlägt, und nennt dieselbe Nummer wie
+jede ihrer Seiten, und `query(<abb>)` findet eines je Folie. Eine `show`-Regel
+auf ein solches Label erreicht die späteren Seiten deshalb nicht; eine auf die
+Art, etwa `show figure`, erreicht alle. In einer `card`, einem `callout`,
+`statement`, `fit`, `side-by-side(equal: true)` oder `build`, in einem
+Listenpunkt -- auch als Punkt einer `cue`-Gruppe -- und in einer `scene-layer`,
+`cue-layer` oder `stagger-layer` bleibt das Label auf jeder Seite stehen, und
+ein Verweis darauf hält das Übersetzen an: Eine Abbildung, auf die verwiesen
+wird, steht dann neben der Karte oder der Liste statt darin.
+
+Ein eigener `state` dagegen läuft über die Seiten einer Folie weiter. Jede Seite
+führt sein `update` noch einmal aus: `Aufgabe #context aufgabe.get()` hinter
+`aufgabe.update(n => n + 1)` zählt auf den zwei Seiten einer Folie mit `#pause`
+1 und 2 statt zweimal 1, und die Folie danach sagt 3. Zurückstellen kann das
+Paket ihn nicht, denn Typst verrät weder, womit ein Zustand beginnt, noch, was
+ein `update` mit ihm tut. Zum Nummerieren taugt ein `counter`, den stellen die
+Seiten zurück; und ein `update` mit einem Wert statt einer Funktion gibt auf
+jeder Seite dasselbe.
 
 Rechne mit zwei bis drei Seiten je Folie -- so kommen die Beispieldecks heraus.
 
@@ -698,7 +733,9 @@ Die Schreibweisen von `at`:
 
 Eine bloße Zahl ist ein offenes Ende: Was einmal da ist, bleibt bis zum Ende
 der Folie. Das ist der Regelfall. Eine geschlossene Angabe wie `"1-2"` oder
-`"3"` lässt das Element wieder verschwinden -- dann greift `exit`.
+`"3"` lässt das Element wieder verschwinden -- dann greift `exit`. Ein Bereich
+steht vom ersten Schritt zum letzten da: ein umgedrehter wie `"4-2"` hält das
+Übersetzen an, statt im Browser nie und auf Papier trotzdem zu erscheinen.
 
 == Eine Folie ohne eine einzige Zahl
 
@@ -859,7 +896,9 @@ Die Schicht bleibt von ihrem Stück an stehen. Sie trägt keinen Morph-Namen,
 fliegt also nicht mit, sondern erscheint nur daneben.
 
 Die Staffelung muss im Quelltext *vor* ihren Schichten stehen; eine Schicht
-liest nach, welchen Schritt ihr Stück bekommen hat.
+liest nach, welchen Schritt ihr Stück bekommen hat. Und auf derselben Folie: wie
+bei `cue` gehört ein Name zu einer Folie, und eine Schicht, die eine Staffelung
+der Folie davor nennt, bricht die Übersetzung ab.
 
 #warning[
   `spacing:` gilt nur für den Listenzweig. Stehen die Stücke einzeln da, zählt
@@ -1142,7 +1181,11 @@ bewegen.
 
 Sie stehen in einem Kasten, der so groß ist wie die größte von ihnen, damit
 ringsherum nichts springt. Jede Fassung nimmt einen Schritt; die letzte bleibt
-bis zum Folienende. Auf Papier steht nur die letzte, im selben Kasten.
+bis zum Folienende. Deckt eine Fassung selbst etwas auf, bleibt sie, bis das
+getan ist, und die nächste kommt danach. Dieses Warten braucht `start: auto`:
+mit ausgeschriebenem `start` hält jede Fassung außer der letzten genau ihren
+Schritt, und eine Kette darin kommt erst, wenn ihre Fassung gegangen ist, und
+steht nie da. Auf Papier steht nur die letzte, im selben Kasten.
 
 #table(
   columns: (auto, 1fr),
@@ -1157,7 +1200,10 @@ bis zum Folienende. Auf Papier steht nur die letzte, im selben Kasten.
   [`morph`], [die Fassungen fliegen ineinander, statt sich abzulösen. Sie
     stehen an derselben Stelle, der Flug hat also keine Strecke -- zu sehen
     ist, wie die Zeichen sich an Ort und Stelle umordnen. Das ist der Weg für
-    eine Formel, die umgeschrieben wird.],
+    eine Formel, die umgeschrieben wird. Das Warten auf eine Kette gilt dabei
+    nur auf Papier: im Browser kommt die nächste Fassung auf dem Schritt nach
+    der vorigen, auch wenn diese selbst etwas aufdeckt, und das Aufgedeckte
+    steht dort nie da.],
 )
 
 #tip[
@@ -1765,6 +1811,17 @@ beginnen die Stichpunkte neben einem Applet deshalb bei eins:
     - zweiter Stichpunkt                         // Schritt 2
   ],
 )
+```]
+
+Das gilt, solange `at` beim Vorgabewert bleibt. Wer einem Video, einer
+Einbettung, einem Daumenkino oder einem `morph` ein `at` hinter Schritt eins
+gibt, lässt es *erscheinen*, und dann zählt es wie ein `anim`: die Folie hat
+mindestens so viele Schritte, wie das `at` nennt, und was mit `auto` folgt,
+kommt danach.
+
+#show-code[```typ
+#video("versuch.mp4", at: 2)   // Schritt 2
+#anim[Was wir sehen]           // Schritt 3
 ```]
 
 *Ein Schritt vererbt sich nicht nach innen.* Jedes verfolgte Element trägt
@@ -2576,8 +2633,8 @@ woanders neu, sondern fliegt hinüber und nimmt die neue Größe und Gestalt an:
 ```]
 
 Der Name ist eine Zeichenkette oder eine Marke: `morph("pythagoras", …)` und
-`morph(<pythagoras>, …)` bedeuten dasselbe. Ein Morph verbraucht keinen Schritt
-und steht von Anfang an auf seiner Folie. Auf Papier bleibt nur sein Inhalt.
+`morph(<pythagoras>, …)` bedeuten dasselbe. Ein Morph ohne `at` verbraucht keinen
+Schritt und steht von Anfang an auf seiner Folie. Auf Papier bleibt nur sein Inhalt.
 
 == Und auf einer Folie
 
@@ -2590,14 +2647,14 @@ derselben Folie. Zwei Aufrufe desselben Namens mit Bereichen, die sich nicht
 
 #statement[#morph(<sq>, $ x^2 + 6 x $, at: "1")]
 #statement[#morph(<sq>, $ (x + 3)^2 - 9 $, at: "2-")]
-
-#anim([Und ein Schritt, damit es einen zweiten gibt.], at: "2-")
 ```]
 
-Ein Morph verbraucht keinen Schritt: die Folie braucht den zweiten Schritt von
-woanders her, aus einem `anim` oder `stagger`. Und der Name muss auf der Folie
+Den zweiten Schritt gibt der Folie der zweite Aufruf: mit einem `at` hinter
+Schritt eins zählt ein Morph wie ein `anim`. Und der Name muss auf der Folie
 davor frei sein, sonst ginge der Flug zwischen den Folien verloren; das Paket
-sagt es beim Übersetzen.
+sagt es beim Übersetzen. Eine Kette zählt dabei als eine: steht ein Morph des
+Namens ab Schritt eins, landet der Flug über den Folienrand dort, und die
+späteren folgen auf ihren eigenen Schritten.
 
 #tip[
   Zwei Fassungen an derselben Stelle fliegen null Punkte weit, und man sieht
@@ -3151,7 +3208,24 @@ typst compile --features bundle,html --format bundle vortrag.typ ausgabe
 
 `html`, `slides` und `handout` sind Dateinamen, `none` lässt die jeweilige
 Ausgabe weg, `per-sheet` sind die Folien je Handout-Blatt. Alles Übrige geht
-unverändert an `presentation`. Die Zähler fangen je Ausgabe neu an.
+unverändert an `presentation`.
+
+Was das Paket nachschlägt, bleibt in der eigenen Ausgabe. Die Zähler fangen je
+Ausgabe neu an, auch die der Abbildungen, der Gleichungen und die eigenen eines
+Decks, und ein Verweis wie ein Eintrag von `contents()` führt in die eigene
+Datei. Zweierlei führt Typst dagegen über das ganze Bündel, und daran reicht das
+Paket nicht heran. Ein eigener `state` läuft von einer Ausgabe in die nächste
+weiter, weil es keinen Wert gibt, auf den er zurückfallen könnte; eine laufende
+Nummer gehört deshalb in einen `counter`. Und eine Marke steht in jeder Ausgabe
+einmal: Ein Verweis wie `@abb` bricht das Bündel mit "label occurs multiple
+times in the document" ab, auch wenn das Deck allein übersetzt, und ein eigenes
+`outline(target: figure)` führt die Abbildungen aller Ausgaben auf.
+
+Mit `pages: "step"` gibt es eine Grenze mehr. Steht dann ein Aufdecken in einer
+Fassung von `alternatives` oder einer Stufe von `build` und folgt noch eine
+Folie -- `#alternatives([A], [#anim[x]])` --, meldet das Bündel, dass es nicht
+konvergiert, und in `talk.html` erscheint das `x` nie. Ein solches Deck baut
+seine HTML für sich, mit `html: none` im Bündel.
 
 #warning[
   Das Bündel ist bei Typst ausdrücklich experimentell und ohne die Schalter
@@ -3788,7 +3862,15 @@ Haken `style`: eine Funktion, die um jeden Folienrumpf gelegt wird.
   `#set`-Regel im Dokument. Im
   Browser wird jedes bewegte Element ein zweites Mal gesetzt, in einem eigenen
   Rahmen, der die `#show`-Regeln der Folie nicht kennt. `style` liegt auf
-  beidem.
+  beidem. Eine Ausnahme reicht typstage selbst hinüber, die Nummerierung von
+  `figure`, `math.equation` und `heading`: ein
+  `#set math.equation(numbering: "(1)")` im Dokument nummeriert eine Gleichung
+  im bewegten Element wie auf Papier. Eine `#show`-Regel dagegen, die
+  nummeriert oder zählt, erreicht es nicht, und dann stimmen im Browser auch
+  die Nummern der Folien danach nicht mehr: mit
+  `#show math.equation.where(block: true): set math.equation(numbering: "(1)")`
+  im Dokument stand eine Gleichung zwei Folien hinter einem `anim` und einem
+  `alternatives` im Browser bei (2), auf Papier bei (5). In `style` stimmt sie.
 
   Für die Formen, die typstage selbst zeichnet, gibt es einen zweiten Weg:
   Label-Regeln vor `#show: presentation`. Sie erreichen auch Kopf, Fuß und
@@ -3946,7 +4028,9 @@ Jede Kachel erscheint einen Schritt nach der vorigen.
 
 `columns:` legt die Spaltenzahl fest (Vorgabe: bis zu drei). `stride: 0` lässt
 alle im selben Schritt erscheinen und staffelt nur über `stagger` in
-Millisekunden -- dann läuft eine Welle durch das Raster:
+Millisekunden -- dann läuft eine Welle durch das Raster. Deckt eine Kachel
+selbst etwas auf, rücken die Kacheln dahinter nach, wie die Stücke eines
+`stagger`:
 
 #show-code(```typ
 #tiles(stride: 0, stagger: 90, [A], [B], [C], [D])
@@ -4107,6 +4191,12 @@ typst eval --target html --features html --in deck.typ \
 
 In der HTML kostet der Lauf merklich Zeit, auf Papier fast keine.
 
+Mit `pages: "step"` misst die PDF nicht: jede Schrittseite setzt denselben
+Rumpf wie die eine Seite je Folie, und die Messung dort kostete Decks, die im
+Rumpf etwas nachschlagen, ihre Konvergenz. Ebenso ein Handzettel, der
+`pages: "step"` bekommt, wie ihn `bundle()` weiterreicht. Die HTML misst weiter
+und nennt dazu den Schritt.
+
 === drift -- der Melder für wandernde Szenen
 
 `drift` fragt, ob eine Szene beim Blättern stillsteht. Eine Zeichnung ist so
@@ -4200,7 +4290,7 @@ oder `<iframe>` weichen.
   ```
 
   Die Kurzform legt die Stilregel *um* das gefundene Element, die Langform
-  *hinein* -- und im Rechteck steckt kein zweites Rechteck. Bei den 17
+  *hinein* -- und im Rechteck steckt kein zweites Rechteck. Bei den 18
   Schrift-Labels sind beide Schreibweisen gleichwertig.
 ]
 
@@ -4212,9 +4302,9 @@ Element.
 
 `style` erreicht das nicht: der Haken liegt um den *Folienrumpf*, und Kopf,
 Fuß, Fortschritt sowie Titel- und Abschnittsfolie entstehen daneben. Gemessen,
-jede der 40 Regeln einzeln: aus `style` heraus wirken genau die 13, die im
+jede der 41 Regeln einzeln: aus `style` heraus wirken genau die 13, die im
 Folienrumpf stehen -- `ts-card…`, `ts-callout…`, `ts-statement` und die drei
-`ts-media-…`. Die übrigen 27 bleiben dort stumm, ohne Warnung.
+`ts-media-…`. Die übrigen 28 bleiben dort stumm, ohne Warnung.
 
 #warning[
   Eine `show`-Regel *hinter* `#show: presentation` erreicht ein getracktes
@@ -4339,6 +4429,11 @@ tut nichts.
     `themes.lesson` keine], [`rect`],
   [`ts-section-slide-parent`], [die Zeile darüber mit den übergeordneten
     Abschnitten. Erst ab der zweiten Gliederungsebene], [`text`],
+  [`ts-section-slide-back`], [der Verweis zurück auf das Verzeichnis, unten
+    rechts. Sein Wort folgt `text.lang`. Er steht nur, wenn das Deck ein
+    `contents()` hat und dieses nicht auf der Abschnittsfolie selbst liegt --
+    und als einziges dieser Label zeichnet ihn das Thema auch dann, wenn es
+    eine eigene `section`-Funktion mitbringt], [`text`],
 )
 
 *Die Bausteine im Folienrumpf*
@@ -4438,17 +4533,20 @@ deshalb keine verschiedenen Zahlen drucken.
 `levels` und `outline`. Ein Eintrag beider trägt `depth`, `title` und `number`;
 `number` zählt die Abschnitte dieser Ebene im *ganzen* Deck durch und geht nie
 zurück. Der Vergleich von `outline.at(j).number` mit `levels.at(..).number`
-sagt damit, ob ein Eintrag vorbei ist, läuft oder noch kommt; die weiteren
-Felder stehen in der API-Referenz.
+sagt damit, ob ein Eintrag vorbei ist, läuft oder noch kommt. Bei gleicher
+Nummer läuft er nur, solange `index` dieser Ebene nicht `0` ist: nach einem
+neuen Teil behält das letzte Kapitel des vorigen seine Nummer in `levels` und
+ist vorbei. Die weiteren Felder stehen in der API-Referenz.
 
 #show-code[```typ
 #context {
   let d = info()
   stack(spacing: 0.6em, ..d.outline.map(e => {
-    let lauf = d.levels.at(e.depth - 1).number
+    let ebene = d.levels.at(e.depth - 1)
+    let lauf = e.number == ebene.number and ebene.index > 0
     text(
-      weight: if e.number == lauf { "bold" } else { "regular" },
-      fill: if e.number <= lauf { black } else { luma(60%) },
+      weight: if lauf { "bold" } else { "regular" },
+      fill: if e.number <= ebene.number { black } else { luma(60%) },
       [#h((e.depth - 1) * 1.4em)#e.title],
     )
   }))
@@ -4761,6 +4859,13 @@ Die Stolpersteine, ungefähr in der Reihenfolge, in der man über sie fällt.
 / Die Stichpunkte neben einem Applet fangen bei Schritt drei an: ein `embed`
   verbraucht keinen Schritt, etwas davor aber schon. Gezählt werden die
   Aufdeckungen, nicht die Elemente.
+/ Die Übersetzung warnt „document did not converge": nach einem `context`
+  suchen, der um eine Aufdeckung herum steht und ihr reicht, was er gelesen hat,
+  etwa `#context anim[#bridge-targets().len()]`. Die Aufdeckung hält dann eine
+  Antwort, die sich von einem Layoutlauf zum nächsten noch ändern kann, statt
+  einer Frage, die das nie tut. Der `context` gehört hinein: `#anim(context
+  bridge-targets().len())`. Im Rundgang-Deck wurden so aus zwei Warnungen
+  keine.
 / Eine fliegende Formel hat die falsche Schrift: ein verfolgtes Element wird in
   einem eigenen Rahmen gesetzt, den ein `#set` nicht erreicht. `style:` an
   `presentation` erreicht beides.
@@ -4801,10 +4906,14 @@ Medien und Brücke, zuletzt die Maße und Farben.
 == Die Präsentation
 
 // `split-body`, `pause-tokens` und `apply-pauses` zerlegen den Rumpf und
-// gehören nicht zur öffentlichen Fläche.
+// gehören nicht zur öffentlichen Fläche, `ueberschrift-tiefe` ebenso wenig:
+// ohne diesen Eintrag stand der Handlanger von `split-body` als 15.1.3 mit
+// seinem deutschen Innenkommentar in beiden Handbüchern. Dasselbe für
+// `zaehler-je-dokument`, den Handlanger von `bundle`.
 #show-module(read("../src/present.typ"), name: "typstage",
              exclude: ("split-body", "pause-tokens", "apply-pauses",
-                       "slides-from-body", "stiller-lauf"))
+                       "slides-from-body", "stiller-lauf",
+                       "ueberschrift-tiefe", "zaehler-je-dokument"))
 
 == Folien
 

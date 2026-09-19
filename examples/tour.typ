@@ -871,8 +871,13 @@ and the wrong two find each other), the piece gets a name instead.
 
 // `bridge-targets()` reports the names on the current slide, which is how a
 // companion package can leave the applet unnamed when there is only one.
-#context anim(
-  text(size: 0.85em, fill: muted)[
+//
+// The `context` sits inside the `anim`, not around it. Around it, the reveal
+// holds the answer of a query, which may still change from one layout run to
+// the next; inside, it holds the question, which never does. Measured on this
+// deck: around it, "document did not converge" with two warnings; inside, none.
+#anim(
+  context text(size: 0.85em, fill: muted)[
     This slide has #bridge-targets().len() named target:
     #raw(bridge-targets().join(", ")).
   ],

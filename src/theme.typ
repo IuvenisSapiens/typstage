@@ -27,10 +27,12 @@
 #import "config.typ": *
 #import "internal.typ": (cue-basis, deck-info, folien-notizen, html-output,
                         marker, note-state, notiz-marke-ab,
-                        papier-modus, papier-schritt,
-                        papier-zahlen,
+                        papier-modus, papier-schritt, papier-verborgen,
+                        papier-zahlen, im-dokument,
                         plain-text, slide-counter, sprite-number, step-cursor,
-                        step-here, ueberlauf-pruefen, umgebungs-block)
+                        stagger-gruppen, step-here, szene-gruppen,
+                        ueberlauf-pruefen,
+                        umgebungs-block)
 #import "slides.typ": info
 #import "themes.typ": font-args, sichtbar, theme-state
 #import "richtung.typ": am-anfang, am-ende
@@ -218,6 +220,24 @@
 /// den Zustand mit, bekämen alle Seiten einer Folie denselben Aufruf mit
 /// denselben Argumenten -- und Typst gibt für gleichen Inhalt das gemerkte
 /// Layout zurück, also viermal dieselbe Seite.
+// Ist diese Seite die ERSTE ihrer Folie? Daran haengen zwei Dinge -- das
+// Sprungziel, auf das `contents()` verweist, und das Lesezeichen des PDF --,
+// und beide wollen genau eines je Folie und nicht eines je Schrittseite.
+//
+// Nur `schritt != 1` zu fragen war falsch, und zwar im Regelfall: ohne
+// `pages: "step"` setzt `present.typ` eine einzige Seite je Folie und gibt ihr
+// die LETZTE Schrittzahl. Jede Folie mit einem Aufdecker verlor damit ihr
+// Sprungziel -- gemessen an einem Deck aus vier Folien, von denen eine ein
+// `#pause` trug: drei Ziele statt vier, und `contents()` verwies auf eine
+// Folie, auf der keines stand. Unter `pages: "step"` stimmte es, weil dort
+// jede Seite ihre eigene Nummer traegt; deshalb fiel es lange nicht auf.
+//
+// Steht hier und nicht zweimal im Rumpf: die beiden Regeln waren schon einmal
+// auseinandergelaufen, und das ist der Fehler, den diese Zeile behebt.
+#let erste-seite(schritt) = (
+  schritt == none or schritt == 1 or papier-modus.get() != "step"
+)
+
 /// `buchtiefe` ist die Ebene, auf der diese Folie im Lesezeichenverzeichnis
 /// des PDF steht. Sie kommt als Argument und wird nicht hier aus `deck-info`
 /// gelesen: eine Lesung an dieser Stelle kostete ein Deck mit vielen
@@ -272,6 +292,12 @@
     // Die Halte dieser Folie und ihre Schrittzahl unter ihre Nummer schreiben.
     // Hier und nicht im Element selbst: dort kostete die Folienlesung die
     // Konvergenz.
+    //
+    // Gelesen wird das nur noch von `info()`. Wie viele Seiten eine Folie
+    // unter `pages: "step"` bekommt, liest `presentation` an einer eigenen
+    // Marke hinter der ersten Seite ab, einen Layoutlauf früher, als dieser
+    // Zustand es sagen kann: geschrieben aus einer Lesung, steht er erst im
+    // Lauf danach da.
     let nr = str(deck-info.get().nr)
     let n = calc.max(1, step-cursor.get().first())
     papier-zahlen.update(d => if d.at(nr, default: none) == n { d }
@@ -292,7 +318,7 @@
   // auf, sobald eine Folie mehrere Seiten setzt. Gemessen bei `pages: "step"`
   // fehlten dadurch Marken und andere kamen dreifach -- `contents()` fand sein
   // Ziel nicht mehr und brach ab.
-  let navigations-ziel = if schritt != none and schritt != 1 { none } else {
+  let navigations-ziel = context if erste-seite(schritt) {
     place(center + horizon, [#metadata(nr) <typstage-slide-target>])
   }
   // Everything below is measured on the default canvas and scaled with it, so
@@ -323,13 +349,46 @@
       [#prefix #s.title]
     }
     (t.section)(t, s + (title: title), geo)
+    // Der Rückverweis auf das Verzeichnis.
+    //
+    // Das Wort kommt aus `doc-words` und folgt damit `text.lang`, wie der
+    // Reiter eines `callout` und die Ersatzzeile eines `embed`. Es stand hier
+    // als einziges sichtbare Stück des Themas fest auf Englisch, und ein
+    // deutsches Deck trug es unverändert.
+    //
+    // Die Marke `ts-section-slide-back` steht *in* dem `text`, nicht darum:
+    // ein Argument sticht eine `set`-Regel aus, und außerhalb wäre der
+    // Verweis nicht umfärbbar. Er ist damit das einzige Stück der
+    // Abschnittsseite, das auch dann gezeichnet wird, wenn das Thema eine
+    // eigene `section`-Funktion mitbringt -- die anderen `ts-section-slide-*`
+    // zeichnet diese Funktion, dieses hier nicht.
+    //
+    // Welches Verzeichnis: das letzte VOR dieser Folie, und gibt es davor
+    // keines, das erste danach. Bisher war es schlicht das erste im Dokument.
+    // Ein Deck, das sein Verzeichnis als Trenner vor jeden Abschnitt setzt,
+    // schickte damit jeden Rückverweis an den Anfang statt an die Agenda, die
+    // eben noch zu sehen war. Und ein Deck, das sein Verzeichnis über den
+    // Themenschlüssel `section` auf die Abschnittsseiten selbst legt, bekam
+    // einen Verweis auf die Seite, auf der er steht -- gemessen an drei
+    // Abschnitten: einer zeigte auf sich selbst, zwei sprangen rückwärts in
+    // einen fremden Abschnitt. Liegt ein Verzeichnis auf dieser Folie,
+    // unterbleibt der Verweis ganz: es steht schon da, wohin er führen würde.
+    // Gibt es überhaupt keines, unterbleibt er ebenfalls -- das war schon so.
+    //
+    // Gefragt wird im eigenen Dokument: in einem Bündel ist das letzte
+    // Verzeichnis vor dieser Folie sonst das des Handzettels, und der Verweis
+    // führte aus der HTML und dem Foliensatz dorthin (siehe `im-dokument`).
     context {
-      let targets = query(<typstage-contents>)
-      if targets.len() > 0 {
+      let marken = query(im-dokument(<typstage-contents>))
+      let hier = marken.any(mark => mark.value == nr)
+      let davor = marken.filter(mark => mark.value < nr)
+      let ziel = if davor.len() > 0 { davor.last() }
+                 else { marken.find(mark => mark.value > nr) }
+      if not hier and ziel != none {
         place(bottom + right, dx: -m.right, dy: -m.bottom,
-          link(targets.first().location())[
-            #text(size: 11pt * k, fill: t.accent)[Back to contents]
-          ])
+          link(ziel.location(),
+            text(size: 11pt * k, fill: t.accent,
+                 [#doc-word("back-to-contents") <ts-section-slide-back>])))
       }
     }
   } else {
@@ -459,6 +518,60 @@
       // überlagern: ihre Marken liegen untereinander, und ein Sprite ist so
       // groß wie seine Marke.
       let im-browser = html-output.get()
+      // Unter `pages: "step"` blättert der Fuß der Seite wie ihr Rumpf: eine
+      // Anmerkung steht erst auf der Seite, auf der auch ihre Marke steht.
+      // Verborgen ist die Fußnote, wenn eines der verfolgten Elemente um sie
+      // herum auf diesem Schritt verborgen ist -- gefragt mit denselben
+      // Funktionen und an denselben Orten wie `track`, siehe `papier-kette`.
+      //
+      // Der Schritt wird hier gelesen, wie `track` ihn liest, und nur unter
+      // `pages: "step"`. Eine Seite je Folie und der Handzettel lesen keinen:
+      // dort fragt `papier-verborgen` mit `none` nur, ob eine Kette um die
+      // Fußnote *ersetzt* wird, und das ist die Papierregel dieser beiden
+      // Fassungen -- eine Fassung, eine Stufe, ein Halt steht dort nicht, und
+      // seine Anmerkung auch nicht. Der Handzettel (`none`) fragt so auch dann,
+      // wenn ein `bundle` ihm `pages: "step"` mitgibt.
+      //
+      // Bis dahin zeigten beide die Anmerkungen aller Schritte. Gemessen an
+      // `alternatives([Fassung eins#footnote[note-eins]], [Fassung
+      // zwei#footnote[note-zwei]])`: oben nur „Fassung zwei", unten „1 note-eins"
+      // und „2 note-zwei"; ebenso bei `build` (drei Anmerkungen zu zwei
+      // sichtbaren Marken) und `scene`. Die Zeile bleibt als `hide` stehen,
+      // damit die Nummern die des Browsers bleiben, wie unter `pages: "step"`.
+      //
+      // Für die Seite je Folie ist `none` dieselbe Antwort, die `papier-zeigt`
+      // mit ihrem Schritt gäbe, und kostet keine Lesung. Sie setzt den letzten
+      // Schritt, und dort steht keine ersetzte Fassung mehr: die nächste rückt
+      // den Zeiger über sie hinaus. Was nicht ersetzt wird, steht dort ohnehin.
+      // Gelesen würde dagegen `papier-schritt`, und das hängt auf dieser
+      // Fassung an der Schrittzahl, die `presentation` am Zeiger abliest
+      // (vorher an `papier-zahlen.final()`) -- genau die Lesung, vor der der
+      // nächste Absatz warnt. Nachgemessen mit dieser Lesung: vier Decks mit
+      // Fußnoten in Fassungen, Stufen, Halten, verschachtelten und gedimmten
+      // Ketten Bild für Bild dieselben Seiten, vier weitere dieselbe Zahl der
+      // Läufe. Sie brächte also nichts als ihr Risiko.
+      //
+      // Nicht das Argument `schritt`: schon ein Name davon in diesem `context`
+      // trägt ihn mit, und auf einer Seite je Folie ist er der letzte Schritt,
+      // abgelesen am Zeiger an der Marke `typstage-papier-ende` (siehe
+      // `presentation`, vorher aus `papier-zahlen.final()`) -- eine Lesung, die
+      // sich zwischen zwei Läufen noch ändert. Der `context` bekam dann jedes
+      // Mal eine neue Identität, und was in ihm steht, las erst einen Lauf
+      // später. Gemessen an zwei Folien, `== Eins` mit `A` und `== Zwei` mit
+      // `#anim[Wb03#footnote[Nb03 #anim[inner]]]`, unter `pages: "slide"`: mit
+      // dem Argument hier 3 Meldungen ("did not converge") und keine Anmerkung
+      // auf der Seite, ebenso mit nichts als `let _mit = schritt` an dieser
+      // Stelle im Stand davor; mit der Lesung 0 Meldungen, und die Anmerkung
+      // steht wie vorher. Mit der Marke gilt das weiter: `let _mit = schritt`
+      // gibt an demselben Deck 4 Meldungen, ohne die Zeile keine, in vier
+      // Läufen.
+      let k-seite = if not im-browser and papier-modus.get() == "step" {
+        papier-schritt.get()
+      }
+      let marken = if not im-browser and fn.len() > 0 {
+        query(<typstage-papier-kette>)
+      } else { () }
+      let verborgen(f) = not im-browser and papier-verborgen(f, marken, k-seite)
       if fn.len() > 0 {
         place(bottom + left, dx: m.left, dy: -(t.foot-gap + 12pt) * k,
           block(width: inner, {
@@ -482,6 +595,13 @@
                       if im-browser {
                         block(width: 100%, fill: marker(notiz-marke-ab + i),
                               hide(zeile))
+                      } else if verborgen(f) {
+                        // `hide` und nicht Weglassen, aus dem Grund oben: der
+                        // Schlitz steht wie im Browser ab Schritt eins, und
+                        // keine Anmerkung rückt von Seite zu Seite. Die Nummer
+                        // bleibt die des Browsers, weil die verborgene Fußnote
+                        // weiter zählt.
+                        hide(zeile)
                       } else { zeile })
               }
             }) <ts-slide-notes>]
@@ -523,7 +643,7 @@
   // Und nichts im Browser: dort fuehrt die Laufzeit durch das Deck, und ein
   // Lesezeichen gibt es nicht.
   let lesezeichen = place(top + start, context {
-    let erste = schritt == none or schritt == 1 or papier-modus.get() != "step"
+    let erste = erste-seite(schritt)
     let titel = s.at("title", default: none)
     // Eine Folie ohne Titel hat nichts zu benennen; ein leerer Eintrag im
     // Verzeichnis ist schlechter als keiner.
@@ -549,6 +669,12 @@
           justify: s.style.at("justify", default: false),
           first-line-indent: s.style.at("first-line-indent", default: 0pt),
           hanging-indent: s.style.at("hanging-indent", default: 0pt))
+  // Die Nummerierung, wie sie am Ort des Elements galt -- siehe `numbering`
+  // im Stil, den `track` mitgibt.
+  let nummern = s.style.at("numbering", default: none)
+  set figure(numbering: nummern.figure) if nummern != none
+  set math.equation(numbering: nummern.equation) if nummern != none
+  set heading(numbering: nummern.heading) if nummern != none
   body
 }
 
@@ -668,6 +794,8 @@
       // und braechte das Dokument um seine Konvergenz -- ein reines
       // Schreiben an dieser Stelle nicht.
       cue-basis.update(_ => (:))
+      szene-gruppen.update(_ => (:))
+      stagger-gruppen.update(_ => (:))
       step-here.update(())
       sprite-number.update(none)
       counter(footnote).update(0)

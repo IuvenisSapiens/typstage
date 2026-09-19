@@ -202,6 +202,15 @@ jobs:
       - name: Das PDF kann Schritt für Schritt
         run: python3 .github/scripts/pruefe-schrittseiten.py
 
+      # Steht auf jeder Seite, was das Handbuch verspricht? Gelesen wird der
+      # Text der Seiten, nicht ihre Zahl: die Seite je Folie druckte von einer
+      # gedimmten Staffelung nur den letzten Punkt, mit der richtigen
+      # Seitenzahl und ohne jede Meldung.
+      - name: Auf Papier steht, was versprochen ist
+        run: |
+          pdftotext -v >/dev/null 2>&1 || sudo apt-get install -y poppler-utils
+          python3 .github/scripts/pruefe-papierregel.py
+
       # Zeigt das Verzeichnis seine Ebenen und die Stelle, an der der Vortrag
       # steht? Das Prüfdeck prüft sich selbst: eine Renderfunktion, die
       # abbricht, sobald ein `when` nicht stimmt.

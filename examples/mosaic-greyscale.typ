@@ -464,8 +464,16 @@ veniam, quis nostrud exercitation ullamco laboris.]
         // in the same face as everything else. The price is in the manual:
         // one frame per tween step, and none of them is measured.
         scene(
-          n => std.align(center, text(size: 74pt, weight: "bold",
-                                      fill: tp.ink, grouped(n))),
+          // Zwei Punkt Luft über den Ziffern. Die runden Köpfe von 2, 3 und 6
+          // reichen bei 74 Punkt 0,74 Punkt über die Oberkante des Textes
+          // hinaus, und die Szene schneidet an ihrem Kasten ab -- im Browser
+          // schon immer, auf Papier seit sie es dort ebenso tut. Gemessen bei
+          // 200 ppi: ohne diese Luft waren die Köpfe flach.
+          // Ein Block voller Breite und kein `pad`: `pad` ist so breit wie
+          // seine Tinte, und `align(center)` hätte darin nichts zu zentrieren.
+          n => block(width: 100%, inset: (top: 2pt),
+                     std.align(center, text(size: 74pt, weight: "bold",
+                                            fill: tp.ink, grouped(n)))),
           stops: (0, 123456),
           tween: 18,
           width: 100%,

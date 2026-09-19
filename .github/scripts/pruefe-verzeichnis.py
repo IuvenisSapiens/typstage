@@ -66,24 +66,41 @@ def main():
         #    die abbricht, sobald ein Wert nicht stimmt. So braucht die Probe
         #    keinen Text aus dem PDF zu lesen -- die Folien stehen dort als
         #    Umrisse, und eine Farbe nachzumessen sagte ohnehin wenig.
+        def probe(soll):
+            return (
+                '#let soll = ' + soll + '\n'
+                '#contents(number: none, title: (e, z) => {\n'
+                '  let k = str(e.depth) + "-" + str(e.number)\n'
+                '  assert(soll.at(k, default: none) == e.when,\n'
+                '    message: "when fuer " + k + ": " + e.when + " statt "\n'
+                '      + repr(soll.at(k, default: none)))\n'
+                '  e.title\n'
+                '})')
         SOLL = ('(: "1-1": "past", "2-1": "past", '
                 '"1-2": "running", "2-2": "running", '
                 '"1-3": "coming", "2-3": "coming")')
-        _, fehler = setzen(
-            '#let soll = ' + SOLL + '\n'
-            '#contents(number: none, title: (e, z) => {\n'
-            '  let k = str(e.depth) + "-" + str(e.number)\n'
-            '  assert(soll.at(k, default: none) == e.when,\n'
-            '    message: "when fuer " + k + ": " + e.when + " statt "\n'
-            '      + repr(soll.at(k, default: none)))\n'
-            '  e.title\n'
-            '})',
-            tmp, paket)
+        _, fehler = setzen(probe(SOLL), tmp, paket)
         if fehler is not None:
             klagen.append(
                 "der Stand stimmt nicht: " + fehler + ". `when` kommt aus dem "
                 "Vergleich der Eintragsnummer mit `info().levels`; stimmt er "
                 "nicht, zeigt eine Gliederung die falsche Stelle.")
+
+        # 1b. Ein neuer Teil, der noch kein Kapitel geöffnet hat. Die Nummer
+        #     der Kapitelebene bleibt dort auf "Kapitel B" stehen, weil sie nie
+        #     zurückgeht; nur `index` ist 0. Ein Vergleich über die Nummer
+        #     allein nannte "Kapitel B" laufend, obwohl sein Teil vorbei ist.
+        SOLL_TEIL = ('(: "1-1": "past", "1-2": "past", "1-3": "running", '
+                     '"1-4": "coming", "2-1": "past", "2-2": "past", '
+                     '"2-3": "coming")')
+        _, fehler = setzen(
+            'Text.\n= Teil ohne Kapitel\n=== Mitte\n' + probe(SOLL_TEIL),
+            tmp, paket)
+        if fehler is not None:
+            klagen.append(
+                "der Stand unter einem Teil ohne Kapitel stimmt nicht: " + fehler
+                + ". Das Kapitel des vorigen Teils ist dort vorbei, auch wenn "
+                "die Kapitelebene seine Nummer behält.")
 
         # 2. Die Einrückung tut überhaupt etwas.
         flach, f1 = setzen("#contents(indent: none)", tmp, paket)

@@ -11,8 +11,8 @@
 // so a foreign package goes the same road as the one next door. The same
 // mechanism carries anything else that lives in an iframe.
 
-#import "internal.typ": (bridge-jobs, name-of, selector, slide-counter,
-                         step-cursor)
+#import "internal.typ": (bridge-jobs, im-dokument, name-of, selector,
+                         slide-counter, step-cursor)
 
 /// Send a job to a bridged element.
 ///
@@ -77,9 +77,26 @@
 /// announces itself twice.
 #let bridge-targets() = {
   let n = slide-counter.get().first()
-  query(<typstage-bridge-target>)
-    .map(m => m.value)
-    .filter(v => v.slide == n)
-    .map(v => v.name)
+  // Die Folie einer Marke wird an ihrem Ort abgelesen und nicht aus ihrem
+  // Feld `slide`. Das Feld schreibt `embed` aus einer Lesung des
+  // Folienzählers, es steht also erst einen Layoutlauf nach dem Zähler
+  // richtig da, und dieser Lauf kam hier obendrauf. Im Rundgang zählte das:
+  // `tour` braucht im Browser ohnehin fünf Läufe, und mit
+  // `--input typstage-overflow=record` misst die Prüfung den Satz
+  // `#raw(bridge-targets().join(", "))`, der einen Lauf zu spät feststand --
+  // "did not converge" und vier Meldungen "a measured element did not
+  // stabilize", alle an diesem `raw`. Mit dem Ort keine, bei denselben fünf
+  // Läufen; `geogebra` und `geogebra-sprecher` brauchen als Handzettel mit
+  // der Prüfung drei statt vier. Das Feld bleibt, ein Fremdpaket darf es
+  // lesen.
+  //
+  // Nur im eigenen Dokument. In einem Buendel zaehlt jede Ausgabe ihre
+  // Folien von eins (`zaehler-je-dokument` in present.typ), und dieselbe
+  // Foliennummer steht dann in jeder von ihnen. Gemessen an zwei `document()`
+  // mit je einer Folie und einem `embed(bridge: "a")` und `"b"`: ohne die
+  // Beschraenkung nannten beide Folien "a, b".
+  query(im-dokument(<typstage-bridge-target>))
+    .filter(m => slide-counter.at(m.location()).first() == n)
+    .map(m => m.value.name)
     .dedup()
 }

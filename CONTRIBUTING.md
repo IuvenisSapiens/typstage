@@ -61,7 +61,8 @@ readers who are not in this repository.
 | `pruefe-cue-pfeil.js` | a `cue()` group claims the arrow only when due |
 | `pruefe-cue-folien.js` | a `cue()` group stays on its slide, a layer on its point |
 | `pruefe-konvergenz.py` | the reveal chains converge within five passes |
-| `pruefe-schrittseiten.py` | `pages: "step"` unfolds the PDF step by step |
+| `pruefe-schrittseiten.py` | `pages: "step"` unfolds the PDF step by step, and every example deck converges as a handout and step by step |
+| `pruefe-papierregel.py` | each PDF page shows what the manual promises: all reveals on a slide page and in the handout, only the last version of what is replaced, and layers on their own step |
 | `pruefe-verzeichnis.py` | `contents()` shows its levels and where the talk stands |
 | `pruefe-ueberlauf.py` | no example deck runs over its slide |
 | `pruefe-desmos.js` | the Desmos bridge, by hand (see below) |

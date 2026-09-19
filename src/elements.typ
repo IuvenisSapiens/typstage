@@ -24,9 +24,9 @@
 #let anim-kern(body, at: auto, enter: "fade-up", exit: "fade",
                after: "hidden", duration: auto, delay: 0, easing: none,
                dim-freiwillig: false, ad: none, ad-nr: none, boden: 2,
-               offen: true, vorruecken: 1) = track(
+               offen: true, vorruecken: 1, ersetzt: false, zaehlt: true) = track(
   "anim", body, at: at, dim-freiwillig: dim-freiwillig, boden: boden,
-  offen: offen, vorruecken: vorruecken, extra: (
+  offen: offen, vorruecken: vorruecken, ersetzt: ersetzt, zaehlt: zaehlt, extra: (
     // Membership in an adaptive group. `none` never travels into the markup,
     // so an ordinary element gains no new attribute.
     ad: ad, "ad-nr": ad-nr,
@@ -150,10 +150,6 @@
   )
 }
 
-// Der Parameter `morph:` von `alternatives` verdeckt die Funktion gleichen
-// Namens. Hier wird sie festgehalten, bevor das geschieht.
-#let morph-fn = morph
-
 /// Several versions of the same thing, each replacing the one before.
 ///
 /// ```typ
@@ -169,7 +165,12 @@
 ///
 /// They all stand in the same place, in a box as large as the largest of them,
 /// so nothing around them jumps as they change. Each takes one step; the last
-/// one stays for the rest of the slide.
+/// one stays for the rest of the slide. A version that reveals something of
+/// its own stays until that is done, and the next one comes after it.
+///
+/// That waiting needs `start: auto`. A `start` written out puts every version
+/// on exactly its own step, and a chain inside a version other than the last
+/// comes only after that version has gone, so it is never seen.
 ///
 /// `morph: true` lets the versions fly into one another instead of replacing
 /// one another. They all stand in the same place, so the flight is no distance
@@ -192,6 +193,10 @@
 /// A morph has no entrance and no easing curve, so `enter:` and `easing:` are
 /// refused rather than quietly dropped. `duration:` is read and is the time of
 /// the flight.
+///
+/// With `morph` a version other than the last does not wait in the browser for
+/// what it reveals itself: the next version comes on the step after it, and the
+/// reveal is never seen there, while the paper shows it.
 ///
 /// On paper only the last one is set, in the same box, so the page keeps the
 /// spacing of the slide. Printing all of them would pile them on top of one
@@ -247,8 +252,8 @@
   // whole thing, not inside it.
   let shell-outer = if inline { box } else { it => it }
   // Vor dem Layout, damit die Nummer einmal je Aufruf hochzählt und nicht
-  // einmal je Messdurchgang.
-  if morph == true { auto-morph-nr.update(n => n + 1) }
+  // einmal je Messdurchgang. Ein Zähler, kein Zustand: siehe `auto-morph-nr`.
+  if morph == true { auto-morph-nr.step() }
   shell-outer(layout(available => context {
     // On paper `alternatives` never reaches `track`, it only moves the cursor,
     // so the fit check cannot be left to `track` here. Asked as an assertion
@@ -264,18 +269,30 @@
                                          height: available.height))
     let w = calc.max(..natural.map(s => s.width), ..bounded.map(s => s.width))
     let h = calc.max(..natural.map(s => s.height), ..bounded.map(s => s.height))
-    let first = if start == auto { step-cursor.get().first() + 1 } else { start }
+    // Der Schritt einer Fassung, wenn `start` ihn ausschreibt: genau dieser
+    // eine für alle bis auf die letzte, die bleibt -- `"3"` ist genau Schritt
+    // drei, `"3-"` ab dort. Bei `start: auto` vergibt `track` die Schritte
+    // (`at: auto`), und gelesen wird der Zeiger dafür nicht: die Lesung stand
+    // bis dahin trotzdem da, auch wo nichts sie brauchte. Nur ein Morph im
+    // Browser liest ihn noch, siehe unten.
+    let letzt = items.len() - 1
+    let fassung-at(i) = if start == auto { auto }
+                        else if i == letzt { str(start + i) + "-" }
+                        else { str(start + i) }
     if not html-output.get() {
       // Only the last version is set on paper, but the cursor moves as if all
       // of them stood there. Every version is one step, and
       // `info().step.total` has to report the same count in both outputs.
       return {
-        // Kein eigener Vorschub mehr, wenn `track` die Schritte vergibt:
-        // sonst hinge das Update am gelesenen `first` -- dieselbe Kette, die
-        // im Browserzweig die Konvergenz kostete.
-        if im-deck() and start != auto {
-          step-cursor.update(c => calc.max(c, first + items.len() - 1))
-        }
+        // Kein eigener Vorschub, auch nicht bei ausgeschriebenem `start`: jede
+        // Fassung zieht den Zeiger als `anim` mit ausgeschriebenem `at` selbst
+        // auf ihren Schritt, und hinter der letzten steht er dort, wo ihn der
+        // Vorschub hingestellt hätte. Der Vorschub stand aber *vor* allen
+        // Fassungen, der Browserzweig zieht je Fassung, und dazwischen gingen
+        // die beiden auseinander. Eine Kette in einer Fassung lag auf Papier
+        // später als im Browser: gemessen an
+        // `alternatives(start: 2, [A], [B #stagger([x], [y])], [C])` x und y
+        // auf 5 und 6 gegen 4 und 5, sechs Schrittseiten gegen fünf Schritte.
         // Jede Fassung als verfolgtes Element, wie im Browserzweig -- dann
         // entscheidet `track`, was auf dem gesetzten Schritt zu sehen ist, und
         // meldet den Halt. Selbst lesen kann `alternatives` den Schritt hier
@@ -283,27 +300,22 @@
         // erst am Dokumentende auf. Gemessen: auf allen drei Seiten der
         // Endwert. Übereinander liegen die Fassungen gefahrlos, weil die
         // unzutreffenden `hide` bekommen und nur ihren Platz behalten.
-        let letzt = items.len() - 1
         block(width: w, height: h, {
           for (i, v) in items.enumerate() {
             place(align, anim-kern(
               v,
-              at: if start == auto { auto } else {
-                if i == letzt { str(first + i) + "-" } else { str(first + i) }
-              },
-              boden: 1, offen: i == letzt,
+              at: fassung-at(i),
+              boden: 1, offen: i == letzt, ersetzt: i != letzt,
               enter: enter, duration: duration,
               easing: kurve(easing, "anim")))
           }
         })
       }
     }
-    let last = items.len() - 1
     // Die Schritte von `track` vergeben lassen, statt sie aus dem gelesenen
     // Zeiger zu rechnen und hereinzureichen -- das kostet das Dokument sonst
     // seine Konvergenz, sobald eine Fassung etwas außerhalb des Flusses trägt.
     // `offen` nur für die letzte: jede andere tritt ab, wenn die nächste kommt.
-    let auto-kette = start == auto and morph == false
     // Mit `morph:` traegt jede Fassung denselben Namen. Die Bereiche
     // ueberschneiden sich nicht, und damit ist jeder Schrittwechsel ein Flug
     // von der einen auf die naechste -- dieselbe Maschinerie wie ueber den
@@ -312,21 +324,93 @@
     // Alle Fassungen liegen an derselben Stelle, die Flugstrecke ist also
     // null. Was man sieht, ist die Umordnung der Zeichen an Ort und Stelle --
     // fuer eine Formel, die sich umformt, genau das Richtige.
+    // Nur für einen Morph mit `start: auto` im Browser (siehe dort).
+    let first = step-cursor.get().first() + 1
     let mname = if morph == true {
-      "ts-alternatives-" + str(auto-morph-nr.get())
+      "ts-alternatives-" + str(auto-morph-nr.get().first())
     } else if morph != false { name-of(morph) }
     block(width: w, height: h, {
       for (i, v) in items.enumerate() {
-        // Exactly this step for all but the last, which stays: `"3"` is that
-        // one step, `"3-"` is from there on.
-        let at = if i == last { str(first + i) + "-" } else { str(first + i) }
+        // Ein Morph mit ausgeschriebenem `start` zieht den Zeiger selbst auf
+        // seinen Schritt, aus dem Argument und ohne Lesung, wie die Fassung
+        // auf Papier, die als `anim` durchgeht. `track` zieht einen Morph erst
+        // hinter Schritt eins nach (siehe dort); für die übrigen Fassungen
+        // ist dieses Update darum doppelt und ändert nichts, für eine auf
+        // Schritt eins nicht.
+        if morph != false and start != auto {
+          step-cursor.update(c => calc.max(c, start + i))
+        }
         place(align, if morph == false {
-          anim-kern(v, at: if auto-kette { auto } else { at },
-                    boden: 1, offen: i == last,
+          anim-kern(v, at: fassung-at(i),
+                    boden: 1, offen: i == letzt,
                     enter: enter, duration: duration,
                     easing: kurve(easing, "anim"))
+        } else if start == auto {
+          // Bei `start: auto` belegt eine Fassung ihren Schritt wie auf
+          // Papier, wo sie als `anim` mit `at: auto` und Boden 1 steht -- mit
+          // einem Update, das nichts Gelesenes trägt. Das `at` wird aus dem
+          // gelesenen Zeiger gerechnet, aber `track` zieht daran nichts nach
+          // (`zaehlt: false`): ein Vorschub aus dem gelesenen `first` wäre der
+          // Kreis, den `scene` und `camera` schon abgelegt haben.
+          //
+          // Nicht über `track` mit `at: auto` wie der Zweig darunter und wie
+          // `stagger(morph:)`, obwohl das ohne Lesung auskäme. Gemessen im
+          // Browser an `#anim[Davor]` und
+          // `#for w in (0, 1) { tiles([K], alternatives(morph: true, [R], [T])) }`:
+          // so zwei Meldungen ("a measured element did not stabilize" auf die
+          // Messung der Kachel in `track`, "did not converge"), hiermit keine,
+          // wie vor beidem; der Fall "alternatives mit morph in einer Kachel"
+          // in `pruefe-konvergenz.py` ebenso, drei Meldungen gegen keine. Den
+          // Namen woanders zu lesen (in `track`, in einem eigenen `context`)
+          // heilte die Kachel, brach aber das Bündel, solange `auto-morph-nr`
+          // ein `state` war: `bundle()` mit nichts als
+          // `alternatives(morph: true, …)` gab sechs Meldungen, darunter
+          // `state("typstage-sprites")`. So bleiben beide still, und die
+          // Schritte sind dieselben: mit `anim[D]` dahinter A, B, C auf 1, 2
+          // und 3-, D auf 4-, drei solche Aufrufe hinter einem `anim` auf 3/4,
+          // 5/6 und 7/8.
+          //
+          // Nicht dieselben sind sie, wenn eine Fassung außer der letzten
+          // selbst etwas aufdeckt: das `at` kommt aus `first` und nicht vom
+          // Zeiger hinter der Kette. Gemessen an
+          // `alternatives(morph: true, [A #anim[x]], [B])` und `anim[D]`: im
+          // Browser A auf 1, x auf 2-, B auf 2-, D auf 4-, x also nie zu sehen
+          // (in Chrome Deckkraft 0 auf allen vier Schritten); auf Papier A,
+          // A x, B, B D. Handbuch, Docstring und CHANGELOG sagen das.
+          //
+          // Die Wege zurück zum Warten, gemessen. `at: _ => auto` und `offen`,
+          // der Name wie hier: x auf 2-, B auf 3-, aber die Kachel oben gibt
+          // wieder zwei Meldungen, auch mit `auto-morph-nr` als Zähler. Dazu
+          // der Name als Funktion, gelesen im `context` von `track`: mit dem
+          // Zähler sind die Kachel und die acht Morph-Bündel still, x steht
+          // auf 2-, B auf 3- und ist in Chrome auf Schritt 2 zu sehen. Dafür
+          // meldeten unter 237 Quellen mit `alternatives` und `morph` vier
+          // Bündel zweimal, die vorher still waren -- Schrittbündel und
+          // `document()` mit der HTML vorn, das kleinste
+          // `bundle(pages: "step")[#alternatives(morph: true, $a + b$, $b + a$)
+          // #alternatives(morph: true, $c + d$, $d + c$)]` --, und dreizehn
+          // Bauten brauchten fünf Läufe statt vier, etwa `anim[Davor]` mit
+          // zwei solchen Aufrufen und je einem `anim` dahinter im HTML. Beides
+          // bleibt darum aus.
+          let at = if i == letzt { str(first + i) + "-" } else { str(first + i) }
+          step-cursor.update(c => calc.max(c + 1, 1))
+          track("morph", v, at: at, inline: inline, zaehlt: false,
+                extra: (name: mname, match: "auto",
+                        fly: if duration == auto { none } else { duration }))
         } else {
-          morph-fn(mname, v, at: at, duration: duration, inline: inline)
+          // Mit ausgeschriebenem `start`: `track` selbst mit dem Schritt aus dem
+          // Argument, und das Update oben reserviert ihn. Vorher ging auch
+          // dieser Fall über `morph`, und keiner der beiden Zweige reservierte
+          // Schritte, denn `track` zog den Zeiger damals nur für `anim` nach.
+          // Gemessen an `alternatives(morph: true, [A], [B], [C])` und
+          // `anim[D]` dahinter: im Browser A, B, C auf 1, 2 und 3-, D aber auf
+          // 2- und damit mitten in der Umformung; auf Papier D auf 4, vier
+          // Schrittseiten gegen drei Schritte. Mit `start: 2` jetzt 2, 3, 4-
+          // und D auf 5-.
+          track("morph", v, at: fassung-at(i),
+                inline: inline, boden: 1, offen: i == letzt,
+                extra: (name: mname, match: "auto",
+                        fly: if duration == auto { none } else { duration }))
         })
       }
     })
@@ -655,28 +739,43 @@
   // Alles darin kommt aus den Argumenten und dem vorigen Wert des Zustands.
   // Nur der Anfangswert der allerersten Gruppe steht auf Gelesenem, und den
   // schreibt genau ein Aufruf -- ein fester Punkt, keine Kette.
+  //
+  // `erste` ist ein Stapel: die erste Nummer jedes Aufrufs dieser Gruppe, der
+  // gerade gesetzt wird, der innerste zuletzt. Hier gelegt, hinter den Punkten
+  // wieder abgenommen. Daraus liest jeder Punkt seine Nummer in seinem eigenen
+  // `context` (siehe `ad-nr` unten) -- und ein Stapel und nicht einfach der
+  // letzte Aufruf, weil ein Punkt selbst einen Aufruf derselben Gruppe tragen
+  // kann: `cue("c", [a #cue("c", [b])], [c])` gibt a, c und b die 1, 2 und 3,
+  // und c sähe ohne das Abnehmen die 3 von b.
   let basis = ab - erste + 1
   cue-basis.update(b => {
-    let s = b.at(name, default: (ab: basis, n: 0, schritte: (:)))
+    let s = b.at(name, default: (ab: basis, n: 0, schritte: (:), erste: ()))
     let z0 = if nr == auto { s.n + 1 } else { nr }
     let a0 = if start != auto { start } else { s.ab + z0 - 1 }
     let sch = s.schritte
     for i in range(stuecke.len()) { sch.insert(str(z0 + i), a0 + i) }
-    b + ((name): (ab: s.ab, schritte: sch, n: if nr == auto {
+    b + ((name): (ab: s.ab, schritte: sch, erste: s.erste + (z0,),
+                  n: if nr == auto {
       s.n + stuecke.len()
     } else { calc.max(s.n, nr - 1 + stuecke.len()) }))
   })
+  // Dass keine Ziffer über 9 hinausgeht, prüft der Bericht am Deckende und
+  // nicht diese Schleife. Hier hing die Prüfung am gelesenen Stand der
+  // Gruppe, und eine Seite, die unter `pages: "step"` in einem Layoutlauf neu
+  // hinzukam, las ihn nicht an ihrem Ort, sondern mit allen Punkten der Folie
+  // schon darin: aus fünf Punkten wurden die Ziffern 6 bis 10, die Prüfung
+  // schlug auf der zehnten an, die Seite fiel aus, und mit ihr ihre Schritte.
+  // Gemessen: vier Punkte konvergierten, fünf nie. Am Deckende liest der
+  // Bericht fertige Funde.
   for i in range(stuecke.len()) {
-    assert(erste + i <= 9, message:
-      "typstage: cue(\"" + name + "\") would get a point " + str(erste + i)
-      + " on this slide, and the room calls points with the keys 1 to 9. "
-      + "Split the group, or reach the rest with the pointer instead of a "
-      + "digit.")
     // Was der Punkt ist, steht als Fund im Dokument -- nicht in einem
     // Zustand, den derselbe Aufruf auch liest. Die Prüfung am Deckende fragt
     // danach.
-    [#metadata((name: name, nr: erste + i, schritt: ab + i))
-     <typstage-cue-punkt>]
+    //
+    // Ohne den Schritt: den liest niemand, und er stammt aus dem gelesenen
+    // Zeiger. Als Inhalt der Marke machte er sie in jedem Layoutlauf, in dem
+    // die Lesung noch wechselte, zu einem anderen Element.
+    [#metadata((name: name, nr: erste + i)) <typstage-cue-punkt>]
   }
 
   for (i, b) in stuecke.enumerate() {
@@ -686,8 +785,40 @@
     block(anim-kern(
       if punkte.len() > 0 { list(b) } else { b },
       at: if start == auto { auto } else { str(ab + i) + "-" },
-      boden: 1, ad: name, ad-nr: erste + i))
+      boden: 1, ad: name,
+      // Die Nummer des Punktes. Ein ausgeschriebenes `nr:` gibt sie aus dem
+      // Argument; sonst hängt sie am Stand der Gruppe, und dann als Funktion,
+      // die `track` in seinem eigenen `context` aufruft, nicht als Zahl aus
+      // der Lesung oben.
+      //
+      // Die Zahl steckte in jenem `context`, und `cue` liest in einem Wirt
+      // zweimal: `anim(cue(…))` setzt den Rumpf des Wirts im Hintergrund und
+      // noch einmal in dessen Sprite, hinter der Folie, wo die Gruppe schon
+      // alle ihre Punkte hat. Gemessen an zwei Listenpunkten in einem `anim`
+      // mit einer Folie danach: 1 und 2 im Hintergrund, 3 und 4 in der Kopie,
+      // dazu zweimal "a measured element did not stabilize" auf das `measure`
+      // in `track`, gezeigt auf den Listenpunkt, und "document did not
+      // converge". Ebenso in einer Fassung von `alternatives`. Still blieb es
+      // mit einer festen Zahl, mit denselben Nummern in der Kopie wie im
+      // Hintergrund, ohne die Folie danach und mit Stücken, die keine Liste
+      // sind. Mit der Funktion liest der Hintergrund dieselben Nummern wie
+      // vorher, gemessen `data-ad-nr` Byte für Byte in jedem Beispieldeck.
+      ad-nr: if nr != auto { nr + i } else {
+        _ => {
+          let s = cue-basis.get().at(name, default: none)
+          if s == none or s.erste.len() == 0 { i + 1 } else { s.erste.last() + i }
+        }
+      }))
   }
+  // Der Aufruf ist gesetzt, seine erste Nummer kommt vom Stapel (siehe
+  // `erste` oben). Wie `step-here`: abgenommen und nicht aus einem
+  // gemerkten Wert zurückgeschrieben.
+  cue-basis.update(b => {
+    let s = b.at(name, default: none)
+    if s == none or s.erste.len() == 0 { b } else {
+      b + ((name): s + (erste: s.erste.slice(0, -1)))
+    }
+  })
 }
 
 /// Something that appears together with one point of an adaptive group.
@@ -726,8 +857,23 @@
     + "; a layer can only follow a point that already stands.")
   // Der gemerkte Schritt des Punktes, nicht `ab + number - 1`: mit
   // ausgeschriebenem `start:` liegen die Punkte nicht lückenlos hintereinander.
-  anim-kern(body, at: str(stand.schritte.at(str(number))) + "-",
-            ad: name, ad-nr: number, enter: enter)
+  //
+  // Und ohne Vorrücken, wie `scene-layer`: der Punkt hat seinen Schritt schon
+  // reserviert, und dieser hier ist aus `cue-basis` gelesen. Rückte die
+  // Schicht den Zeiger daran vor, hinge die Schrittzahl der Folie -- und unter
+  // `pages: "step"` ihre Seitenzahl -- an der eigenen Lesung.
+  //
+  // Als Funktion, wie bei `scene-layer`: `track` liest den Schritt in seinem
+  // eigenen `context`.
+  anim-kern(body, ad: name, ad-nr: number, enter: enter, zaehlt: false,
+            at: ort => {
+              let basis = if ort == none { cue-basis.get() } else { cue-basis.at(ort) }
+              let s = basis.at(name, default: none)
+              let schritt = if s == none { 1 } else {
+                s.schritte.at(str(number), default: 1)
+              }
+              str(schritt) + "-"
+            })
 }
 
 /// Several things, one after another, one step apart.
@@ -791,8 +937,8 @@
 ) = {
   // Vor dem `context`, nicht darin. Ein `update` im selben Kontextblock ist
   // für das `get()` daneben noch nicht geschehen -- gemessen: der erste Aufruf
-  // hieß dann `ts-stagger-0`.
-  if morph == true { auto-morph-nr.update(n => n + 1) }
+  // hieß dann `ts-stagger-0`. Ein Zähler, kein Zustand: siehe `auto-morph-nr`.
+  if morph == true { auto-morph-nr.step() }
   context {
   // Asked here rather than left to the `anim`s below, so the message names the
   // function the deck actually wrote. An assertion, not a placed `fit-verbot`,
@@ -823,14 +969,29 @@
   // je Stück ein `at: auto`, und `track` zählt weiter. Gemessen kommt dabei
   // dieselbe Schrittfolge heraus wie vorher, nur ohne die Meldungen.
   //
-  // Nur für den Fall, der ohne den absoluten Anfang auskommt: `stride: 1`
-  // (sonst liegen Lücken dazwischen, die `track` nicht kennt), kein `dim`
-  // (das setzt einen einzelnen Schritt statt einer offenen Spanne), kein
-  // `morph` und kein Name (beide tragen den Anfang weiter).
-  let auto-kette = (start == auto and stride == 1 and not dim
-                    and morph == false and name == none)
-  let start = if start != auto { start } else if auto-kette { 0 } else {
-    step-cursor.get().first() + 1 }
+  // `dim` gehört nicht zu den Ausnahmen. Es setzt einen einzelnen Schritt
+  // statt einer offenen Spanne, und das kann `track` bei `at: auto` längst:
+  // `offen: false`, derselbe Weg, den `alternatives` geht. Solange `dim` den
+  // Zeiger selbst las, lief die Lesung über `papier-zahlen` in die
+  // Seitenzahl der Folie zurück. Gemessen an `mosaic-manifesto`: zwei
+  // Meldungen in der gewöhnlichen Fassung, dreizehn unter `pages: "step"`.
+  //
+  // Und auch `stride`, `name` und `morph` nicht mehr. Sie lasen den Zeiger,
+  // rechneten jedem Stück sein `at` aus und reichten es herein -- derselbe
+  // Kreis wie eben: das ausgeschriebene `at` zog den Zeiger nach, der Zeiger
+  // gab `papier-zahlen` die Seitenzahl, und unter `pages: "step"` las jede
+  // Seite, die in einem Lauf neu hinzukam, einen Stand, der erst einen Lauf
+  // später stimmte. Gemessen an einer Folie mit nichts als
+  // `stagger(stride: 2)[A][B][C]`: sieben Meldungen und zehn Seiten statt
+  // fünf; mit `name: "g"` sieben Meldungen und sechs Seiten statt drei.
+  //
+  // `stride` braucht dafür keinen Anfang: das erste Stück rückt um eins vor
+  // wie jedes `at: auto`, jedes weitere um `stride` (`vorruecken` in
+  // `track`), und das ergibt dieselbe Folge wie `start + i * stride`, bei
+  // `stride: 0` alle auf demselben Schritt. Ein Morph geht denselben Weg, als
+  // `track("morph")`. Gelesen wird der Zeiger nur noch für das Gruppenbuch
+  // weiter unten, und nur, wenn es eine Gruppe gibt.
+  let auto-kette = start == auto
   // `..items` would otherwise swallow any named argument without a word: a
   // typo in `stride:` would stagger on the default and say nothing.
   assert(items.named().len() == 0,
@@ -875,39 +1036,82 @@
   // darüber, während die darüber stehen bleibt. Das ist die Umformungskette,
   // Zeile für Zeile, auf einer einzigen Folie.
   let mname = if morph == true {
-    "ts-stagger-" + str(auto-morph-nr.get())
+    "ts-stagger-" + str(auto-morph-nr.get().first())
   } else if morph != false { name-of(morph) }
   // Der Gruppenname, unter dem `stagger-layer` diese Staffelung findet.
   // `name:` sagt ihn ausdrücklich; wer schon `morph: "…"` geschrieben hat, hat
   // ihn damit gesagt, und ein zweites Mal wäre er nur Abschrift.
   let gname = if name != none { name-of(name) }
               else if morph != false and morph != true { name-of(morph) }
+  let anzahl = if punkte.len() == 0 { gegeben.len() } else { punkte.len() }
+  // Ein Stück, wie es auf seinen Schritt kommt. `vorruecken` zählt nur bei
+  // `at: auto`; ein ausgeschriebenes `start` rechnet wie bisher.
+  //
+  // Der Morph ruft `track` selbst, mit demselben `extra` wie `morph`: nur so
+  // bekommt er `boden: 1` und `vorruecken`. Über `morph` mit ausgeschriebenem
+  // `at` reservierte er seine Schritte nie, denn `track` zog den Zeiger damals
+  // nur für `anim` nach. Gemessen an `anim[Davor]`, einem dreiteiligen
+  // `stagger(morph: true)` und `anim[Danach]`: „Danach" bekam im Browser den
+  // Schritt des ersten Stücks, 3 statt 6, und auf Papier fehlten das zweite
+  // und das dritte Stück ganz, in der Seite je Folie wie unter
+  // `pages: "step"`.
+  //
+  // Mit einem Namen trägt jedes Stück seinen Schritt ins Gruppenbuch ein, für
+  // `stagger-layer`. Bei `at: auto` ist das die einzige Lesung, die bleibt, und
+  // sie steht in einem eigenen kleinen `context` vor dem Stück: der Zeiger
+  // davor, und dazu dieselbe Rechnung, die `track` gleich anstellt
+  // (`schritt-vorruecken` mit `boden: 1`). Die Lesung fließt in keine
+  // Schrittzahl zurück -- eine Schicht liest das Buch erst im `context` von
+  // `track` und rückt den Zeiger nicht vor. `cue` merkt sich seine Schritte
+  // auf dieselbe Weise.
+  //
+  // Je Stück und nicht einmal der Anfang mit `start + (nummer - 1) * stride`
+  // gerechnet: trägt ein Stück selbst ein `anim`, rückt es den Zeiger weiter,
+  // und die Stücke dahinter liegen später. Gemessen an
+  // `stagger(name: "g", [A #anim[x]], [B], [C])` hinter einem `anim`: B auf
+  // Schritt 5, und die aus dem Anfang gerechnete Schicht zu B auf 4.
+  let stueck(koerper, i, ..rest) = {
+    let at = if auto-kette { auto } else { bereich(start + i * stride) }
+    let vor = if i == 0 { 1 } else { stride }
+    if gname != none {
+      let eintragen(schritt) = stagger-gruppen.update(g => {
+        // Das erste Stück beginnt das Buch neu: ein gleichnamiger `stagger`
+        // von vorhin hinterließe sonst Stücke, die es hier nicht gibt.
+        let bisher = if i == 0 { (:) } else {
+          g.at(gname, default: (schritte: (:))).schritte
+        }
+        g + ((gname): (anzahl: anzahl,
+                       schritte: bisher + ((str(i + 1)): schritt)))
+      })
+      if auto-kette {
+        context eintragen(calc.max(step-cursor.get().first() + vor, 1))
+      } else { eintragen(start + i * stride) }
+    }
+    if morph == false {
+      anim-kern(koerper, at: at, vorruecken: vor, ..rest)
+    } else {
+      track("morph", koerper, at: at, inline: false, boden: 1,
+            vorruecken: vor, extra: (name: mname, match: "auto",
+              fly: if duration == auto { none } else { duration }))
+    }
+  }
+  // Dasselbe für ein ausgeschriebenes `start`: aus den Argumenten, ohne
+  // Lesung, wie `alternatives` es auf Papier tut.
+  if morph != false and not auto-kette {
+    step-cursor.update(c => calc.max(c, start + (anzahl - 1) * stride))
+  }
 
   if punkte.len() == 0 {
     // No list: the pieces in order, each as its own block.
-    if gname != none {
-      stagger-gruppen.update(g => g + ((gname): (
-        start: start, anzahl: gegeben.len(), stride: stride)))
-    }
     for (i, b) in gegeben.enumerate() {
-      block(if morph == false {
-        anim-kern(b, at: if auto-kette { auto } else { bereich(start + i * stride) },
-                  boden: 1, after: ruhe,
-                  dim-freiwillig: dim, enter: enter, duration: duration,
-                  easing: takt, delay: i * stagger)
-      } else {
-        morph-fn(mname, b, at: bereich(start + i * stride), duration: duration,
-                 inline: false)
-      })
+      block(stueck(b, i, boden: 1, after: ruhe, offen: not dim,
+                   dim-freiwillig: dim, enter: enter, duration: duration,
+                   easing: takt, delay: i * stagger))
     }
     // Kein `return`: es verließe die Funktion und nicht nur den Kontextblock,
     // und der Zähler oben stünde dann ohne seinen Rumpf da.
   } else {
 
-  if gname != none {
-    stagger-gruppen.update(g => g + ((gname): (
-      start: start, anzahl: punkte.len(), stride: stride)))
-  }
   let numbered = punkte.at(0).func() == enum.item
   let marks = punkte.enumerate().map(((i, p)) => {
     if numbered { [#(i + 1).] } else { [•] }
@@ -917,10 +1121,6 @@
 
   for (i, p) in punkte.enumerate() {
     if i > 0 { v(spacing, weak: true) }
-    let stueck = if morph == false { anim-kern } else {
-      (koerper, at: none, ..rest) => morph-fn(mname, koerper, at: at,
-                                              duration: duration, inline: false)
-    }
     stueck(
       grid(
         columns: (column, 1fr),
@@ -938,8 +1138,8 @@
         align: (end + top, std.start + top),
         marks.at(i), p.body,
       ),
-      at: if auto-kette { auto } else { bereich(start + i * stride) },
-      boden: 1, after: ruhe, dim-freiwillig: dim,
+      i,
+      boden: 1, after: ruhe, offen: not dim, dim-freiwillig: dim,
       enter: enter, duration: duration, easing: takt, delay: i * stagger,
     )
   }
@@ -964,7 +1164,8 @@
 ///
 /// The stagger has to stand *before* its layers in the source, because a layer
 /// looks up which step its piece was given. Standing after them, the package
-/// says so rather than quietly doing nothing.
+/// says so rather than quietly doing nothing. And it has to stand on the same
+/// slide: a group belongs to one slide, as a `cue` group does.
 ///
 /// A layer stays from its piece to the end of the slide, as `cue-layer` and
 /// `scene-layer` do. And it stays out of a `morph: true` flight: the layer is
@@ -972,18 +1173,53 @@
 /// the annotation merely appears beside it -- which is what an annotation
 /// should do.
 #let stagger-layer(name, number, body, enter: "fade") = context {
-  let g = stagger-gruppen.get()
-  assert(name-of(name) in g, message:
-    "typstage: stagger-layer(\"" + name-of(name) + "\") finds no group of "
-    + "that name. A stagger() has to carry `name:` (or a `morph:` written as a "
-    + "name) and has to stand before its layers in the source, because a layer "
-    + "looks up which step its piece was given.")
-  let e = g.at(name-of(name))
-  assert(number >= 1 and number <= e.anzahl, message:
-    "typstage: stagger-layer(\"" + name-of(name) + "\", " + str(number)
-    + ") -- that group has " + str(e.anzahl) + " piece"
-    + (if e.anzahl == 1 { "" } else { "s" }) + ", so the number is out of range.")
-  anim(body, at: str(e.start + (number - 1) * e.stride) + "-", enter: enter)
+  // Die Prüfung in einem eigenen `context` *neben* der Schicht und nicht um
+  // sie herum. Las der `context` außen das Buch, trug er die Lesung um die
+  // ganze Schicht, und wo sie von Lauf zu Lauf noch wechselte, bekam die
+  // Schicht eine neue Identität -- dieselbe Lehre wie beim `at` als Funktion.
+  // Seit die Folie das Buch zu Beginn leert, wechselt sie in einem `bundle()`,
+  // sobald die Schicht in einem anderen verfolgten Element steht (hinter
+  // `#pause` genügt) und eine Folie folgt. Gemessen an `Vorne #pause`, einem
+  // benannten `stagger` mit Schicht und einer Folie danach, als `bundle()`:
+  // acht Meldungen, `state("typstage-stagger")` darunter, und im HTML stand
+  // die Schicht auf `data-at="1-"` statt `"5-"`, auf Schritt eins sichtbar.
+  // Mit einem gleichnamigen `stagger` auf der Folie danach tat derselbe
+  // Aufbau das schon, als das Buch noch nicht geleert wurde.
+  //
+  // Nicht in der Funktion für `at`, obwohl sie dasselbe Buch liest: dort
+  // brach eine Prüfung, die in einem frühen Lauf noch fehlschlägt, den
+  // `context` von `track` mit ab, und `tour` konvergierte im HTML nicht mehr
+  // (`state("typstage-pinnamen")`). Und der `context` außen bleibt, obwohl er
+  // nichts mehr liest: ohne ihn setzte die PNG-Ausgabe die Schicht um
+  // Bruchteile eines Punktes anders (68 Bildpunkte bei 80 ppi, um höchstens
+  // 3 von 765), bei gleichem PDF.
+  context {
+    let g = stagger-gruppen.get()
+    // Die Folie leert das Buch zu Beginn, wie `cue-basis` und
+    // `szene-gruppen`: ein Name von der Folie davor steht hier nicht mehr darin.
+    assert(name-of(name) in g, message:
+      "typstage: stagger-layer(\"" + name-of(name) + "\") finds no group of "
+      + "that name on this slide. A stagger() has to carry `name:` (or a "
+      + "`morph:` written as a name) and has to stand before its layers in the "
+      + "source, because a layer looks up which step its piece was given -- and "
+      + "a group belongs to one slide, so a name from the slide before does not "
+      + "reach here.")
+    let e = g.at(name-of(name))
+    assert(number >= 1 and number <= e.anzahl, message:
+      "typstage: stagger-layer(\"" + name-of(name) + "\", " + str(number)
+      + ") -- that group has " + str(e.anzahl) + " piece"
+      + (if e.anzahl == 1 { "" } else { "s" }) + ", so the number is out of range.")
+  }
+  // Ohne Vorrücken, aus demselben Grund wie `cue-layer` und `scene-layer`.
+  // `anim-kern` statt `anim`, weil nur der Kern das abbestellen kann; die
+  // Kurve ist dieselbe, die `anim` ohne `easing:` nähme.
+  anim-kern(body, enter: enter, easing: kurve(auto, "anim"), zaehlt: false,
+            at: ort => {
+              let g = if ort == none { stagger-gruppen.get() }
+                      else { stagger-gruppen.at(ort) }
+              let e = g.at(name-of(name), default: (schritte: (:)))
+              str(e.schritte.at(str(number), default: 1)) + "-"
+            })
 }
 
 
@@ -1234,7 +1470,7 @@
             place(top + std.start, anim-kern(
               st,
               at: if at == auto and start == auto { auto } else { bereich },
-              boden: 1, offen: i == letzt,
+              boden: 1, offen: i == letzt, ersetzt: i != letzt,
               enter: enter, exit: "hold", duration: duration, easing: takt))
           }
         })
@@ -1374,9 +1610,8 @@
 /// the entrance -- the same separation `morph` draws, and for the same reason:
 /// one is a journey, the other a fade.
 ///
-/// The scene stands in a box of a fixed size and every frame is clipped to it.
 /// The scene stands in a box of a fixed size and every frame is clipped to
-/// it. Unlike `build` the frames are *not* laid out on top of one another:
+/// it, on paper as in the browser. Unlike `build` the frames are *not* laid out on top of one another:
 /// they are drawings of different values and may legitimately come out
 /// different sizes, so one shared frame is the only arrangement in which the
 /// box itself does not jump.
@@ -1496,8 +1731,9 @@
   werte.push(stops.last())
   let male(w) = if breit { zeichnen(..w) } else { zeichnen(w) }
 
-  // Wie bei `flipbook` und `embed`: auf Papier kommt das hier nie bei `track`
-  // an, die Fit-Prüfung kann also nicht dort stehen bleiben.
+  // Wie früher bei `flipbook` und `embed`: auf Papier kommt das hier nicht
+  // immer bei `track` an (ein `still` nie), die Fit-Prüfung kann also nicht
+  // dort stehen bleiben.
   fit-verbot("scene")
   context {
     // Der erste Halt steht da, sobald die Szene erscheint -- er kostet keinen
@@ -1527,7 +1763,27 @@
     }
     // Eingetragen, damit `scene-layer` die Schritte wiederfindet.
     if name != none {
-      szene-gruppen.update(g => g + ((name): (start: erster, stops: stops.len())))
+      // Nur der erste Eintrag zählt. Unter `pages: "step"` steht dieselbe
+      // Folie mehrmals da, und die Kopien ab der zweiten liegen in einem
+      // Layoutlauf an Orten, die der vorige noch nicht kannte -- ihre Lesung
+      // des Zeigers löst sich dort am Dokumentende auf. Geleert wird je Folie,
+      // wie `cue-basis`, damit der Name auf der nächsten wieder frei ist.
+      //
+      // Bei `start: auto` steht nicht `erster` im Buch, sondern der Ort dieses
+      // `context`: `scene-layer` liest den Zeiger dort selbst, mit derselben
+      // Rechnung. Die Zahl war eine Lesung, die über einen Zustand in eine
+      // zweite floss -- Zeiger, Szene, Buch, Schicht --, und das war ein Lauf
+      // zu viel für eine Szene mit Schicht in einer Fassung von
+      // `alternatives` unter `pages: "step"`: dort misst `alternatives` die
+      // Fassung, und eine Messung zieht einen Lauf später nach. Gemessen an
+      // drei solchen Folien: "a measured element did not stabilize", zweimal,
+      // und "document did not converge". Ein Ort steht vom ersten Lauf an
+      // fest, wie `fnort` in `track`.
+      let ort = here()
+      szene-gruppen.update(g => if name in g { g } else {
+        g + ((name): (start: if start == auto { ort } else { start },
+                      stops: stops.len()))
+      })
     }
     if not html-output.get() {
       // Auf Papier ein Standbild, und zwar der letzte Halt: eine Seite zeigt
@@ -1537,10 +1793,17 @@
       // als eigenes verfolgtes Element da -- `track` zeigt den, der gerade an
       // der Reihe ist. Ein ausgeschriebenes `still` ersetzt die ganze Szene und
       // hat keine Schritte.
+      //
+      // Beschnitten wie im Browser. Dort setzt die Szene ihr Standbild und
+      // jedes Bild der Reihe in einen Kasten mit `clip: true`; hier stand der
+      // Kasten offen, und eine Zeichnung, die größer war als er, lief auf
+      // Papier über die Folie. Gemessen an einer 320x190pt-Zeichnung in
+      // `scene(width: 200pt, height: 100pt)`: sie deckte zwei von drei
+      // Textzeilen darunter zu, während der Browser sie am Kasten abschnitt.
       if still != auto {
-        block(width: width, height: height, still)
+        block(width: width, height: height, clip: true, still)
       } else {
-        block(width: width, height: height, {
+        block(width: width, height: height, clip: true, {
           for i in range(stops.len()) {
             place(top + left, anim-kern(
               male(stops.at(i)),
@@ -1551,7 +1814,7 @@
               // Die Szene beginnt auf dem *aktuellen* Schritt, nicht auf dem
               // nächsten -- deshalb rückt der erste Halt nicht vor.
               boden: 1, vorruecken: if i == 0 { 0 } else { 1 },
-              offen: i == stops.len() - 1,
+              offen: i == stops.len() - 1, ersetzt: i != stops.len() - 1,
               enter: enter))
           }
         })
@@ -1624,16 +1887,48 @@
 ///
 /// A layer stays from its stop to the end of the slide, as `cue-layer`
 /// does: what was said at a stop goes on holding afterwards.
-#let scene-layer(name, nr, body, enter: "fade") = context {
-  let g = szene-gruppen.get()
-  assert(name in g, message:
-    "typstage: scene-layer(\"" + name + "\") finds no scene of that name. A "
-    + "scene() has to stand before its layers in the source, because a layer "
-    + "looks up which step its stop was given.")
-  let e = g.at(name)
-  assert(type(nr) == int and nr >= 1 and nr <= e.stops, message:
-    "typstage: scene-layer(\"" + name + "\", " + str(nr) + ") -- that scene "
-    + "has " + str(e.stops) + " stop" + (if e.stops == 1 { "" } else { "s" })
-    + ", so the number is out of range.")
-  anim-kern(body, at: str(e.start + nr - 1) + "-", enter: enter)
+#let scene-layer(name, nr, body, enter: "fade") = {
+  // Die Prüfungen in einem `context` für sich, neben der Schicht und nicht um
+  // sie herum. Im ersten Layoutlauf ist `szene-gruppen` noch leer, die erste
+  // Prüfung schlägt an, und Typst lässt in einem solchen Lauf aus, was der
+  // fehlgeschlagene `context` hätte setzen sollen -- stand die Schicht darin,
+  // kam sie einen Lauf später ins Dokument. Gemessen an einer Szene mit
+  // Schicht in einer Fassung von `alternatives` und einer Folie danach, unter
+  // `pages: "step"`: "a measured element did not stabilize", zweimal, und
+  // "document did not converge"; ohne die Prüfungen um die Schicht nicht
+  // mehr. Im letzten Lauf melden sie, was sie immer gemeldet haben.
+  context {
+    let g = szene-gruppen.get()
+    assert(name in g, message:
+      "typstage: scene-layer(\"" + name + "\") finds no scene of that name. A "
+      + "scene() has to stand before its layers in the source, because a layer "
+      + "looks up which step its stop was given.")
+    let e = g.at(name)
+    assert(type(nr) == int and nr >= 1 and nr <= e.stops, message:
+      "typstage: scene-layer(\"" + name + "\", " + str(nr) + ") -- that scene "
+      + "has " + str(e.stops) + " stop" + (if e.stops == 1 { "" } else { "s" })
+      + ", so the number is out of range.")
+  }
+  // Kein Vorrücken: die Szene hat den Halt schon vergeben, und der Schritt
+  // hier ist aus `szene-gruppen` gelesen. Gemessen an `ziehen` unter
+  // `pages: "step"`: sechs Meldungen, `state("typstage-szenen")` darunter.
+  //
+  // Der Schritt als Funktion, nicht als fertige Zahl: `track` liest ihn in
+  // seinem eigenen `context`, und dessen Identität hängt dann nicht an einer
+  // Lesung, die sich zwischen zwei Layoutläufen noch ändert.
+  //
+  // Die Funktion nimmt einen Ort: `none` liest im `context` von `track`, ein
+  // Ort liest dort, wo `track` gelesen hat -- so fragt der Anmerkungsblock
+  // unter `pages: "step"` nach, ob diese Schicht auf seiner Seite schon steht
+  // (siehe `papier-kette`). Dasselbe bei `cue-layer` und `stagger-layer`.
+  anim-kern(body, enter: enter, zaehlt: false, at: ort => {
+    let g = if ort == none { szene-gruppen.get() } else { szene-gruppen.at(ort) }
+    let e = g.at(name, default: (start: 1))
+    // Ein Ort, wenn die Szene ihren ersten Halt aus dem Zeiger nimmt: dann
+    // hier dieselbe Rechnung wie in `scene`, am Ort der Szene gelesen.
+    let anfang = if type(e.start) == location {
+      calc.max(1, step-cursor.at(e.start).first())
+    } else { e.start }
+    str(anfang + nr - 1) + "-"
+  })
 }

@@ -27,6 +27,12 @@ Geprüft wird:
   6. `pages: "step"` gibt ein Lesezeichen je FOLIE und nicht je Schritt.
   7. Eine Folie ohne Titel bekommt keinen leeren Eintrag.
   8. Der Handzettel trägt seine Lesezeichen ebenfalls.
+  9. Und dasselbe für das SPRUNGZIEL, auf das `contents()` verweist: eines je
+     Folie, in BEIDEN Seitenfassungen. Es hing an derselben Frage wie das
+     Lesezeichen -- „ist das die erste Seite der Folie?" --, nur unter einer
+     zweiten, falschen Regel: ohne `pages: "step"` trägt die einzige Seite
+     einer Folie deren LETZTE Schrittzahl, und jede Folie mit einem Aufdecker
+     verlor damit ihr Ziel. Beide lesen jetzt dieselbe Funktion.
 """
 import json
 import os
@@ -119,6 +125,15 @@ DECKS = {
         ")\n"),
     "handzettel": KOPF.format(mehr=", handout: true") + (
         "= Alpha\n== A1\nEins.\n== A2\nZwei.\n"),
+    # Vier Folien, davon eine mit Aufdecker -- die verlor ihr Sprungziel.
+    "ziele": KOPF.format(mehr="") + (
+        "== Ohne Aufdecken\nEins.\n"
+        "== Mit Aufdecken\nEins.\n#pause\nZwei.\n"
+        "== Wieder ohne\nDrei.\n"),
+    "ziele_schritte": KOPF.format(mehr=', pages: "step"') + (
+        "== Ohne Aufdecken\nEins.\n"
+        "== Mit Aufdecken\nEins.\n#pause\nZwei.\n"
+        "== Wieder ohne\nDrei.\n"),
 }
 
 
@@ -187,6 +202,21 @@ def main():
     # ── 8: der Handzettel ───────────────────────────────────────────────────
     if "handzettel" in gebaut and not eintraege("handzettel"):
         klagen.append("8. der Handzettel trägt kein Verzeichnis")
+
+    # ── 9: ein Sprungziel je Folie, in beiden Fassungen ─────────────────────
+    for name, wie in (("ziele", 'pages: "slide"'), ("ziele_schritte", 'pages: "step"')):
+        typ = os.path.join(tmp, name + ".typ")
+        r = subprocess.run(["typst", "query", "--package-path", paket, "--root", tmp,
+                            "--field", "value", typ, "<typstage-slide-target>"],
+                           capture_output=True, text=True)
+        if r.returncode:
+            klagen.append(f"9. {wie}: die Abfrage der Sprungziele scheiterte")
+            continue
+        n = len(json.loads(r.stdout))
+        # Titelfolie und drei Folien.
+        if n != 4:
+            klagen.append(f"9. {wie}: {n} Sprungziele statt 4 -- eine Folie mit "
+                          f"Aufdecker bekam keines, und contents() verweist dorthin")
 
     shutil.rmtree(tmp, ignore_errors=True)
     if klagen:

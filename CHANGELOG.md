@@ -77,6 +77,15 @@ All notable changes to this package are recorded here. The format follows
 
 ### Changed
 
+- **`pages: "step"` does not check the PDF for overflow.** Every step page sets
+  the same body as the one page per slide, so measuring each of them only
+  repeated the same finding once per step -- and the measurement cost a layout
+  run that decks looking something up in their body did not have: `geogebra`,
+  `geogebra-sprecher` and `tour` did not converge with `overflow` on. The page
+  per slide, the handout and the HTML still check, the HTML with the step. A
+  deck that builds only its step PDF with `overflow: "error"` no longer stops
+  on an overflow there.
+
 - **The runtime files are now `typstage-0.1.2.css` and `typstage-0.1.2.js`.**
   They carry the version, so a deck with `assets: "files"` writes and links the
   new names; nothing changes for the default, which embeds them. The published
@@ -92,6 +101,387 @@ All notable changes to this package are recorded here. The format follows
   number.
 
 ### Fixed
+
+- **Paper prints what the manual promises again.** On paper `after` does
+  nothing, the manual says, and a page shows every step at once. Since
+  `pages: "step"` arrived, every closed range was cut on the ordinary slide page
+  too: `stagger(dim: true)[One][Two][Three]` printed "Three" alone, without a
+  warning and with the right page count. Measured on the example decks:
+  `mosaic-manifesto` printed one of its three questions, `vortragen` a slide with
+  three empty lines and its last sentence, `gliedern` and `unterrichten` a list
+  missing its points. The handout went wrong the other way and printed every
+  version of an `alternatives`, every stage of a `build` and every stop of a
+  `scene` on top of one another. There are now two rules. What is *replaced* --
+  a version, a stage, a stop -- stands only in its range, so a slide page and
+  the handout show the last one. Everything else stands on a slide page and in
+  the handout, and under `pages: "step"` from its first step on; a closed range
+  ends there as it does in the talk, and what rests dimmed has not gone.
+
+- **`pages: "step"` builds every example deck, and converges.** Before, three of
+  the seventeen stopped with an error (`geogebra` and `geogebra-sprecher` with
+  "no applet on this slide", `tour` inside `bridge-targets()`), and five more
+  warned that the document did not converge -- which means Typst printed an
+  intermediate state: `ziehen` showed the lines beside its scene either never or
+  all four from the first stop, `vortragen` put the questions beside the wrong
+  point, `mosaic-manifesto` its team rows on the wrong pages. Every cause was
+  the same rule broken in a new place, a value read from the running slide
+  flowing back into how that slide is set: `stagger(dim: true)` read the step
+  cursor instead of letting `track` hand out its steps; `scene-layer`,
+  `cue-layer` and `stagger-layer` pushed the cursor to a step they had read;
+  a layer's step, read and then carried into `track` as a string, gave the
+  element a new identity in every layout run in which the reading still moved;
+  counting waited for a reading of whether a deck was being laid out at all
+  and so began one run late; `side-by-side(equal: true)` measured cards that
+  read the height of the very measurement; and a `cue` group of five points
+  checked its digits against a group state that a page added in that run had
+  not yet read at its own place, failed on the fifth, and dropped the page. All
+  seventeen decks now build without a warning as slides, step by step and as
+  a handout, and their HTML is byte for byte what it was.
+
+- **`pages: "step"` has a layout run to spare.** Typst lays a document out at
+  most five times, and step by step every example deck needed all five --
+  already two slides with one `anim` on the first did, so one lookup more
+  anywhere tipped a deck over: a `#context anim[#info().slide.number]` in front
+  of that `anim` gave "did not converge". How many pages a slide gets came
+  from a state that the slide writes from the step cursor it reads, and a value
+  written from a reading arrives one run after the reading. The count is now
+  read off the cursor itself, at a mark behind the first page of each slide.
+  Measured with `typst compile --timings`: the seventeen decks take four runs
+  step by step instead of five and three instead of four as one page per slide
+  (`tour` four as before), every page and its text as before, and the two
+  slides above converge. Two `presentation` calls in one document no longer
+  share their page counts either: both number their slides from one, and each
+  got the counts of the last, so a first slide with two reveals came out as one
+  page instead of three. `info().step.total` on paper still reads the state and
+  with it the count of the last call.
+
+- **`bridge-targets()` with `overflow` on.** It matched the slide number an
+  `embed` had written down, and that number is itself a reading, correct one
+  layout run after the slide counter. It now reads the slide at the place of
+  the mark. The overflow check measures what a slide body prints, and `tour`
+  prints `#raw(bridge-targets().join(", "))`: with
+  `--input typstage-overflow=record` its HTML did not converge, with four
+  warnings "a measured element did not stabilize" on that `raw`. Now it
+  converges in the same five runs, and `geogebra` and
+  `geogebra-sprecher` take three runs as a checked handout instead of four.
+  The `slide` field stays on the mark for a package that reads it.
+
+- **A `cue` group with five or more points under `pages: "step"`.** Every step
+  page showed the whole group, see above. The check that no digit goes past 9
+  now runs where the gap check already runs, at the end of the deck, with the
+  same message.
+
+- **A `cue` group inside another reveal.** `anim(cue("marks")[…])` with a list,
+  or a `cue` group as a version of `alternatives`, did not converge in the
+  browser as soon as another slide followed: "a measured element did not
+  stabilize", twice, and "document did not converge". The browser sets the
+  body of a reveal twice, on the slide and again in the layer above it, and
+  the second time the group already holds all of its points -- two points came
+  out as 1 and 2 on the slide and as 3 and 4 in the layer. That number was
+  handed into each point as a finished value and made it a different element
+  in each copy. A point now looks its number up where it is set. Some of these
+  decks stopped the build instead, with or without a slide after them, because
+  the check at the end of the deck counted the points of the second copy too:
+  five points counted on to 10 and were refused as "a point 10" that no slide
+  shows, a single point with `nr:` was refused as "a digit to two points", and
+  a real gap in the numbers was reported as that same doubled digit. The check
+  now counts what stands on the slide. On paper nothing changes, and the
+  browser output of every example deck is byte for byte what it was.
+
+- **A `scene-layer` in a version of `alternatives` under `pages: "step"`.** A
+  scene with a layer as one version of an `alternatives` did not converge
+  either: two warnings "a measured element did not stabilize" and "document
+  did not converge", measured on one such slide followed by another and on
+  three such slides in a row. The version is measured, and a measurement
+  settles a layout run late, which left the layer one run short, for two
+  reasons. The layer's checks stood around it, and in the first run, where no
+  scene is known yet, they failed and took the layer out of that run; they now
+  stand beside it. And the layer found its step through a number the scene had
+  read and written down; it now reads the step cursor at the scene itself.
+  Either change alone fixes one of the two decks. The pages are what they
+  were.
+
+- **A box inside a box in `side-by-side(equal: true)`.** A `callout` inside a
+  `card` took the full row height and ran out of the card's bottom, and the
+  title bar of the shorter card stood in its middle with empty space above it.
+  The row height now reaches the boxes of the row and not the boxes inside
+  them, and a card's content starts at its top.
+
+- **`contents(highlight: true)` before the first section.** Nothing was running,
+  so every entry was dimmed: an opening agenda came out pale throughout. Where
+  none of the listed entries is running, the list is now set as it is without
+  `highlight`; `entry.when` still says `"coming"` to a renderer of your own.
+
+- **`contents(highlight: true)` after a new part.** The last chapter of the part
+  before stayed marked as running until the new part opened a chapter of its
+  own: in `= Part A / == Chapter A1 / === s1 / = Part B / === Middle`, "Middle"
+  showed "Part A" dimmed and "Chapter A1" in full ink, and `entry.when` said
+  `"running"` for it -- in HTML, on slide pages, step pages and in the handout,
+  and on the section slide of "Part B" too when a theme sets the contents there.
+  `when` compared numbers only, and a level's `number` never goes back. An equal
+  number now counts as running only while that level's `index` is not `0`, and
+  as past otherwise. The recipe for a progressive agenda in the manual had the
+  same gap and now checks `index` as well.
+
+- **The link back to the contents on a section slide.** It read "Back to
+  contents" in every language; it now follows `text.lang` like the tab of a
+  `callout`. It had no label, so a `show` rule could not reach it; it is now
+  `ts-section-slide-back`. And it pointed at the first `contents()` in the
+  document: a deck that shows its agenda before every section sent every link
+  to the first one, and a deck that puts the contents on the section slide
+  itself got a link to the page it stands on. It now points at the nearest
+  contents before the section slide, and there is none where the contents
+  stands on that slide.
+
+- **A range with a gap is a gap on its step page.** `anim(at: "1,3")` stands on
+  steps one and three and is gone on two -- in the browser. Under
+  `pages: "step"` the paper knew only where a range begins and ends and printed
+  it on the page of step two as well. Measured on a slide with `"2,4-"`,
+  `(1, 3)`, `"1-2,4"` (dimmed), `"2-3,5"` and `"5"`: four elements stood on three
+  of five step pages where the runtime hides them. The paper now asks the same
+  question part by part that the runtime asks, checked against the runtime's
+  own function over 594 selectors. `tour` shows it on the slide that says so.
+
+- **A backwards range is refused.** `anim(at: "4-2")` compiled, and the two
+  sides read it differently: it covers no step in the browser and none on a
+  step page, but the paper took its end from the 4 and the runtime from the 2.
+  Measured beside an `anim(at: 2)`: the slide got four steps, the last three
+  alike, and the page for the slide and the handout printed an element the talk
+  never shows; with `after: "dimmed"` the runtime's own functions put it dimmed
+  on steps 3 and 4 without its ever having stood there. `anim` and `morph` now
+  stop with a message naming the range and the way round it goes, in a list
+  such as `("4-2", 5)` too. No selector the package builds itself runs
+  backwards.
+
+- **A heading written as a function call in the heading notation.**
+  `#heading(level: 3)[…]` or a bare `#heading[…]` between the slides stopped
+  the compile with `field "depth" in heading is not known at this point`,
+  pointing into the package: only `==` and `heading(depth: 2)` write the
+  depth into the element, and the split read it without asking. It now reads
+  an explicit `level` first, then `depth`, then Typst's default of 1, so
+  `heading(level: 3)` counts as `===` and `heading[…]` as `=` -- pixel for
+  pixel the same pages in all three paper forms and the same HTML, with and
+  without `set heading(numbering: …)`. A subheading meant to stay inside a
+  slide goes into a `block`.
+
+- **`stagger` with `stride`, `name` or `morph`.** These read the step cursor and
+  worked out each piece's step from it, and under `pages: "step"` they did not
+  converge: `stride: 2` gave seven warnings and ten pages instead of five,
+  `name:` seven and six instead of three. A `morph` chain did not reserve its
+  steps at all, so an `anim` after it fell on the step of its second piece, and
+  the slide page lacked every piece past that step. `track` now hands out their
+  steps as it does for a plain `stagger`, a named group records the step of each
+  piece, and a morph chain takes the steps it uses -- which moves an `auto`
+  element behind it to after the chain, where the manual says it belongs.
+
+- **A named morph chain across the edge of a slide.** `stagger(morph: "k")[$u$][$u v$]`
+  on one slide and `stagger(morph: "k")[$u v$][$u v w$]` on the next stopped the
+  HTML build with "morph(k) on slide 2 starts after step one" -- the very use the
+  manual gives a name of your own for; `alternatives(morph: "k")` and a single
+  `morph` followed by a chain the same. The check asked every piece, and in a
+  chain every piece after the first starts later by design. It now asks the name:
+  one morph of it standing from step one is enough. It notes one entry per name
+  on a slide, without its steps, and reads the steps where the slide noted them
+  at the end of the deck: a `bundle()` whose slide opened with
+  `alternatives(morph: true)` or `stagger(morph: true)` gave two convergence
+  warnings when the steps sat in the entries. Behind the check sat the
+  matching fault in the runtime: at a slide change every morph of that name on
+  the new slide was a target, revealed or not, so the second line of the chain
+  flew in as a ghost, stood there at full strength for the length of the flight
+  and vanished again -- one keypress early. A slide change now flies only into
+  what stands on the step it arrives at; going back into an
+  `alternatives(morph: "k")` no longer flies into its first version as well.
+
+- **`stagger-layer` looks on its own slide.** The book of named staggers was not
+  cleared between slides, unlike those of `cue` and `scene`: a layer naming a
+  group that stood only on the slide before found it and took a step of that
+  slide, and with a `#pause` ahead of that group the HTML did not converge
+  (four warnings). It now stops with the message for a name it does not know,
+  which says that a group belongs to one slide. The check reads the book beside
+  the layer and no longer around it: in a `bundle()`, a layer behind a `#pause`
+  on a slide with a slide after it did not converge once the book was cleared
+  (eight warnings), and with a stagger of the same name on that next slide it
+  did not converge before either -- in the HTML the layer stood there from step
+  one. Both converge now.
+
+- **`tiles` with a `stride` other than 1, and `alternatives(morph: true)`.** The
+  same two faults in the two siblings of `stagger`.
+  `tiles(stride: 2, [A], [B], [C])` read the step cursor and under
+  `pages: "step"` gave eight warnings and ten pages instead of five; `stride: 0`
+  with an `anim` after it nine warnings and four pages instead of two, and in
+  the browser too once a tile carried something outside the flow.
+  `alternatives(morph: true)` took no steps in the browser, with `start` or
+  without: an `anim` after `[A], [B], [C]` came on step 2, in the middle of the
+  rewriting, while the PDF put it on step 4, and three of them in a row all
+  stood on steps 3 and 4. `track` now hands out the steps of `tiles`, and a tile
+  that reveals something of its own moves the tiles after it back, as a
+  `stagger` piece does; the versions of `alternatives(morph: …)` take their
+  steps as the paper counts them, without an update that hangs on a reading, so
+  one inside a tile converges as well. As a `bundle`, a slide with two of them
+  had warned six times that the document did not converge; it now builds clean.
+  One case still counts differently: a version other than the last that reveals
+  something of its own does not wait for it in the browser. In
+  `alternatives(morph: true, [A #anim[x]], [B])` the browser puts B on step 2
+  and never shows x, while the paper shows A, then A with x, then B.
+  A morph without a name of its own inside a tile or an `anim` still did not
+  converge in the browser as soon as the same slide came again:
+  `tiles([K], stagger(morph: true)[R][T])` on two slides warned nine times, and
+  the second slide put R and T both on step 6 where the PDF has them on 3 and 4.
+  The host sets its body a second time for the sprite, and the running number
+  behind the name counted that copy too. It is a counter now, which the sprite
+  sets back like the number of a figure: no warning, R and T on 3 and 4, and an
+  HTML document behind another output of the same body, built by hand with
+  `document()`, numbers its morphs as it does alone.
+
+- **A `video`, `embed`, `flipbook` or `morph` with an `at` past step one.**
+  Only an `anim` pulled the step cursor up to the step it names, while the
+  runtime counts the highest number in any element's range. `video(at:
+  "2,4-")` alone on a slide had four steps in the browser and one on paper, so
+  the page per slide was set at step one and left the video out, and
+  `pages: "step"` never showed it at all. The HTML refused
+  `anim(at: "2-3", after: "dimmed")` beside a `video(at: 4)`, since for the
+  check the slide had only three steps, and an `anim` after a `video(at: 3)`
+  came on step two, before the video. These four now count like an `anim`
+  once their `at` goes past step one, which moves an `auto` element behind
+  them to after them, as it does behind an `anim(at: 3)`; at their
+  default they still take no step, so the bullets beside an applet start at
+  one. On paper `embed` and `flipbook` now take the same path as `video`.
+  Before, their
+  stand-in stood on every step page of the slide, also where the browser shows
+  nothing: `ziehen` printed its flip book on the two step pages before
+  `at: "3-"` uncovers it, and an `embed(at: "1")` stayed on every later page.
+  The page per slide, the handout and the HTML of all seventeen example decks
+  are unchanged, and so is the number of layout runs in all four versions.
+
+- **Numbers under `pages: "step"`.** Every step page of a slide counted again:
+  a figure in an `alternatives` was "Figure 3", "Figure 7" and "Figure 11" on
+  its three step pages and "Figure 4" on the page per slide, and every later
+  number was off. Every kind of figure, equations, headings and a deck's own
+  counters now start each step page where the first page of the slide starts
+  them. Measured with a figure, an equation and a counter on every slide of
+  seven example decks: 276 of 279 marks were off in `tour`, none now.
+
+- **Numbers in the browser.** A tracked element is typeset twice in the HTML,
+  once on the slide and once as the sprite that moves, and every counter in it
+  counted twice: the two versions of `alternatives(figure(…), figure(…))` read
+  "Figure 3" and "Figure 4" in the browser and 1 and 2 on paper, and every
+  later slide inherited the lead -- after a few tracked figures, equations and
+  a counter, a slide without any animation showed "Figure 8", equation (4) and
+  5 where the paper has 5, (3) and 3. A sprite now starts every counter where
+  its body starts on the slide and leaves nothing behind for the next: every
+  kind of figure, equations, headings and a deck's own counters. Measured with
+  a tracked figure, equation and counter on every slide of seven example
+  decks, once in `anim` and once in turn in `alternatives`, `stagger`, `build`
+  and `anim`: 177 of 184 and 222 of 229 marks were off in the browser, none
+  now, and no deck needs a layout run more. The numbering of figures,
+  equations and headings now reaches the sprite as well: a
+  `#set math.equation(numbering: "(1)")` in the deck did not, so an equation
+  in an `alternatives`, `stagger`, `build`, `cue`, `tiles` or `anim` showed no
+  number in the browser while the paper showed one. A show rule in the
+  document that numbers or counts still does not reach the sprite, and the
+  numbers after it now drift the other way: with
+  `#show math.equation.where(block: true): set math.equation(numbering: "(1)")`
+  an equation two slides after an `anim` and an `alternatives` reads (2) in the
+  browser, where it read (6) before and reads (5) on paper. Inside `style` the
+  rule reaches both, and the equation reads (5).
+
+- **A reference to a label under `pages: "step"`.** A labelled figure,
+  equation or heading on a slide with more than one step stood in the document
+  once per step page, and Typst refused every reference to it: `#figure(…)
+  <fig>`, `#pause`, `See @fig.` stopped with "label `<fig>` occurs multiple
+  times in the document", while the page per slide and the handout built. The
+  step pages after the first now set these three without their label, so a
+  reference finds the first page of the slide, where it opens, with the number
+  every page of it shows, and `query(<fig>)` finds one per slide. Measured on a
+  deck of six slides with eight references -- to a figure in the body, in an
+  `anim`, in `align` and `grid`, in a `stagger`, to two equations in an
+  `alternatives` and to a heading behind a `#pause` --: eight errors before,
+  none now, five layout runs as without the references, and every link on the
+  first page of its slide. The price is a `show` rule on the label of a figure,
+  equation or heading, which no longer reaches the later step pages; measured
+  on a slide with `#pause`, a caption coloured through its figure's label is
+  red on the first step page and black on the second. A rule on the kind
+  (`show figure`) still reaches every page, and so does a rule on any other
+  label: a word coloured the same way stays red on both, and none of the
+  seventeen example decks changes on any page. Eleven of the example decks,
+  given three labelled figures in an `anim` each with a reference to them,
+  stopped with three errors apiece and now build in the same four layout runs
+  as without them; a slide whose only reveal holds a labelled figure takes one
+  run more on its own, four instead of three. A label inside `card`,
+  `callout`, `statement`, `fit`, `side-by-side(equal: true)` or `build`, in a
+  list item, in a `context` of the deck's own or in one of the three layers is
+  out of reach and still stops the build when referenced. The layers are left
+  out on purpose: their step settles a layout run later on a new step page, and
+  taking the label off there cost valid decks their convergence -- `ziehen` and
+  `vortragen`, given a labelled equation in a `scene-layer` or `cue-layer` and
+  no reference at all, built without a warning before and with two ("did not
+  converge") when the layers were included.
+
+- **A reveal inside a version of `alternatives` that is not the last.** A
+  version held exactly one step, and a chain inside it handed out its steps
+  after that one, where the version had already gone: in
+  `alternatives([A], alternatives([B], [C]), [D])` neither B nor C was ever
+  visible, on paper or in the browser, and three step pages were empty. A
+  version now holds its range until the steps of its own chain are done. The
+  same holds for a `build` stage and for a piece of `stagger(dim: true)` with a
+  reveal inside: the piece stays bright until that is done. It needs
+  `start: auto`: a `start` written out keeps each version but the last on
+  exactly its step, and a chain inside one of them still comes after it has
+  gone and is never seen. The paper no longer moves the cursor ahead of such
+  versions, so `alternatives(start: 2, [A], [B #stagger([x], [y])], [C])` has
+  five step pages, as the browser has five steps, instead of six.
+
+- **A `scene` is clipped on paper as in the browser.** A drawing larger than the
+  scene's box ran over the slide on paper while the browser cut it at the box.
+  `mosaic-greyscale` gives its counting number two points of headroom, since the
+  round tops of its figures reached 0.74 points above the text.
+
+- **Under `pages: "step"` a footnote's note no longer stands before its
+  marker.** Every step page carried the notes of the whole slide: on step 1 of
+  `alternatives([Fassung eins#footnote[note-eins]], [Fassung
+  zwei#footnote[note-zwei]])` the body showed only "Fassung eins", the foot both
+  notes, and the same with `#pause`. A note now stands on the step pages on
+  which its marker is revealed, following the paper rule -- a replaced version
+  takes its note along when it goes, a dimmed piece keeps it -- with the number
+  it has in the browser, and the line keeps its place on the other pages, as
+  the slot in the browser does.
+  For a page per slide and the handout see the next entry. The
+  footnote carries a mark with what `track` decided from -- the place of its
+  `context`, the `at` as given, and three flags -- and the foot of the page
+  decides again, reading at the same place. Carrying the decision itself was
+  measured first and costs one layout run more than the body needs: a footnote
+  in a `scene-layer` or a `cue-layer` followed by another slide stopped
+  converging. The three layers' step functions therefore take a place to read
+  at. All seventeen example decks come out of all three versions and the
+  browser exactly as before.
+
+- **The note of a replaced version on a page per slide and in the handout.**
+  Both print the last version of an `alternatives`, the last stage of a `build`
+  and the last stop of a `scene`, and both printed the notes of all of them:
+  under "Fassung zwei" stood "1 note-eins" and "2 note-zwei", under the last
+  stage of a two-stage `build` three notes for two markers. The note of what
+  the page does not show is now hidden with it. Its line stays free, as on a
+  step page, so the numbers remain the ones the browser gives; measured on an
+  `alternatives`, a `build` and a `scene` with notes, each page per slide is now
+  pixel for pixel the last step page of its slide. No step is read for it:
+  whether a chain around the footnote is replaced is all these two versions
+  ask.
+
+- **A footnote in a chain inside a chain, in the browser.** Its note followed
+  the innermost chain only. In `alternatives([Aussen eins #anim(at: "1-")[innen
+  #footnote[n-innen]]], [Aussen zwei#footnote[n-zwei]])` the note of "innen"
+  kept `data-at="1-"` and stood on step two at full strength while both sprites
+  of its version were gone; the notes of a `stagger` inside a version stayed
+  through the next version. The runtime caps a sprite by everything it sits in,
+  but a note sits at the foot of the slide and in nothing. Its range is now
+  worked out from every chain around the footnote, step by step and the way the
+  runtime works out the state of the marker, including a dimmed rest; a step
+  page already did so. One combination has no single range: a dimmed piece in a
+  version that goes later rests first and is then gone. Its note stands at full
+  strength for as long as its marker is visible, as on a step page. The frames
+  of a `scene` or a `flipbook` count footnotes on without the background's
+  numbers and so do not count as a chain around a later footnote. A deck whose
+  footnotes sit in one chain at most gets byte for byte the HTML it got.
 
 - **The two windows showed the pinned clock a second apart.** The stage rounded
   down (`Math.floor` on the exact remainder), the speaker view rounded
@@ -122,6 +512,50 @@ All notable changes to this package are recorded here. The format follows
   notes has nothing to divide and gets no handle; where the window is too small
   to divide, the handle steps out of the tab order. Asked for from a lesson deck
   whose notes were long and whose reading strip was three lines high.
+
+- **What an output of a `bundle()` looks up stays in that output.** Typst runs
+  introspection across the whole bundle, and the package looked things up in the
+  whole bundle rather than in the file being built. The entries of a
+  `contents()` in the slide deck and in the handout led into `talk.html`, or
+  into `slides.pdf` with `html: none`, and the link back to the contents on a
+  section slide led into `handout.pdf` -- from the HTML as well. A footnote's
+  note stood three times on the first page of the deck and in the handout,
+  collected from every output that has a slide of that number on a page of that
+  number. Equations, figures, headings and a deck's own counters carried on from
+  one output into the next: on two slides with an equation and a figure each,
+  the deck began at "(3)" and "Figure 3", the handout at "(5)". `bundle(pages:
+  "step", handout: …)` stopped with "gives a digit to two points on one slide"
+  as soon as a `cue` group stood on a slide with more than one step -- `tour`
+  and `vortragen` among the examples --, because the check of the HTML and of
+  the handout saw the step pages of the deck. And several `document()` calls
+  with a `presentation` in one bundle lost step pages and numbered their figures
+  on: the step count of a slide was read at the end of the bundle, where the
+  last document had written its own. With two HTML documents, the checks at the
+  end of the second read what the first had filed: a `camera` whose `pin` stood
+  only in the first went through without the message the same deck gives alone.
+  Every lookup now stays in its own document, every output after the first sets
+  back the counters it moves, and the HTML clears those records when it begins.
+  Measured on all seventeen example decks as bundles -- eleven through
+  `bundle()`, the six written as arguments through `document()` by hand --, with
+  a page per slide and step by step, with and without the HTML: every page,
+  every link and the HTML byte for byte as when that output is built alone, in
+  as many layout runs as before. A deck outside a bundle is unchanged. The HTML
+  now comes after the paper outputs, unless the slide deck comes step by step.
+  In front of them, a reveal inside a version of `alternatives` or a stage of
+  `build` with a slide after it -- `#alternatives([A], [#anim[x]])` -- gave
+  eleven convergence warnings, and in `talk.html` the `x` never came, while the
+  HTML built on its own was right; a `cue-layer` behind a `#pause` stood from
+  step one. Behind them the HTML comes out as it does alone, and the bundles of
+  `theme-lesson`, `tour` and `zeichnen` with a page per slide no longer warn,
+  in as many layout runs or fewer. Step by step the same fault moves into the
+  step pages instead, so there the HTML stays in front; a deck like the one
+  above builds its HTML on its own. Two things Typst keeps across the whole
+  bundle, out of the package's reach: a
+  deck's own `state` carries on from one output into the next, having no value
+  to start over from, and a label stands once in every output -- a reference
+  such as `@fig` stops the bundle with "label occurs multiple times in the
+  document" although the deck compiles alone, and an `outline(target: figure)`
+  lists the figures of every output.
 
 ## [0.1.1] — 2026-09-10
 

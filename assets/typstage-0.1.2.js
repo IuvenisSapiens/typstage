@@ -1497,16 +1497,29 @@
   // reichen es an `fly` weiter -- was dort geschieht, ist in beiden Faellen
   // dasselbe.
 
-  // Von Folie zu Folie: Quelle ist, was gerade steht, Ziel ist jedes `morph`
-  // der Zielfolie. Welches davon dort sichtbar wird, entscheidet `stelle`
-  // gleich danach; ein Ziel ohne Partner faellt in `fly` von selbst heraus.
-  function flugFolie(vonFolie, nachFolie, fallback) {
+  // Von Folie zu Folie: Quelle ist, was gerade steht, Ziel jedes `morph` der
+  // Zielfolie, das auf dem Schritt steht, auf dem man dort ankommt -- vorwärts
+  // der erste, rückwärts der letzte. Ein Ziel ohne Partner fällt in `fly` von
+  // selbst heraus.
+  //
+  // Nur was dort steht, und nicht jedes. Eine benannte Kette über den
+  // Folienrand -- `stagger(morph: "k")` auf zwei Folien -- trägt auf der
+  // Zielfolie Stücke, die erst später kommen, und jedes davon bekam einen
+  // eigenen Flug: nachgestellt an `[$u$][$u v$]` gefolgt von
+  // `[$u v$][$u v w$]`, wo beim Folienwechsel neben der ersten Zeile auch
+  // „u v w" als Geist an ihren Platz flog, dort 260 ms nach dem Tastendruck
+  // noch mit Deckkraft 1 stand und mit dem Flug wieder verschwand -- das
+  // zweite Stück, einen Tastendruck zu früh verraten. Rückwärts in ein
+  // `alternatives(morph: "k")` flog der Geist ebenso in die erste Fassung, die
+  // dort nicht mehr steht. Dasselbe `zustand`, das `flugSchritt` fragt.
+  function flugFolie(vonFolie, nachFolie, fallback, nachSchritt) {
     var quellen = {};
     SLIDES[vonFolie].querySelectorAll(".ts-morph").forEach(function (e) {
       if (e.dataset.on === "1") quellen[e.dataset.name] = e;
     });
-    return fly(quellen, SLIDES[nachFolie].querySelectorAll(".ts-morph"),
-               SLIDES[nachFolie], fallback);
+    var ziele = [].filter.call(SLIDES[nachFolie].querySelectorAll(".ts-morph"),
+      function (e) { return zustand(e, nachSchritt) > 0; });
+    return fly(quellen, ziele, SLIDES[nachFolie], fallback);
   }
 
   // Innerhalb einer Folie, von Schritt zu Schritt. Hier steht die Zielfolie
@@ -5174,7 +5187,7 @@
 
     var hasMorph = false;
     if (changed && prev && !instant) {
-      hasMorph = flugFolie(prev.slide, dst.slide, CFG.duration);
+      hasMorph = flugFolie(prev.slide, dst.slide, CFG.duration, dst.step);
     } else if (!changed && prev && !instant && prev.step !== dst.step) {
       // Derselbe Flug, nur ohne Folienwechsel. `hasMorph` bleibt hier
       // unberuehrt: es entscheidet allein, ob der *Folien*uebergang zur Blende

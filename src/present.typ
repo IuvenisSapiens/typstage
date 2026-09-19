@@ -108,6 +108,27 @@
    or (c.func() == text and c.text.trim() == ""))
 })
 
+/// Die Ebene einer Überschrift im Rumpf, so wie sie dasteht.
+///
+/// `==` schreibt `depth: 2` ins Element, ein Funktionsaufruf dagegen nur, was
+/// er ausdrücklich nennt. `#heading(level: 3)[…]` trägt `level` und keine
+/// `depth`, `#heading[…]` keins von beiden, und ein bloßes `c.depth` brach an
+/// beiden das Übersetzen ab: gemessen mit "field \"depth\" in heading is not
+/// known at this point" und einem Zeigefinger in diese Datei, in allen vier
+/// Ausgaben und unter `bundle`, mit und ohne `set heading(numbering: …)`. Die
+/// Vorgabe, die Typst dort einsetzt, steht erst beim Setzen fest, und hier
+/// wird noch nicht gesetzt.
+///
+/// Gelesen wird darum, was Typst selbst liest: ein ausdrückliches `level`
+/// zuerst, sonst `depth`, sonst die Vorgabe 1. `#heading(level: 3)[…]` zählt
+/// damit wie `===`, `#heading[…]` wie `=`. Ein Deck in Auszeichnung ändert das
+/// nicht, denn `==` setzt nie ein `level`. Ein `offset` bleibt außen vor, wie
+/// er es für `==` schon immer bleibt.
+#let ueberschrift-tiefe(c) = {
+  let ebene = c.at("level", default: auto)
+  if type(ebene) == int { ebene } else { c.at("depth", default: 1) }
+}
+
 /// Split a document body at its headings into slides.
 ///
 /// Two things make this harder than walking `body.children`.
@@ -155,7 +176,7 @@
       run = ()
     }
     if c.func() == heading {
-      out.push((kind: "heading", depth: c.depth, body: c.body))
+      out.push((kind: "heading", depth: ueberschrift-tiefe(c), body: c.body))
     } else if f == "styled" and c.has("child") {
       let maker = c.func()
       let inner = c.styles
@@ -250,6 +271,165 @@
   out
 }
 
+// ── Zähler unter `pages: "step"` ────────────────────────────────────────
+//
+// Unter `pages: "step"` setzt `presentation` denselben Folienrumpf einmal je
+// Schritt, und jede dieser Seiten schaltete die Zähler darin von neuem weiter:
+// Abbildungen jeder Art, Gleichungen, Überschriften und die eigenen `counter`
+// eines Decks. Gemessen an einer dreiteiligen `alternatives` aus drei
+// Abbildungen, hinter einer Folie mit zwei Abbildungen und `#pause`: auf ihren
+// drei Schrittseiten hießen sie „Figure 3“, „Figure 7“ und „Figure 11“, auf
+// der Seite je Folie steht die letzte als „Figure 4“. Und jede Folie danach
+// erbte den Vorsprung. In `tour` mit einer Abbildung, einer Gleichung und
+// einem eigenen Zähler auf jeder Folie trugen unter `pages: "step"` 276 von
+// 279 Nummern einen anderen Stand als auf der Seite je Folie.
+//
+// Die Abhilfe klammert den Rumpf jeder Schrittseite nach der ersten. Davor
+// geht jeder Zähler, den die erste Seite bewegt, um genau das zurück, was die
+// erste Seite ihm zugelegt hat; so beginnt der Rumpf, wo er auf der ersten
+// Seite beginnt, und endet, wo er dort endet.
+//
+// Um den Abstand und nicht auf den Stand, und das ist gemessen: eine Fassung,
+// die den Stand an der Marke las und hinschrieb (`c.update(c.at(von))`), gab
+// jeden gelesenen Stand an alle späteren Folien weiter, und zwar einen
+// Layoutlauf später. Im einzelnen Deck fiel das nicht auf, weil die Stände
+// schon im ersten Lauf stimmen. In `bundle(pages: "step")` aber zählt das
+// HTML-Dokument davor dieselben Gleichungen, und seine Zahl setzt sich erst
+// über mehrere Läufe: zwei Folien mit je einer nummerierten Gleichung vor und
+// hinter einem `#pause` meldeten „did not converge“, und bei zwölf Folien lief
+// die Nummerierung von (39) zurück auf (27). Ein Abstand hängt nur an der
+// eigenen Folie, und `update` mit einer Funktion liest nichts; dieselben Decks
+// setzen sich ohne Meldung.
+//
+// Nach dem Rumpf kommt eines nach: das Lesezeichen der Folie, eine verborgene
+// Überschrift, steht nur auf der ersten Seite (`erste-seite` in theme.typ),
+// und ist sie nummeriert -- ein `set heading(numbering: …)` vor der Vorlage
+// erreicht sie --, steckt ihr Schritt im Abstand. Die weiteren Seiten holen
+// ihn nach. Ohne das stand die erste Überschrift der Folie danach in der
+// Probe von pruefe-schrittseiten.py auf 2.0.2 statt 2.2.1.
+//
+// Der Fußnotenzähler und der Folienzähler gehen ihren eigenen, älteren Weg
+// (unten in `presentation`), die übrigen Zähler des Pakets setzt die Seite
+// selbst zurück, und der Seitenzähler zählt Blätter und bleibt, wie er ist.
+
+// Das Element, das `counter(...).update` und `.step` ins Dokument legen. Es
+// lässt sich abfragen, und sein Schlüssel sagt, welcher Zähler bewegt wurde --
+// der einzige Weg an die eigenen Zähler eines Decks, deren Namen hier niemand
+// kennt.
+#let zaehler-aenderung = counter("typstage-slide").step().func()
+
+/// Die Zähler eines Dokuments auf null, wo es in einem Bündel nicht das erste
+/// ist.
+///
+/// Typst 0.15 zählt in einem Bündel durch alle Dokumente hindurch; nur die
+/// Seiten zählen je Dokument von vorn. Gemessen an zwei Folien mit je einer
+/// nummerierten Gleichung und einer Abbildung als `bundle(handout: …)`: im
+/// Foliensatz „(3)“ und „Figure 3“, im Handzettel „(5)“ und „Figure 5“, allein
+/// „(1)“ und „Figure 1“. Und drei `document()` mit je einer Folie aus drei
+/// Abbildungen, zwei davon unter `pages: "step"`: das zweite zählte „Figure 4“
+/// bis „Figure 6“, das dritte „Figure 7“ bis „Figure 9“. Das Handbuch
+/// verspricht, dass die Zähler je Ausgabe neu anfangen.
+///
+/// Welche Zähler, weiß nur das Dokument: die eigenen eines Decks kennt hier
+/// niemand beim Namen. Gefragt wird deshalb wie in `zaehler-klammer` nach
+/// Abbildungen, Gleichungen, Überschriften und `counter`-Änderungen -- und nur
+/// im Dokument selbst, nicht in denen davor. Gemessen: nach den früheren
+/// Dokumenten gefragt, gab `tour` als Bündel aus HTML, Foliensatz und
+/// Handzettel eine Warnung mehr ("query for elements matching
+/// `counter-update.before(..)` did not stabilize"). Die HTML davor konvergiert
+/// in diesem Bündel nicht (siehe den Kommentar in `bundle`), und ihre Sprites
+/// tragen Zähleränderungen, die von Lauf zu Lauf wechseln. Im eigenen Dokument steht
+/// dieselbe Menge von Zählern, denn `bundle()` setzt überall denselben Rumpf.
+///
+/// Auf null und nicht auf einen gelesenen Stand: `update(0)` liest nichts,
+/// und was die Abfrage liefert, bewegt nur die Menge der Zähler, nicht ihre
+/// Werte. Das erste Dokument und ein Deck außerhalb eines Bündels bekommen
+/// nichts; dort stehen alle Zähler ohnehin auf null. Die Seitenzahl bleibt, die
+/// zählt Typst selbst je Dokument.
+#let zaehler-je-dokument() = context {
+  let davor = query(std.selector(document).before(here()))
+  if davor.len() < 2 { return }
+  let dok = davor.last().location()
+  let darin(was) = query(std.selector(was).within(dok))
+  let zaehler = darin(figure).map(f => f.counter)
+  if darin(math.equation).len() > 0 { zaehler.push(counter(math.equation)) }
+  if darin(heading).len() > 0 { zaehler.push(counter(heading)) }
+  for u in darin(zaehler-aenderung) {
+    let c = counter(u.key)
+    if c != counter(page) { zaehler.push(c) }
+  }
+  for c in zaehler.dedup() { c.update(0) }
+}
+
+/// Was vor und nach dem Rumpf einer Schrittseite steht, damit alle Seiten einer
+/// Folie dieselben Nummern tragen wie ihre erste.
+///
+/// Die erste Seite (`j == 0`) bekommt zwei Marken mit der Foliennummer. Jede
+/// weitere Seite stellt davor jeden Zähler, der zwischen den Marken bewegt
+/// wird, um den Abstand zwischen ihnen zurück, und holt danach den Schritt des
+/// Lesezeichens nach, das nur die erste Seite trägt.
+#let zaehler-klammer(nr, j) = {
+  if j == 0 {
+    return ([#metadata(nr) <typstage-zaehler-anfang>],
+            [#metadata(nr) <typstage-zaehler-ende>])
+  }
+  // Die Marken des eigenen Dokuments. Mehrere `document()` mit
+  // `pages: "step"` in einem Bündel tragen dieselben Foliennummern, und
+  // `first()` fand sonst die Marken des ersten Dokuments. Gemessen an zwei
+  // Dokumenten, deren Folie 2 eine Abbildung und zwei Abbildungen vor einem
+  // `#pause` trägt: die zweite Schrittseite des zweiten nahm den Abstand des
+  // ersten zurück und zählte „Figure 2“ und „Figure 3“, die Folie danach
+  // „Figure 4“ statt „Figure 3“.
+  let marken() = {
+    let anfang = query(im-dokument(<typstage-zaehler-anfang>)).filter(m => m.value == nr)
+    let ende = query(im-dokument(<typstage-zaehler-ende>)).filter(m => m.value == nr)
+    if anfang.len() == 0 or ende.len() == 0 { return none }
+    (von: anfang.first().location(), bis: ende.first().location())
+  }
+  let zurueck = context {
+    let m = marken()
+    if m == none { return }
+    let dazwischen(was) = query(std.selector(was).after(m.von).before(m.bis))
+    let zaehler = dazwischen(figure).map(f => f.counter)
+    if dazwischen(math.equation).len() > 0 { zaehler.push(counter(math.equation)) }
+    if dazwischen(heading).len() > 0 { zaehler.push(counter(heading)) }
+    for u in dazwischen(zaehler-aenderung) {
+      if type(u.key) == str and u.key.starts-with("typstage-") { continue }
+      let c = counter(u.key)
+      if c not in (counter(page), counter(footnote)) { zaehler.push(c) }
+    }
+    // `dedup`: ein Zähler, den eine Abbildung *und* ein `update` bewegt, darf
+    // nur einmal zurück, sonst stünde er um den Abstand zu tief.
+    for c in zaehler.dedup() {
+      let a = c.at(m.von)
+      let e = c.at(m.bis)
+      if a == e { continue }
+      // Je Ebene, und das Ergebnis hat so viele Ebenen wie der Stand davor:
+      // `step(level: 2)` hängt eine an, `step()` nimmt sie wieder weg, und
+      // beides muss zurück. Die Kappung bei null ist Vorsicht: ein Stand unter
+      // null bricht die Übersetzung ab („number must be at least zero“), und
+      // in einem Lauf, in dem Abstand und laufender Stand noch nicht
+      // zueinander passen, könnte einer entstehen.
+      let d = range(calc.max(a.len(), e.len())).map(i =>
+        e.at(i, default: 0) - a.at(i, default: 0))
+      let ebenen = a.len()
+      c.update((..n) => range(ebenen).map(i =>
+        calc.max(0, n.pos().at(i, default: 0) - d.at(i, default: 0))))
+    }
+  }
+  let nachholen = context {
+    let m = marken()
+    if m == none { return }
+    // Das Lesezeichen erkennt man an beidem zugleich: Überschriften im Rumpf
+    // setzt `slide-body` auf `bookmarked: false`.
+    let lesezeichen = heading.where(bookmarked: true, outlined: false)
+    for h in query(lesezeichen.after(m.von).before(m.bis)) {
+      if h.numbering != none { counter(heading).step(level: h.level) }
+    }
+  }
+  (zurueck, nachholen)
+}
+
 /// Build the deck.
 ///
 /// Two notations, the same output. Either the slides as arguments:
@@ -277,7 +457,8 @@
 /// `slide-level:` is where the deck is cut. A heading *above* it becomes a
 /// section slide, a heading at it or below it becomes a slide. The default is
 /// 2, and that is the rule this package always had: `=` opens a section,
-/// `==` a slide.
+/// `==` a slide. A heading written as a call counts by its level the same
+/// way: `heading(level: 3)[…]` as `===`, `heading[…]` as `=`.
 ///
 /// `section-numbering:` puts a prefix on section slide titles. It takes a
 /// numbering pattern such as `"1."`, a function that receives the section
@@ -363,7 +544,12 @@
 /// every slide body against the room the theme gives it and names the ones
 /// that do not fit, with the earliest step on which the overrun can be on the
 /// screen. Title and section slides are not measured: the theme draws them
-/// with `place` and they have no body block.
+/// with `place` and they have no body block. Nor is the PDF under
+/// `pages: "step"`: every step page sets the same body as the one page per
+/// slide, and measuring it there cost convergence for decks that look
+/// something up in their body. Nor is a handout that is given `pages: "step"`,
+/// which is what `bundle()` does: it measured against the step pages beside
+/// it. The HTML still measures, and names the step too.
 ///
 /// - `"none"`: nothing is measured. The default.
 /// - `"error"`: the whole deck is built, and it then stops with *every* place
@@ -928,11 +1114,31 @@
            message: "typstage: handout takes true or 1 to 6 slides per page")
     theme-state.update(thema-hell)
     html-output.update(false)
+    zaehler-je-dokument()
     papier-modus.update(pages)
     drift-modus.update(drift)
+    // Auch der Handzettel misst unter `pages: "step"` nicht, und das gilt dem
+    // Bündel. `bundle()` reicht `pages` an alle Ausgaben weiter, und die
+    // Messung löst ihre Lesungen am nächstgelegenen gleichen Element des
+    // *ganzen* Bündels auf -- auch an den Schrittseiten des Foliensatzes
+    // daneben, die sich einen Lauf länger bewegen. Der Foliensatz selbst misst
+    // dort nicht mehr (siehe den Zweig darunter), der Handzettel brach die
+    // Konvergenz trotzdem. Gemessen mit `--input typstage-overflow=record`:
+    // `geogebra` als Foliensatz mit Schritten und Handzettel in einem Bündel 3,
+    // `geogebra-sprecher` 5 Warnungen, das kleinste Deck aus dem Zweig darunter
+    // als `bundle(pages: "step", handout: …)` 3, mit oder ohne HTML; danach
+    // keine. Die Einstellung `pages` des Handzettels selbst ist dabei nicht
+    // schuld: mit `pages: "slide"` nur für ihn blieben es 3.
+    //
+    // Unterscheiden, ob ein Bündel ihn setzt, kann dieser Zweig nicht. Allein
+    // wirkt `pages` im Handzettel aber nur auf die Schrittzahl einer
+    // Kamerafahrt, er setzt keinen Schritt; hingeschrieben wird es dort also
+    // über `bundle()`. Weiter misst im Bündel die HTML, sofern es eine hat.
+    let ueberlauf-handzettel = if pages == "step" { "none" } else { overflow }
     handout-body(all, facts, style, geo, thema-hell, per,
-                 thema: if wechselt { thema } else { none }, overflow: overflow)
-    ueberlauf-bericht(overflow)
+                 thema: if wechselt { thema } else { none },
+                 overflow: ueberlauf-handzettel)
+    ueberlauf-bericht(ueberlauf-handzettel)
     cue-luecken-bericht()
     drift-bericht(drift)
   } else if target() != "html" {
@@ -945,18 +1151,96 @@
     // stayed in `hide()` and was missing from the PDF. Measured on a bundle
     // with an `anim` and an `alternatives`, and the same for the handout above.
     html-output.update(false)
+    zaehler-je-dokument()
     papier-modus.update(pages)
     drift-modus.update(drift)
-    // `pages: "step"` setzt jede Folie so oft, wie sie Schritte hat. Wie
-    // viele das sind, sagt `papier-zahlen` -- ein Zustand und keine Marke,
-    // denn jede Seite einer Folie schriebe die Marke erneut, ihre Zahl wüchse
-    // mit der Seitenzahl, und daran gibt Typst auf.
+    // Unter `pages: "step"` misst dieser Zweig den Überlauf nicht.
     //
-    // Im ersten Layoutlauf ist der Zustand leer, dann steht eine Seite je
-    // Folie da; im zweiten stimmt die Folge. Deshalb ein `context` um die
-    // ganze Schleife.
+    // Die Prüfung misst den Folienrumpf mit `measure`, und was darin etwas
+    // nachschlägt, löst Typst am nächstgelegenen gleichen Element des
+    // wirklichen Dokuments auf, nach dem Stand des *vorigen* Laufs. Solange
+    // sich ein solches Element noch ändert, zieht die Messung einen Lauf später
+    // nach. Die Schrittfassung kostet ihrerseits einen Lauf: die Seiten ab dem
+    // zweiten Schritt entstehen erst im zweiten, und was dort liest, liest erst
+    // im dritten an seinem Ort. Beides zusammen ist für ein Deck, das im Rumpf
+    // etwas nachschlägt, ein Lauf zu viel. Gemessen mit
+    // `--input typstage-overflow=record` und `pages: "step"`: `geogebra` 2,
+    // `geogebra-sprecher` 3 und `tour` 3 Warnungen ("did not converge", "a
+    // measured element did not stabilize", auf das `measure` der Prüfung
+    // gezeigt), dieselben Decks mit einer Seite je Folie, als Handzettel oder
+    // ohne Prüfung keine. Das kleinste Deck: zwei Folien mit je einem
+    // `embed(bridge: …)`, einem `ggb-set` und einer `alternatives`.
+    //
+    // Nur auf der ersten Seite einer Folie zu messen genügt nicht, auch das
+    // gemessen, am selben Deck und an den dreien: dieselben Warnungen. Der
+    // Rückstand gehört der Messung selbst, nicht der Zahl der Seiten, auf denen
+    // sie steht.
+    //
+    // Verloren geht nichts, was diese Seiten zeigen könnten. Ein Stück, das
+    // noch nicht dran ist, behält seinen Platz (`hide` in `track`), jede
+    // Schrittseite setzt also denselben Rumpf wie die eine Seite je Folie, und
+    // einen Schritt nennt Papier ohnehin nicht. Gemessen an einer Folie mit
+    // einem `anim` auf Schritt 3, das über den Rand ragt: eine Seite je Folie
+    // legte einen Fund ab, die Schrittfassung denselben dreimal mit denselben
+    // Zahlen. Weiter messen die Browserfassung, die dazu den Schritt nennt, die
+    // Seite je Folie und der Handzettel.
+    let ueberlauf-papier = if pages == "step" { "none" } else { overflow }
+    // `pages: "step"` setzt jede Folie so oft, wie sie Schritte hat. Wie viele
+    // das sind, liest die Schleife am Zeiger selbst ab: an der Marke
+    // `typstage-papier-ende`, die hinter dem Rumpf der *ersten* Seite jeder
+    // Folie steht (unten). Nur dort, denn stünde sie auf jeder Seite, wüchse
+    // ihre Zahl mit der Seitenzahl. Und sie trägt die Nummer als Argument,
+    // nicht aus einer Lesung: ihr Inhalt steht vom ersten Lauf an fest, und ihr
+    // Ort bleibt derselbe, wenn davor Seiten hinzukommen.
+    //
+    // Vorher kam die Zahl aus `papier-zahlen.final()`, und das war ein Glied zu
+    // viel. `slide-body` schreibt den Zustand aus dem Zeiger, den es liest; im
+    // ersten Lauf ist `deck-info` leer und es schreibt nichts, im zweiten
+    // schreibt es den Zeiger des ersten, und `final()` sieht ihn im dritten.
+    // Erst dort vervielfachten sich die Seiten, im vierten lasen die neuen an
+    // ihrem Ort, und der fünfte bestätigte. Fünf ist das Maximum. Gemessen mit
+    // `typst compile --timings` (gezählt `iter (n)`): jedes der siebzehn
+    // Beispieldecks brauchte unter `pages: "step"` genau fünf Läufe, schon zwei
+    // Folien mit einem `anim` auf der ersten, und eine Lesung mehr kippte es:
+    // mit einem `#context anim[#info().slide.number]` vor diesem `anim` meldete
+    // Typst "did not converge", zwei Werte stimmten erst im Endstand. Jetzt
+    // keine Meldung, in fünf Läufen. Mit der Marke vervielfachen sich die
+    // Seiten im zweiten Lauf, nachgesehen mit einer Sonde, die je Lauf die
+    // Seitenzahl ablegt: zwei Folien, eine mit `anim`, in den Läufen eins bis
+    // drei vorher 2, 2 und 3 Seiten, jetzt 2, 3 und 3. Alle siebzehn Decks
+    // brauchen nun unter `pages: "step"` vier Läufe und als Seite je Folie drei
+    // statt vier (`tour` bleibt bei vier), mit Bild und Text jeder Seite wie
+    // vorher.
+    //
+    // Gesucht wird nur hinter diesem `context`. Zwei `presentation` in einem
+    // Dokument nummerieren ihre Folien beide ab 1, und mit dem Zustand bekam
+    // jede die Zahl der letzten: gemessen an einer ersten Folie mit zwei `anim`
+    // und einer zweiten ohne, als zwei Aufrufe, eine Seite statt drei. Jetzt
+    // drei und eine.
+    //
+    // Dasselbe gilt in einem Bündel: die Dokumente danach tragen dieselben
+    // Foliennummern, aber ihre Marken stehen hinter denen dieses Dokuments, und
+    // gezählt wird die erste. Gemessen gegen `im-dokument` (Marken nur des
+    // eigenen Dokuments, ohne `.after`), das zwei Aufrufe in einem Dokument
+    // wieder zusammenwarf (sechs Seiten statt vier), und gegen beides
+    // zugleich: drei `document()` mit zwei Schrittfassungen, `bundle(pages:
+    // "step", handout: …)` und die siebzehn Beispieldecks als Bündel, mit
+    // einer Seite je Folie wie Schritt für Schritt, gaben mit `.after` allein
+    // dieselben Seiten in denselben Läufen, jede Ausgabe gleich der allein
+    // gebauten.
+    //
+    // `papier-zahlen` bleibt, `info()` liest es auf Papier. Der Handzettel hat
+    // diese Schleife nicht und deshalb auch keine Marke.
     context {
-      let zahlen = papier-zahlen.final()
+      let zahlen = (:)
+      for m in query(std.selector(<typstage-papier-ende>).after(here())) {
+        let schluessel = str(m.value)
+        // Die erste Marke mit dieser Nummer gehört zu diesem Aufruf.
+        if schluessel not in zahlen {
+          zahlen.insert(schluessel,
+            calc.max(1, step-cursor.at(m.location()).first()))
+        }
+      }
 
       let seiten = ()
       for (i, s) in all.enumerate() {
@@ -982,7 +1266,24 @@
           // Entschieden wird das *in* der Seite und nicht an der Seitenzahl:
           // hinge die Zahl der Seiten an der Kameraliste, liefe das Dokument
           // in eine Rückkopplung und konvergierte nicht.
+          //
+          // Unter `pages: "step"` klammert `zaehler-klammer` den Rumpf, damit
+          // die Zähler darin auf jeder Seite einer Folie dieselben Nummern
+          // geben. Nur dort: eine Seite je Folie und der Handzettel setzen jede
+          // Folie einmal und bekommen nichts davon.
+          let (zaehler-vor, zaehler-nach) = if pages == "step" {
+            zaehler-klammer(nr, j)
+          } else { (none, none) }
+          // Und die Labels: ab der zweiten Seite einer Folie steht ein
+          // Element, auf das ein Verweis zeigen kann, ohne sein Label, sonst
+          // fände der Verweis es einmal je Schritt und bräche ab. Hier der
+          // Rumpf selbst; was ein aufdeckendes Element in sich trägt, nimmt
+          // `track` (siehe `ohne-verweislabel` in internal.typ).
+          let s = if j == 0 or s.at("body", default: none) == none { s } else {
+            s + (body: ohne-verweislabel(s.body))
+          }
           seiten.push((if j == 0 { slide-counter.step() } else { none })
+                 + zaehler-vor
                  + deck-info.update(facts.at(i))
                  // Nothing is revealed on paper, but the cursor counts here
                  // too, so that `info().step.total` reports the same number in
@@ -990,6 +1291,13 @@
                  + step-cursor.update(0)
                  // Und die Basen der cue-Gruppen, aus demselben Grund.
                  + cue-basis.update(_ => (:))
+                 + (if j == 0 { szene-gruppen.update(_ => (:)) })
+                 // Das Buch der benannten `stagger`, aus demselben Grund wie
+                 // die Szenen: eine Gruppe gehört zu *einer* Folie. Ohne das
+                 // fand ein `stagger-layer` auf der nächsten Folie das Buch
+                 // einer gleichnamigen Staffelung von hier und stellte sich
+                 // still auf deren Schritt.
+                 + (if j == 0 { stagger-gruppen.update(_ => (:)) })
                  + step-here.update(())
                  + sprite-number.update(none)
                  // Die Fußnoten zählen je Folie und nicht durch das Deck: auf
@@ -1001,7 +1309,8 @@
                  // von Seite zu Seite weiter.
                  + counter(footnote).update(0)
                  + (if wechselt { theme-state.update(thema(s)) } else { none })
-                 + slide-body(s, style, geo, thema(s), overflow: overflow,
+                 + slide-body(s, style, geo, thema(s),
+                              overflow: ueberlauf-papier,
                               schritt: k, nr: nr,
                               // Abschnitte auf ihrer Ebene, Folien eine
                               // darunter, die Titelfolie ganz oben. So
@@ -1011,19 +1320,54 @@
                                 s.at("depth", default: 1)
                               } else if s.kind == "title" { 1 } else {
                                 facts.at(i).data.at("levels", default: ()).len() + 1
-                              }))
+                              })
+                 + zaehler-nach
+                 // Die Marke, an der die Schleife oben die Schrittzahl
+                 // abliest: hinter dem ganzen Rumpf und damit hinter jedem
+                 // Vorschub des Zeigers, und nur auf der ersten Seite.
+                 + (if j == 0 { [#metadata(nr)<typstage-papier-ende>] }))
         }
       }
       seiten.join(pagebreak(weak: true))
     }
-    ueberlauf-bericht(overflow)
-    cue-luecken-bericht()
+    ueberlauf-bericht(ueberlauf-papier)
+    // Nicht unter `pages: "step"`. Dort setzt dieselbe Folie eine Seite je
+    // Schritt, und jede Seite legt die Punkte ihrer cue-Gruppen erneut als Fund
+    // ab -- der Folienzaehler steht nur auf der ersten Seite weiter, also
+    // tragen alle Seiten einer Folie denselben Schluessel. Die Pruefung zaehlt
+    // nach Folie und sah jede Ziffer so oft, wie die Folie Schritte hat: sie
+    // meldete "gives a digit to two points on one slide", obwohl keine Ziffer
+    // doppelt vergeben war. Gemessen brach damit jedes Deck ab, dessen
+    // cue-Gruppe auf einer Folie mit mehr als einem Schritt steht -- darunter
+    // zwei der mitgelieferten Beispiele.
+    //
+    // Und ihr `query` zaehlt Funde, deren Zahl an der Seitenzahl haengt, die
+    // ihrerseits an den Schritten dieser Folie haengt. Dieselbe Rueckkopplung,
+    // an der Typst nach fuenf Laeufen aufgibt.
+    //
+    // Verloren geht nichts, was hier zu holen waere: die Pruefung gilt dem
+    // Saal -- eine Ziffer, hinter der kein Punkt steht, ruft im Vortrag nichts
+    // auf --, und den fahren der Browserzweig und die gewoehnliche
+    // Papierfassung, die beide weiter pruefen.
+    if pages != "step" { cue-luecken-bericht() }
     drift-bericht(drift)
   } else {
     html-output.update(true)
+    zaehler-je-dokument()
     drift-modus.update(drift)
     theme-state.update(thema-hell)
     morph-index.update(())
+    // Die drei anderen Bücher, die erst die Prüfungen am Deckende lesen, leert
+    // die HTML ebenso. In einem Bündel stünde sonst darin, was die Dokumente
+    // davor eingetragen haben. Gemessen an zwei HTML-Dokumenten per
+    // `document()`: ein `camera(<ziel>)` im zweiten, dessen `pin` nur im
+    // ersten stand, ging ohne die Meldung durch, die dasselbe Deck allein
+    // abbricht; und ein gültiges `anim(at: "1-2", after: "dimmed")` im ersten
+    // brach im zweiten ab, sobald dessen Marken im eigenen Dokument gesucht
+    // werden (`im-dokument`), denn dort hat Folie 1 nur einen Schritt.
+    dim-index.update(())
+    kamera-index.update(())
+    pin-index-buch.update(())
     let parts = ()
     let chrome-teile = ()
     for (i, s) in all.enumerate() {
@@ -1074,6 +1418,14 @@
         // Und die Basen der cue-Gruppen: daran haengt, dass eine Gruppe zu
         // einer Folie gehoert.
         cue-basis.update(_ => (:))
+        szene-gruppen.update(_ => (:))
+        // Ebenso das Buch der benannten `stagger`. Ohne diese Zeile fand ein
+        // `stagger-layer`, der einen Namen nur von der Folie davor nennt,
+        // dessen Buch: statt der Meldung stand die Schicht auf einem fremden
+        // Schritt, und mit einem `#pause` vor jener Staffelung konvergierte
+        // das Dokument nicht mehr -- gemessen vier Meldungen,
+        // `state("typstage-sprites")` dreimal darunter.
+        stagger-gruppen.update(_ => (:))
         step-here.update(())
         sprite-number.update(none)
         sprites.update(())
@@ -1133,8 +1485,12 @@
               + (if note != "" { ("data-note": note) } else { (:) })
               + (if geplante-uhr != none { ("data-clock": str(geplante-uhr)) }
                  else { (:) }),
+              // `ov`: der Ort dieser Schicht ist das Ende des Hintergrunds, an
+              // dem die Sprites ihre Zähler ausrichten. `std.here()`, weil
+              // `here` oben die Nummer der Folie ist.
               sprites.get().enumerate()
-                .map(((i, sp)) => sprite-markup(sp, i + 1, style)).join()
+                .map(((i, sp)) => sprite-markup(sp, i + 1, style,
+                                                ov: std.here())).join()
               // Direkt hinter der Sprite-Schleife und aus derselben Abfrage,
               // aus der `slide-body` seine Schlitze gestanzt hat. Nur eine
               // Folie mit einem Rumpf hat einen Fuß: eine Titel- oder
@@ -1147,10 +1503,42 @@
             // sit on this slide and whether they stand from step one.
             // Evaluate first, then record: inside the update function
             // `sprites.get()` would be outside any context and Typst aborts.
-            let meine-morphs = sprites.get()
-              .filter(sp => sp.kind == "morph")
-              .map(sp => (slide: here, name: sp.extra.name,
-                          ab-eins: ab-schritt-eins(sp.at)))
+            //
+            // Ein Eintrag je Name und nicht je Morph, und ohne den Schritt:
+            // nur Folie, Name und der Ort dieses `context`. Die Schritte liest
+            // erst die Prüfung am Deckende, dort an diesem Ort (`sprites.at`),
+            // und eine Lesung dort fließt in nichts, was gesetzt wird.
+            //
+            // Im Zustand hing der Wert am Schritt jedes einzelnen Morphs. Die
+            // Fassungen von `alternatives(morph:)` und die Stücke von
+            // `stagger(morph:)` holen ihren Schritt bei `at: auto` aus dem
+            // Zeiger, und dort, wo er noch nicht feststeht, lasen alle drei
+            // Fassungen einer Folie ohne Schritt davor einige Läufe lang "3",
+            // "3" und "3-" statt "1", "2" und "3-". Je Morph kippte damit der
+            // erste Eintrag von `false` auf `true`, einen Lauf nach allen
+            // anderen: gemessen im gewöhnlichen `bundle()` mit nichts als
+            // `alternatives(morph: true, …)` zwei Meldungen "value of
+            // `state("typstage-morphs")` did not converge", mit einem Namen
+            // ebenso, mit `stagger(morph: true)` schon vorher.
+            //
+            // Ein Eintrag je Name mit der Frage "stehen *alle* ab Schritt
+            // eins" hielt das Bündel still, weil die zweite Fassung nie auf
+            // Schritt eins steht, nahm der Prüfung aber die andere Frage, die
+            // sie für eine Kette braucht: "steht *einer* ab Schritt eins". Mit
+            // beiden gemessen: eine Kette über den Folienrand
+            // (`stagger(morph: "k")` auf zwei Folien, ebenso mit
+            // `alternatives`) und das Handbuchbeispiel `morph(<sq>, at: "1")`
+            // mit `morph(<sq>, at: "2-")` brachen ab, "starts after step one".
+            // Beide Fragen als Werte im Zustand ("einer" kippt wie vorher je
+            // Morph) gaben im Bündel wieder die zwei Meldungen, bei
+            // `alternatives(morph: true)`, benannt, mit `pages: "step"`, mit
+            // Text davor und als zweite Folie. Mit dem Ort: alle diese
+            // Bündel still, die Ketten übersetzen, die Handbuchfolie auch, und
+            // ein verzögerter Morph ohne ersten (`#anim[Davor]` vor der Kette,
+            // `morph` hinter einer Abschnittsfolie) bricht weiter ab.
+            let morphs = sprites.get().filter(sp => sp.kind == "morph")
+            let meine-morphs = morphs.map(sp => sp.extra.name).dedup()
+              .map(n => (slide: here, name: n, ort: std.here()))
             morph-index.update(a => a + meine-morphs)
             // The same for every element that wants to rest dimmed. Its
             // range is closed -- `anim` insists on that -- but a closed range
@@ -1256,7 +1644,9 @@
     // author would get exactly `at: "1-"` and no hint why.
     context {
       for d in dim-index.get() {
-        let ende = query(<typstage-slide-end>).find(e => e.value == d.slide)
+        // Die Marke dieses Dokuments: jedes Dokument eines Bündels trägt
+        // dieselben Foliennummern.
+        let ende = query(im-dokument(<typstage-slide-end>)).find(e => e.value == d.slide)
         let gesamt = if ende == none { 1 } else {
           calc.max(1, step-cursor.at(ende.location()).first())
         }
@@ -1272,9 +1662,26 @@
 
     context {
       let alle-morphs = morph-index.get()
-      for m in alle-morphs.filter(m => not m.ab-eins) {
+      for m in alle-morphs {
+        // Die Morphs dieses Namens auf dieser Folie, am Ort gelesen, an dem
+        // die Folie sie eingetragen hat (siehe `meine-morphs`).
+        let eigene = sprites.at(m.ort).filter(sp => sp.kind == "morph"
+                                                    and sp.extra.name == m.name)
+        if eigene.all(sp => ab-schritt-eins(sp.at)) { continue }
         let vorher = alle-morphs.filter(v => v.slide == m.slide - 1 and v.name == m.name)
-        assert(vorher.len() == 0, message:
+        // Gefragt ist der Name auf dieser Folie, nicht das einzelne Stück.
+        // Eine Kette -- `stagger(morph: "k")`, `alternatives(morph: "k")` --
+        // besteht aus mehreren Morphs desselben Namens, und alle bis auf das
+        // erste beginnen nach Schritt eins. Steht eines davon ab Schritt eins,
+        // hat der Flug über den Folienrand sein Ziel, und die späteren fliegen
+        // auf ihrer Folie weiter. Gemessen brach genau der Gebrauch ab, den
+        // das Handbuch für einen eigenen Namen nennt: `[$u$][$u v$]` und auf
+        // der nächsten Folie `[$u v$][$u v w$]` meldete "morph(k) on slide 2
+        // starts after step one", mit `alternatives` ebenso. Dass die Laufzeit
+        // die späteren Stücke beim Folienwechsel nicht mitfliegen lässt,
+        // regelt `flugFolie`.
+        let erster-da = eigene.any(sp => ab-schritt-eins(sp.at))
+        assert(erster-da or vorher.len() == 0, message:
           "typstage: morph(" + m.name + ") on slide " + str(m.slide)
           + " starts after step one, but the slide before carries a morph of "
           + "the same name. The flight between them would be lost without a "
@@ -1403,9 +1810,26 @@
 /// document is only supported in the bundle target". Anyone who wants both
 /// writes the body into a `#let` and calls `presentation` by hand.
 ///
-/// Verified: the counters start over for each output. The slide deck numbers
-/// its slides 1, 2, 3 and does not continue counting where the HTML version
-/// left off, even though Typst runs introspection across the whole bundle.
+/// What the package looks up stays in its own output, even though Typst runs
+/// introspection across the whole bundle. The counters start over for each
+/// output -- slides, figures, equations, headings and a deck's own `counter`
+/// --, and a link such as an entry of `contents()` leads into its own file.
+/// Measured on all seventeen example decks as bundles, with a page per slide
+/// and step by step, with and without the HTML: every page, every link and the
+/// HTML byte for byte as when that output is built alone. Two things Typst
+/// keeps across the whole bundle, out of the package's reach. A deck's own
+/// `state` has no value to start over from and carries on from one output into
+/// the next, so a running number belongs in a `counter`. And a label stands
+/// once in every output: `@fig` stops the bundle with "label occurs multiple
+/// times in the document" where the deck alone compiles, and an
+/// `outline(target: figure)` lists the figures of all outputs, six entries for
+/// two figures.
+///
+/// With `pages: "step"` there is one limit more. Where a reveal sits in a
+/// version of `alternatives` or a stage of `build` and another slide follows --
+/// `#alternatives([A], [#anim[x]])` --, the bundle warns that it does not
+/// converge, and in the HTML the `x` never comes. Such a deck builds its HTML on
+/// its own, with `html: none` in the bundle.
 #let bundle(
   body,
   html: "talk.html",
@@ -1416,7 +1840,36 @@
 ) = {
   assert(html != none or slides != none or handout != none,
          message: "typstage: bundle() wants at least one output")
-  if html != none {
+  // Die HTML hinter den Papierfassungen, außer wenn der Foliensatz Schritt
+  // für Schritt kommt. Die Ursache liegt bei Typst: `measure` sucht zu einem
+  // gemessenen Element das nächste gleiche *hinter* der Messung, erkennt
+  // "gleich" am Quelltext und sucht im ganzen Bündel. Was hinter einer Ausgabe
+  // steht, kann ihren Messungen Gegenstücke liefern, die es allein nicht gibt.
+  //
+  // Mit der HTML vorn traf das die HTML: ein verfolgtes Element in einer
+  // Fassung von `alternatives` oder einer Stufe von `build` mit einer Folie
+  // dahinter -- `#alternatives([A], [#anim[x]])` -- gab elf Meldungen, und im
+  // HTML stand x auf `data-at="0-"`, fand im Browser keine Marke und blieb
+  // unsichtbar; ebenso eine `cue-layer` hinter `#pause` (auf `1-` statt `4-`).
+  // Mit der HTML hinten: keine Meldung, jede Ausgabe wie allein. Die 34
+  // Beispielbündel (elf `bundle()`, sechs von Hand, je mit einer Seite je
+  // Folie und Schritt für Schritt): mit einer Seite je Folie keine Meldung
+  // mehr, wo es vorher `theme-lesson` 4, `tour` 8 und `zeichnen` 3 waren, jede
+  // Ausgabe wie allein gebaut.
+  //
+  // Schritt für Schritt aber wandert derselbe Fehler in den Foliensatz: mit
+  // der HTML hinten wichen die Schrittseiten jener Decks von den allein
+  // gebauten ab, mit drei bis vierzehn Meldungen, während die HTML stimmte.
+  // Dort bleibt die HTML vorn, wie bisher; ohne Foliensatz gibt es keine
+  // Schrittseiten, und die HTML geht nach hinten.
+  //
+  // Die HTML hinten braucht `auto-morph-nr` als Zähler, den
+  // `zaehler-je-dokument` zurückstellt: als Zustand zählte er die Morphs der
+  // Papierfassungen mit, und die HTML von `tour` wich im Bündel ohne Meldung
+  // von der allein gebauten ab.
+  let schrittseiten = (slides != none
+                       and args.named().at("pages", default: none) == "step")
+  if html != none and schrittseiten {
     document(html, { show: presentation.with(..args); body })
   }
   if slides != none {
@@ -1424,5 +1877,8 @@
   }
   if handout != none {
     document(handout, { show: presentation.with(handout: per-sheet, ..args); body })
+  }
+  if html != none and not schrittseiten {
+    document(html, { show: presentation.with(..args); body })
   }
 }

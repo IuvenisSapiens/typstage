@@ -77,14 +77,20 @@
 /// used to be fixed in English, while everything next to them followed
 /// `text.lang`.
 #let doc-words = (
-  de: (note: [Merke], embedded: [Eingebetteter Inhalt]),
-  en: (note: [Note], embedded: [Embedded content]),
-  fr: (note: [À retenir], embedded: [Contenu intégré]),
+  de: (note: [Merke], embedded: [Eingebetteter Inhalt],
+       back-to-contents: [Zurück zum Verzeichnis]),
+  en: (note: [Note], embedded: [Embedded content],
+       back-to-contents: [Back to contents]),
+  fr: (note: [À retenir], embedded: [Contenu intégré],
+       back-to-contents: [Retour au sommaire]),
   // Three languages that read from the right, so a deck in one of them does
   // not carry an English tab on its callout while everything else mirrors.
-  ar: (note: [ملاحظة], embedded: [محتوى مضمّن]),
-  fa: (note: [توجه], embedded: [محتوای جاسازی‌شده]),
-  he: (note: [הערה], embedded: [תוכן מוטבע]),
+  ar: (note: [ملاحظة], embedded: [محتوى مضمّن],
+       back-to-contents: [العودة إلى المحتويات]),
+  fa: (note: [توجه], embedded: [محتوای جاسازی‌شده],
+       back-to-contents: [بازگشت به فهرست]),
+  he: (note: [הערה], embedded: [תוכן מוטבע],
+       back-to-contents: [חזרה לתוכן העניינים]),
 )
 
 /// Fetch one such default. Only callable in context, because `text.lang` is

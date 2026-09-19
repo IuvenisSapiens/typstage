@@ -44,8 +44,71 @@ FAELLE = {
     "cue im place":           'place(top + left, dx: w * 100pt, cue("g", %s))' % STUECK,
     "alternatives":           'alternatives(%s, %s)' % (STUECK, STUECK),
     "tiles":                  'tiles(%s, %s)' % (STUECK, STUECK),
+    # Jedes `stride` außer 1 las den Zeiger; gemessen acht Meldungen, bei
+    # `stride: 2` wie bei `stride: 0`.
+    "tiles mit stride":       'tiles(stride: 2, %s, %s)' % (STUECK, STUECK),
     "build":                  'build(k => %s, steps: 2)' % STUECK,
     "scene":                  'scene("s" + str(w), t => %s, stops: (0, 1), tween: 4)' % STUECK,
+    # Im Browser reicht `alternatives(morph: …)` jeder Fassung ihr `at` aus dem
+    # gelesenen Zeiger herein. Seit `track` einen Morph hinter Schritt eins
+    # nachzieht, darf daran kein Update hängen: die Kette rückt den Zeiger
+    # selbst vor, ohne Gelesenes. Die drei Aufrufe liegen damit auf 3/4, 5/6
+    # und 7/8 statt alle drei auf 3/4.
+    "alternatives mit morph": 'alternatives(morph: true, %s, %s)' % (STUECK, STUECK),
+    # Dasselbe in einer Kachel, und erst dort riss es: mit dem Nachziehen am
+    # gelesenen `at` gemessen dreizehn Meldungen, ohne keine.
+    "alternatives mit morph in einer Kachel":
+        'tiles([K], alternatives(morph: true, [R], [T]))',
+}
+
+# Eine `cue`-Gruppe in einem Wirt, und dahinter eine weitere Folie. Der Wirt
+# setzt seinen Rumpf in der Überlagerung ein zweites Mal, hinter der Folie, wo
+# die Gruppe schon alle Punkte hat. Gemessen, bevor `ad-nr` in `track` gelesen
+# wurde: bei beiden Wirten zwei Meldungen "a measured element did not
+# stabilize" und "document did not converge", gezeigt auf den Listenpunkt.
+# Nur mit einer Liste, und nur mit der Folie danach. Und fünf Punkte in einem
+# `anim` brachen ab: die Kopie legte ihre Punkte als 6 bis 10 noch einmal ab,
+# und die Prüfung am Deckende meldete "would get a point 10". Ebenso ein
+# einziger Punkt mit `nr: 1` in einem `anim`, auch ohne Folie danach: die
+# Kopie legte die 1 ein zweites Mal ab, "gives a digit to two points".
+WIRT = """#import "@preview/typstage:0.1.2": *
+#show: presentation.with(title: [Konvergenz])
+
+== Folie
+#{aufruf}
+
+== Danach
+Text
+"""
+
+WIRTE = {
+    "cue in anim, Folie danach":         'anim(cue("g")[\n- a\n- b\n])',
+    "cue in einer Fassung, Folie danach": 'alternatives([a], cue("g")[\n- a\n- b\n])',
+    "fünf cue-Punkte in anim":           'anim(cue("g", [a], [b], [c], [d], [e]))',
+    "cue mit nr: in anim":               'anim(cue("g", nr: 1)[\n- a\n])',
+}
+
+# Ein Morph ohne eigenen Namen in einem Wirt, und dieselbe Folie noch einmal
+# dahinter. Der Wirt setzt seinen Rumpf für den Sprite ein zweites Mal, und
+# solange die Nummer hinter dem Namen ein `state` war, zählte die Kopie mit:
+# diese Probe zählte elf Meldungen bei der Kachel und neun beim `anim`, und
+# die zweite Folie legte R und T im Browser beide auf Schritt 6. Mit einem
+# eigenen Namen war es still, und mit einer bloßen Textfolie dahinter auch.
+FOLGE = """#import "@preview/typstage:0.1.2": *
+#show: presentation.with(title: [Konvergenz])
+
+== Folie
+#{aufruf}
+
+== Noch einmal
+#{aufruf}
+"""
+
+FOLGEN = {
+    "stagger mit morph in einer Kachel, zwei Folien":
+        'tiles([K], stagger(morph: true)[R][T])',
+    "alternatives mit morph in anim, zwei Folien":
+        'anim(alternatives(morph: true, [R], [T]))',
 }
 
 # Nichts mehr offen. Bleibt als Fach stehen, damit ein neuer Fund hier landen
@@ -89,11 +152,24 @@ def main():
             os.symlink(WURZEL, os.path.join(ziel, "0.1.2"))
         klagen = []
         pflicht = [(name, RUMPF.format(aufruf=a)) for name, a in FAELLE.items()]
+        pflicht += [(name, WIRT.format(aufruf=a)) for name, a in WIRTE.items()]
+        pflicht += [(name, FOLGE.format(aufruf=a)) for name, a in FOLGEN.items()]
         pflicht.append(("camera", KAMERA))
         for name, quelle in pflicht:
             n, fehler = messen(quelle, tmp, paket)
             if fehler is not None:
                 klagen.append("%s: übersetzt nicht -- %s" % (name, fehler))
+            elif n and name in WIRTE:
+                klagen.append(
+                    "%s: %d Konvergenzmeldung(en). Ein Wert, den `cue` liest, "
+                    "reist als fertige Zahl in den `context` von track; der "
+                    "Sprite des Wirts liest ihn anders, und die Messung des "
+                    "Wirts findet ihr Element nicht wieder." % (name, n))
+            elif n and name in FOLGEN:
+                klagen.append(
+                    "%s: %d Konvergenzmeldung(en). Die Nummer hinter einem "
+                    "Morph ohne Namen zählt die Kopie des Wirts im Sprite mit; "
+                    "als `counter` setzt `sprite-klammer` sie zurück." % (name, n))
             elif n:
                 klagen.append(
                     "%s: %d Konvergenzmeldung(en). Der Schritt wird aus dem "
@@ -122,9 +198,10 @@ def main():
             return 1
     if OFFEN:
         print("Konvergenz: %d Aufbauten stabil, %d bekannt offen"
-              % (len(FAELLE) + 1, len(OFFEN)))
+              % (len(FAELLE) + len(WIRTE) + len(FOLGEN) + 1, len(OFFEN)))
     else:
-        print("Konvergenz: %d Aufbauten, alle stabil" % (len(FAELLE) + 1))
+        print("Konvergenz: %d Aufbauten, alle stabil"
+              % (len(FAELLE) + len(WIRTE) + len(FOLGEN) + 1))
     return 0
 
 

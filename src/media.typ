@@ -1,8 +1,8 @@
 // Video, embedded documents and Typst-drawn animation, plus what takes their
 // place on paper.
 
-#import "internal.typ": (track, fit-verbot, html-output, im-deck, name-of,
-                         schritt-vorruecken, slide-counter)
+#import "internal.typ": (track, fit-verbot, html-output, name-of,
+                         slide-counter)
 #import "config.typ": doc-word
 
 /// The box that stands in for a moving element in the PDF.
@@ -159,8 +159,8 @@
   // companion package resolving `target: auto` has to find an applet that is
   // written *below* its own commands as well.
   let bridge = if bridge == none { none } else { name-of(bridge) }
-  // On paper `embed` never reaches `track`, it only draws its stand-in and
-  // moves the cursor, so the fit check cannot be left to `track` here.
+  // Die Fit-Prüfung stand hier, weil `embed` auf Papier nie bei `track`
+  // ankam; jetzt fragt `track` auch dort, und diese bleibt als die erste.
   fit-verbot("embed")
   if bridge != none {
     context [#metadata((
@@ -168,12 +168,26 @@
     ))<typstage-bridge-target>]
   }
   context if not html-output.get() {
-  // The step counting of `track` does not run on paper, so the one case that
-  // consumes a step is done here: `info().step.total` has to report the same
-  // number in both outputs.
-  if at == auto and im-deck() { schritt-vorruecken() }
-  fallback-box(fallback, if link != none { link } else { url }, width, height,
-               if label == auto { doc-word("embedded") } else { label })
+  // Auf Papier derselbe Trichter wie im Browser, nur mit dem Platzhalter als
+  // Rumpf: `track` zählt die Schritte und entscheidet, ob der Platzhalter auf
+  // der gesetzten Seite steht.
+  //
+  // Vorher zeichnete dieser Zweig den Platzhalter selbst und zählte von Hand,
+  // und zwar nur `at: auto`. Ein ausgeschriebenes `at` hinter Schritt eins
+  // fehlte darum in der Schrittzahl (`embed(at: "2,4-")` allein: im Browser
+  // vier Schritte, auf Papier einer), und unter `pages: "step"` stand der
+  // Platzhalter auf jeder Seite der Folie, auch dort, wo der Browser nichts
+  // zeigt. Gemessen an `anim[VOR]` und `embed(at: auto)` dahinter: im Browser
+  // ab Schritt drei, auf Papier schon auf den Seiten eins und zwei; ein
+  // `embed(at: "1")` stand noch auf den Seiten zwei bis vier. Ein `video`
+  // daneben ging immer durch `track` und stand richtig.
+  //
+  // Bei `at: "1-"`, dem Vorgabewert, zählt `track` nichts und zeigt den
+  // Platzhalter auf jeder Seite, wie bisher.
+  track("embed", fallback-box(fallback, if link != none { link } else { url },
+                              width, height,
+                              if label == auto { doc-word("embedded") } else { label }),
+        at: at)
 } else {
   track(
     "embed",
@@ -206,15 +220,18 @@
   enter: "fade",
   still: auto,
 ) = {
-  // As in `embed`: on paper this never reaches `track`.
+  // Wie in `embed`: die Prüfung stammt aus der Zeit, als dieser Zweig auf
+  // Papier nicht bei `track` ankam.
   fit-verbot("flipbook")
   context if not html-output.get() {
   // On paper a single frame has to do. `still` picks which one.
-  // The step counting of `track` does not run here, so the one case that
-  // consumes a step is done by hand, as in `embed`.
-  if at == auto and im-deck() { schritt-vorruecken() }
-  block(width: width, height: height,
-        if still == auto { render(0.0) } else { still })
+  // Und es geht durch `track`, wie in `embed` und aus demselben Grund: nur
+  // dort zählt ein ausgeschriebenes `at` hinter Schritt eins mit, und nur dort
+  // fehlt das Bild unter `pages: "step"` auf den Seiten, auf denen der Browser
+  // es nicht zeigt.
+  track("flipbook", block(width: width, height: height,
+                          if still == auto { render(0.0) } else { still }),
+        at: at)
 } else {
   track(
     "flipbook",

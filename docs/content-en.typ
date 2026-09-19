@@ -129,6 +129,11 @@ nothing to switch on.
 `slide-level: 1` makes every heading a slide; the deck then has no structure
 level at all.
 
+A heading written as a function call counts by its level like a typed one:
+`#heading(level: 3)[…]` as `===`, `#heading[…]` without a level as `=`. A
+subheading that stays in the body and begins no slide goes into a block:
+`#block(heading(level: 3)[…])`.
+
 The five bundled themes draw a deeper level more quietly: the title gets
 smaller, and above it stands what the section hangs under. What the deck knows
 about its structure is in `info()` -- see "`info()`: what the deck knows about
@@ -425,12 +430,21 @@ casts a shadow of 0.90 m.
 It reaches all three outputs: the browser, the PDF, and the handout beside its
 slide. A footnote standing inside a reveal chain appears with its marker: in
 the browser the note is revealed on the same step, so the foot of the slide
-gives nothing away that the talk has not shown yet. Its place is held from the
-start, so nothing jumps when it arrives.
+gives nothing away that the talk has not shown yet. And it goes with its
+marker, out of a chain inside a chain as well: a `stagger` inside a version of
+an `alternatives` takes its notes along when the version goes. Its place is
+held from the start, so nothing jumps when it arrives.
 
 #info[
-  On paper the note stands from the slide's first step on. `pages: "step"` sets
-  the same slide once per step, and the paper shows what the browser reveals.
+  On a page per slide and in the handout the notes of the slide stand -- except
+  those whose marker sits in a version, a stage or a stop the paper does not
+  show there. Of an `alternatives` only the last version stands, and so only its
+  note; the place of the others is kept free, and the numbers are the
+  browser's. `pages: "step"` sets the same slide once per step, and there the
+  paper shows
+  what the browser reveals: a note stands on the pages on which its marker is
+  revealed, with the number it has in the browser, and its place is kept free
+  on the others.
 ]
 
 #warning[
@@ -483,6 +497,27 @@ nothing shifts from one page to the next.
 Two things are worth knowing. A `cue` group is called out at the keyboard, so
 on paper it can only follow the written order. And a camera move has no page
 of its own: on paper there is no camera, so its page would stand there twice.
+
+And two things concern the Typst document underneath. A figure, an equation and
+a heading carry their label on the first page of a slide only; the pages after
+it set them without. So `@fig` finds its target exactly once, leads to where the
+slide opens and gives the same number as every page of it, and `query(<fig>)`
+finds one per slide. A `show` rule on such a label therefore does not reach the
+later pages; one on the kind, such as `show figure`, reaches all of them. Inside
+a `card`, `callout`, `statement`, `fit`, `side-by-side(equal: true)` or `build`,
+in a list item -- also as a point of a `cue` group -- and in a `scene-layer`,
+`cue-layer` or `stagger-layer`, the label stays on every page, and a reference
+to it stops the compilation: a figure that is referred to then goes beside the
+card or the list rather than into it.
+
+A deck's own `state`, on the other hand, runs on across the pages of a slide.
+Every page carries out its `update` again: `Task #context task.get()` after
+`task.update(n => n + 1)` counts 1 and 2 on the two pages of a slide with a
+`#pause` instead of 1 twice, and the next slide says 3. The package cannot set
+it back, because Typst reveals neither what a state starts from nor what an
+`update` does to it. For numbering, a `counter` does the job, and the pages set
+that one back; and an `update` with a value rather than a function gives the
+same on every page.
 
 Expect two to three pages per slide -- the example decks come out at that.
 
@@ -625,7 +660,9 @@ The spellings of `at`:
 
 A bare number is an open end: what is there once stays to the end of the slide. A
 closed spelling such as `"1-2"` or `"3"` lets the element disappear again, and
-then `exit` applies.
+then `exit` applies. A range is written from its first step to its last: a
+backwards one such as `"4-2"` stops the compile, rather than never appearing in
+the browser and appearing on paper all the same.
 
 == A slide without a single number
 
@@ -663,8 +700,8 @@ And that is enough to compute the third side from two of them.
 ]
 ```]
 
-`stride: 2` puts two items on each step, `stride: 0` all of them on one. `start`
-sets the first step, `enter` the motion, `stagger` the delay in milliseconds
+`stride: 2` leaves a step out between two items, `stride: 0` puts all of them on
+one. `start` sets the first step, `enter` the motion, `stagger` the delay in milliseconds
 between neighbours, `spacing` the distance between items, `dim` lets each point
 step back once the next arrives.
 
@@ -708,7 +745,9 @@ and a `morph:` written as a name says it too.
 The layer stays from its piece to the end of the slide, as `cue-layer` and
 `scene-layer` do, and carries no morph name: what flies is the piece, the
 annotation merely appears beside it. The stagger has to stand *before* its layers,
-because a layer looks up which step its piece was given.
+because a layer looks up which step its piece was given, and on the same slide: as
+with `cue`, a name belongs to one slide, and a layer naming a stagger from the
+slide before stops the compile.
 
 #warning[
   `spacing:` applies to the list branch only. Where the pieces stand on their
@@ -932,14 +971,21 @@ the next replaces it:
 The box is as large as the largest version, so nothing around it jumps. `align`
 decides where the smaller ones sit inside it, `start` on which step the first
 appears, and `inline: true` puts the whole thing in a line of text. `enter`,
-`duration` and `easing` describe the change from one version to the next.
+`duration` and `easing` describe the change from one version to the next. A
+version that reveals something of its own stays until that is done, and the
+next one comes after it. That waiting needs `start: auto`: with `start` written
+out, every version but the last holds exactly its own step, and a chain inside
+one of them comes after its version has gone and is never seen.
 
 `morph: true` is the other way, and for the example above it is the better
 one: the versions fly into one another instead of replacing one another. They
 stand in the same place, so the flight has no distance -- what you see is the
 glyphs rearranging themselves where they stand, which is what a rewritten
 formula does. With `morph` there is no entrance, so `enter:` and `easing:` are
-refused; `duration:` becomes the time of the flight.
+refused; `duration:` becomes the time of the flight. The waiting for a chain
+holds on paper only: in the browser the next version comes on the step after
+the one before, even when that one reveals something of its own, and what it
+reveals is never seen there.
 
 == A drawing that grows
 
@@ -1480,6 +1526,16 @@ slide: the bullets beside an applet should start at one, not behind its motions.
     - second bullet                              // step 2
   ],
 )
+```]
+
+That holds as long as `at` keeps its default. Give a video, an embed, a flip
+book or a `morph` an `at` past step one and it *appears*, so it counts like an
+`anim`: the slide has at least as many steps as the `at` names, and whatever
+follows with `auto` comes after it.
+
+#show-code[```typ
+#video("experiment.mp4", at: 2)   // step 2
+#anim[What we see]                // step 3
 ```]
 
 *A step is not inherited inwards.* Every tracked element carries its own step, and
@@ -2168,16 +2224,16 @@ two slides. Use two calls of the same name with ranges that do not overlap:
 
 #statement[#morph(<sq>, $ x^2 + 6 x $, at: "1")]
 #statement[#morph(<sq>, $ (x + 3)^2 - 9 $, at: "2-")]
-
-#anim([And one step, so that there is a second one.], at: "2-")
 ```]
 
-A morph takes no step of its own, so the slide needs a second step from
-somewhere else -- an `anim`, a `stagger`, anything.
+The second call gives the slide its second step: with an `at` past step one, a
+morph counts like an `anim`.
 
 The name also has to be free on the slide before: a morph that starts after step
 one may not share its name with one on the previous slide. The package says so
-while compiling.
+while compiling. A chain counts as one: where one morph of the name stands from
+step one, the flight across the edge lands there, and the later ones follow on
+their own steps.
 
 #tip[
   Two versions in the same place fly no distance at all, and all you see is the
@@ -2720,8 +2776,24 @@ typst compile --features bundle,html --format bundle talk.typ out
 
 `html`, `slides` and `handout` are file names, `none` leaves that output out,
 and `per-sheet` is the number of slides on a handout page. Everything else goes
-to `presentation` unchanged. The counters start afresh per output: the deck
-numbers 1, 2, 3 and does not carry on where the HTML version stopped.
+to `presentation` unchanged.
+
+What the package looks up stays in its own output. The counters start afresh
+per output, those of figures and equations and a deck's own included, and a
+link such as an entry of `contents()` leads into its own file. Two things Typst
+keeps across the whole bundle, though, out of the package's reach. A deck's own
+`state` carries on from one output into the next, since there is no value it
+could fall back to; a running number therefore belongs in a `counter`. And a
+label stands once in every output: a reference such as `@fig` stops the bundle
+with "label occurs multiple times in the document", even where the deck
+compiles on its own, and an `outline(target: figure)` of the deck's own lists
+the figures of every output.
+
+With `pages: "step"` there is one limit more. Where a reveal then sits in a
+version of `alternatives` or a stage of `build` and another slide follows --
+`#alternatives([A], [#anim[x]])` --, the bundle warns that it does not converge,
+and in `talk.html` the `x` never comes. Such a deck builds its HTML on its own,
+with `html: none` in the bundle.
 
 #warning[
   The bundle is experimental on Typst's side and needs `--features bundle,html`.
@@ -3148,7 +3220,16 @@ draws scales along.
   A tracked element is typeset a second time in a frame of its own, and that
   frame never sees a `#set` rule from the document. Shared typography therefore
   has to go here: a `#set text` after the show rule reaches the slides but not
-  the flying pieces, and the difference only shows up mid-flight.
+  the flying pieces, and the difference only shows up mid-flight. One exception
+  typstage carries across itself, the numbering of `figure`, `math.equation`
+  and `heading`: a `#set math.equation(numbering: "(1)")` in the document
+  numbers an equation in a flying piece as it does on paper. A `#show` rule
+  that numbers or counts does not reach it, though, and then the numbers on
+  the slides after it go wrong in the browser as well: with
+  `#show math.equation.where(block: true): set math.equation(numbering: "(1)")`
+  in the document, an equation two slides after an `anim` and an
+  `alternatives` read (2) in the browser and (5) on paper. Inside `style` it
+  reads (5).
 
   For the shapes typstage draws itself there is a second route, label rules
   before `#show: presentation`. They reach more, including the header, the
@@ -3286,7 +3367,8 @@ a number counted up.
 `columns:` sets how many there are (up to three by default). `stride: 0` puts
 them all on the same step and staggers only through `stagger`, in
 milliseconds — a wave runs through the grid then, instead of a sequence of
-keypresses:
+keypresses. A tile that reveals something of its own moves the tiles after it
+back, as the pieces of a `stagger` do:
 
 #show-code(```typ
 #tiles(stride: 0, stagger: 90, [A], [B], [C], [D])
@@ -3465,6 +3547,12 @@ which gives one entry per finding:
 In HTML the pass costs up to half again as long per deck; on paper it costs
 next to nothing.
 
+With `pages: "step"` the PDF is not measured: every step page sets the same body
+as the one page per slide, and measuring it there cost convergence for decks
+that look something up in their body. The same goes for a handout that is
+given `pages: "step"`, which is what `bundle()` does. The HTML still measures,
+and names the step as well.
+
 === drift: the check for scenes that travel
 
 `overflow` asks whether a slide fits its room. `drift` asks the other question
@@ -3564,7 +3652,7 @@ their place.
   one puts it *inside* -- and inside the rectangle there is no second rectangle
   for it to reach.
 
-  For the 17 type labels the two spellings are equivalent: what sits inside the
+  For the 18 type labels the two spellings are equivalent: what sits inside the
   matched element there is the text, and a rule reaches that from within.
 ]
 
@@ -3576,9 +3664,9 @@ and every moving piece.
 
 The `style` hook does *not*. It is wrapped around the slide *body*, and header,
 footer, progress and the two whole-picture slides are built beside it. Measured,
-all 40 rules one by one: from `style` exactly the 13 that stand in the body take
+all 41 rules one by one: from `style` exactly the 13 that stand in the body take
 effect -- `ts-card…`, `ts-callout…`, `ts-statement` and the three `ts-media-…`
-surfaces. The other 27 stay silent, without a warning.
+surfaces. The other 28 stay silent, without a warning.
 
 #warning[
   A `show` rule written *after* `#show: presentation` does not reach a tracked
@@ -3723,6 +3811,11 @@ say -- is not on that slide, and a rule on it does nothing.
   [`ts-section-slide-parent`], [The line above it naming the sections this one
     hangs under. Only from the second structure level on, so never at
     `slide-level: 2`], [`text`],
+  [`ts-section-slide-back`], [The link back to the contents, bottom right. Its
+    word follows `text.lang`. It appears only when the deck has a `contents()`
+    and that contents does not stand on the section slide itself -- and it is
+    the one label here that the theme still draws when the theme brings its
+    own `section` function], [`text`],
 )
 
 A section slide has no subtitle in typstage, so the list names none.
@@ -3851,7 +3944,9 @@ hand-built footer and the built-in one cannot disagree. What comes back:
   [`outline.at(j).title`], [Its title],
   [`outline.at(j).number`], [The same count as `levels.at(..).number`.
     Comparing the two says whether the entry is past, running or still to
-    come],
+    come. An equal number is running only while that level's `index` is not
+    `0`: after a new part, the last chapter of the part before keeps its
+    number in `levels` and is past],
   [`outline.at(j).here`], [Whether the slide being shown is that very entry.
     Only a section slide can be, and only a theme's own `section` function can
     read it there: a section slide has no body for a deck to write into],
@@ -3864,10 +3959,11 @@ A progressive agenda therefore needs no second count:
 #context {
   let d = info()
   stack(spacing: 0.6em, ..d.outline.map(e => {
-    let running = d.levels.at(e.depth - 1).number
+    let level = d.levels.at(e.depth - 1)
+    let running = e.number == level.number and level.index > 0
     text(
-      weight: if e.number == running { "bold" } else { "regular" },
-      fill: if e.number <= running { black } else { luma(60%) },
+      weight: if running { "bold" } else { "regular" },
+      fill: if e.number <= level.number { black } else { luma(60%) },
       [#h((e.depth - 1) * 1.4em)#e.title],
     )
   }))
@@ -4220,6 +4316,12 @@ The traps, in roughly the order they are usually hit.
   The message names every effect there is.
 / The bullets beside an applet start at step three: `embed` uses no step, but
   something before it did. Count the reveals, not the elements.
+/ The build warns "document did not converge": look for a `context` that
+  stands around a reveal and hands it what it read, as in
+  `#context anim[#bridge-targets().len()]`. The reveal then holds an answer
+  that may still change from one layout run to the next, instead of a question
+  that never does. Put the `context` inside: `#anim(context
+  bridge-targets().len())`. In the tour deck that took two warnings to none.
 / A flying equation has the wrong font: a tracked element is typeset in a frame
   of its own, which `#set` does not reach. `style:` on `presentation` does.
 / An embedded frame stays empty and gets no jobs: the document has not
@@ -4258,10 +4360,13 @@ measurements and colours.
 == The presentation
 
 // `split-body`, `pause-tokens` and `apply-pauses` take the body apart and are
-// not part of the public surface.
+// not part of the public surface, and neither is `ueberschrift-tiefe`, the
+// helper `split-body` reads a heading's level with, nor
+// `zaehler-je-dokument`, the one `bundle` sets counters back with.
 #show-module(read("../src/present.typ"), name: "typstage",
              exclude: ("split-body", "pause-tokens", "apply-pauses",
-                       "slides-from-body", "stiller-lauf"))
+                       "slides-from-body", "stiller-lauf",
+                       "ueberschrift-tiefe", "zaehler-je-dokument"))
 
 == Slides
 
