@@ -2578,13 +2578,36 @@ sees the overtime no later than the class does.
 
 === The pointer
 
-`m` switches the pointer between the pen and the embedded frame. In pointer mode
-the pen rests and a press on an embedded frame lands in the talk window instead.
-Press, drag and release travel as fractions of the stage, so a small laptop
-window and a large canvas hit the same point of the document.
+`m` switches between the pen and the pointer. What the pointer does is point:
+move the mouse across the slide copy in the speaker view and a lit dot appears
+at the same spot on the wall. Hovering is enough -- no button, no key. The dot
+carries the accent colour at 2.2% of the slide width, and it travels as a
+fraction of the stage, so the small window in front of you and the large canvas
+behind you agree on where it is.
+
+It goes out when you leave the slide copy, when the window loses focus, when
+you reach for the pen, and on a change of slide. It survives a change of step:
+whoever points at a term and uncovers the next line means the same term still.
+Letting go of the button parks it where it stands -- a dot left standing is an
+intention, not an oversight, and one keypress away from gone.
+
+#info[
+  What the dot does not do is leave a trail. Whatever should stay on the slide
+  belongs to the pen, which is exactly one keypress away.
+]
+
+The same mode has a second ability, and it is the older one: a press on an
+embedded frame lands in the talk window's copy of that frame instead of on the
+slide. Press, drag, release and wheel travel as fractions of the stage, so both
+windows hit the same point of the document. Hovering does not reach into a
+frame -- pointing at something is not operating it -- and the dot stands on the
+frame while you do, which is deliberate: the class should see where the hand is
+about to land.
 
 Where the embedded document can mirror itself, as a GeoGebra applet does, the
 live one in front of you is operated instead and the projected copy follows.
+The dot stays out over such a frame: it takes the pointer for itself, and the
+stage never sees the movement.
 
 #warning[
   It reaches listeners, not the browser's own widgets. A checkbox toggles and a
@@ -2943,6 +2966,57 @@ text cannot know them.
 If the file is missing, the runtime says so at load time rather than when
 somebody presses the key: a missing image leaves an empty rectangle, a missing
 sound leaves nothing.
+
+=== The dot in the hall
+
+The pointer's dot, from "The pointer" above, is on by default and needs
+nothing said about it. `room` has it in case the default does not suit the deck:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(
+  room: (pointer: (color: rgb("#00c853"), size: 4%)),
+)
+```]
+
+`size` is a ratio of the *slide* width and not a length, because the slide copy
+in the speaker view and the canvas in the hall are measured in different
+numbers of pixels -- 622 against 1600 on this machine -- and the dot is meant
+to be the same size on the slide in both. It has to sit between 0.8% and 6%:
+below that the two rings are thinner than a pixel on the wall, and they are the
+ones carrying the contrast -- at 0.8% of a 1600-pixel stage each of them is
+only 0.9 pixels thick. Above it the dot covers a line of text.
+
+// check: dokument bricht=a_ratio_of_the_slide_width
+#show-code[```typ
+#show: presentation.with(room: (pointer: (size: 12%)))
+```]
+
+The colour is free, and freer than it looks: the dot carries a light ring and a
+dark one around its core, and whichever ground it lands on, one of the two cuts
+it out. Measured, the dark ring reaches 10.90 on a light slide and the light one
+15.45 on `themes.night`, whatever the core is. One method for both numbers, so
+that two measurements of one thing do not read as a contradiction: the dot
+stands at the middle of the stage in a 1600 by 900 hall window at its default
+size, the screenshot is read unscaled, the ground is the most frequent colour on
+the circle of two and a half radii around the centre, the two rings are the most
+frequent colours at 0.57 and 0.71 radii, computed after WCAG 2.1. The light
+slide is the default paper, `#fafafa`. A green of one's own reads 2.14 in the
+core by the same method and keeps the dark ring's 10.90 all the same. A badly
+chosen colour therefore costs visibility, not legibility. Without a colour of
+its own the dot takes the deck's accent.
+
+`pointer: false` takes the dot away entirely:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(room: (pointer: false))
+```]
+
+Embedded frames stay operable: they are the pointer mode's other half and do
+not hang off the dot. What comes back with `false` is the old note -- on a
+slide with nothing embedded, the speaker view now says there is nothing to
+point at, because now that is true again.
 
 = Making it your own
 
@@ -3892,11 +3966,13 @@ say -- is not on that slide, and a rule on it does nothing.
   [`ts-section-slide-parent`], [The line above it naming the sections this one
     hangs under. Only from the second structure level on, so never at
     `slide-level: 2`], [`text`],
-  [`ts-section-slide-back`], [The link back to the contents, bottom right. Its
-    word follows `text.lang`. It appears only when the deck has a `contents()`
-    and that contents does not stand on the section slide itself -- and it is
-    the one label here that the theme still draws when the theme brings its
-    own `section` function], [`text`],
+  [`ts-section-slide-back`], [The link back to the contents, at the end of the
+    line, bottom -- on the right in a deck that reads from the left, on the
+    left in one that reads from the right. Its word comes from `section-back`
+    on `presentation` and by default follows `text.lang`. It appears only when
+    the deck has a `contents()` and that contents does not stand on the section
+    slide itself -- and it is the one label here that the theme still draws
+    when the theme brings its own `section` function], [`text`],
 )
 
 A section slide has no subtitle in typstage, so the list names none.
@@ -4262,6 +4338,65 @@ item width.
 Section slide titles carry no number of their own.
 `section-numbering:` on `presentation` puts one in front -- a numbering
 pattern such as `"1."`, or a function that receives the section number.
+
+*The link back, at the foot of a section slide*
+
+Every section slide carries a link back to the contents. `section-back:` on
+`presentation` says what it reads:
+
+#show-code[```typ
+#show: presentation.with(section-back: [Back to the agenda])
+```]
+
+Four values. `auto` is the default and takes the word from the deck's language.
+`none` leaves the link out on every section slide. Content or a string words it
+differently. And a function receives *one* dictionary and returns content -- or
+`none`, and then that one slide goes without:
+
+#table(
+  columns: (auto, 1fr),
+  stroke: none,
+  inset: (x: 0pt, y: 4pt),
+  column-gutter: 1em,
+  table.header([*Field*], [*What it holds*]),
+  [`back.location`], [the `location` of the contents slide, ready for `link()`],
+  [`back.word`], [the default word in the deck's language],
+  [`back.contents.number`], [the printed slide number of the contents],
+  [`back.section.number`], [the number of the section this link stands on],
+  [`back.section.title`], [its title, with the `section-numbering` prefix],
+  [`back.section.depth`], [its structure level],
+  [`back.section.parents`], [the titles above it, outermost first],
+)
+
+#show-code[```typ
+#show: presentation.with(
+  section-back: back => [#back.word (slide #back.contents.number)],
+)
+```]
+
+The place stays with the theme, the body comes from the deck. Because the body
+sits *inside* the theme's `text`, a `text` of your own within it wins -- which
+is how the link gets another colour or size, on a ground where the accent reads
+too quietly:
+
+#show-code[```typ
+#show: presentation.with(
+  theme: themes.editorial,
+  section-back: back => text(fill: white)[#back.word],
+)
+```]
+
+Three things this will not do, and one you may do by accident. A `link()` of
+your own in the body beats the outer one -- the link then leads there and *no
+longer* to the contents; that is the way to another destination, and the trap.
+`info()` inside the function names the slide *before* the section slide, the
+same way it does in a `show` rule; for the number of the contents take
+`back.contents.number`, which is there for exactly that. With no `contents()`
+in the deck nothing appears at all, and the function is not even called. And the
+parameter gives no other *place*: for that there is `section-back: none` and a
+`section` function of your own in the theme.
+
+A `show` rule on `ts-section-slide-back` has the last word over the parameter.
 
 = Handing it on
 

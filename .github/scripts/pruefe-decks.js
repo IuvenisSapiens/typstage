@@ -20,7 +20,8 @@
 // --- Warum ohne npm ----------------------------------------------------------
 // Chrome ist über das DevTools-Protokoll erreichbar, Firefox über
 // WebDriver-BiDi, beides mit dem, was node selbst mitbringt (`decklauf/cdp.js`
-// und `decklauf/bidi.js`, zusammen keine 150 Zeilen). Playwright wäre bequemer,
+// und `decklauf/bidi.js`, zusammen 423 Zeilen, 285 ohne Kommentar- und
+// Leerzeilen). Playwright wäre bequemer,
 // aber dann hinge die Frage „ist dieses Paket prüfbar" an einem Download von
 // einigen hundert Megabyte. Wer WebKit oder den Zwei-Fenster-Fall dazunehmen
 // will, kann Playwright danebenstellen; Voraussetzung ist es nicht.
@@ -386,6 +387,26 @@ const SOLL_HINWEIS = [
   "Pruefdecks mit bleed und der Regel fuer Folien ohne Titel bytegleich heraus,",
   "gemessen gegen den Stand davor. Ihre linux-Werte waren schon fort und sind",
   "es geblieben.",
+  "",
+  "Der Zeigepunkt hat pruefdeck/satz und satzBytes um 2151 Bytes verschoben,",
+  "und die Zahl geht auf: das Stilblatt ist um 2132 Bytes gewachsen -- die",
+  "Punktebene #ts-punkt, ihr Kern und die zwei Nennungen in der Schwarz- und",
+  "der Druckliste, samt Begruendungen --, dazu 19 Bytes fuer die Zeile",
+  "\"pointer\": true in der room-Konfiguration jedes Decks. Die 13217 Bytes,",
+  "um die die Laufzeit seit stand6 gewachsen ist, zaehlen NICHT mit: satz",
+  "schneidet den Laufzeitblock heraus. Gemessen: stand6 ergibt mit demselben",
+  "Verfahren fa809123fcffe49e / 1358895, dieser Stand 79666eef6f4e3e4d /",
+  "1361046.",
+  "Ihre linux-Werte waren schon fort und sind es geblieben.",
+  "",
+  "Der anpassbare Rueckverweis (section-back) steht im selben Stand und hat an",
+  "diesen Zahlen NICHTS bewegt: gemessen wurde die HTML des Pruefdecks mit",
+  "beiden Aenderungen, und sie ergibt genau die 79666eef6f4e3e4d / 1361046 des",
+  "Zeigepunkts allein. Der Rueckverweis fasst nur src/theme.typ und",
+  "src/slides.typ an; die Laufzeit kennt die Marke typstage-contents nicht",
+  "(grep findet sie in assets/ nicht), und bei auto steht derselbe Text an",
+  "derselben Stelle. Die Differenz von 0 Bytes ist also keine Nachlaessigkeit,",
+  "sondern die Messung.",
   "",
   "Dieser Absatz stand einmal von Hand in soll.json und war nach dem ersten",
   "--neu-soll fort: was hier nicht steht, ueberlebt keine Neuaufnahme."
@@ -1121,7 +1142,7 @@ async function uhrProbe(b, datei) {
 // ── Der Durchlauf, als ein Stück Seitencode ─────────────────────────────────
 const DURCHLAUF = `(async function () {
   var p = typstage.pruef, S = typstage.steps;
-  if (p.fassung !== 4) return JSON.stringify({ fassungFehler: p.fassung });
+  if (p.fassung !== 5) return JSON.stringify({ fassungFehler: p.fassung });
   p.uhr(${UHR});
   var vor = [], zurueck = [], fristen = 0, flyDom = 0, flyDomRueck = 0;
   var FLY = document.getElementById("ts-fly");
@@ -1851,7 +1872,7 @@ const kurz = s => (s == null ? "nichts" : (s.length > 220 ? s.slice(0, 217) + ".
     }
     const r = JSON.parse(await b.ev(DURCHLAUF));
     if (r.fassungFehler) {
-      z.maengel.push("Messfläche in Fassung " + r.fassungFehler + ", erwartet 4");
+      z.maengel.push("Messfläche in Fassung " + r.fassungFehler + ", erwartet 5");
       bericht.push(z); schlecht++; continue;
     }
 

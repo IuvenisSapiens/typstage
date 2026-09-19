@@ -91,6 +91,41 @@ html,body{margin:0;height:100%;background:#0f1116;overflow:hidden;
   filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95))
          drop-shadow(0 0 1.2px rgba(0,0,0,.75))}
 
+/* ── Der Zeigepunkt ────────────────────────────────────────────────────
+   Eine eigene Ebene, keine Tinte: was der Stift zeichnet, bleibt stehen,
+   der Punkt vergeht. Dieselbe z-Stufe wie #ts-ink (6) und im Baum
+   dahinter -- damit liegt er ueber jedem Strich (ein Punkt, den ein
+   Strich verdeckt, zeigt auf nichts) und weiter unter der Vollbilduhr (7),
+   die die Folie nicht bedeckt, sondern ersetzt.
+
+   Groesse und Ort stehen in Prozent der Buehne, nicht in Pixeln: gemessen
+   ist die Buehne in einem Sprecherfenster von 1120x760 nur 622x350 gross
+   und im Saal 1600x900, und derselbe Punkt soll auf der Folie dieselbe
+   Stelle und dieselbe Groesse haben -- 13,7 gegen 35,2 Bildpunkte, beide
+   Male 2,2 %. `aspect-ratio:1` macht aus der Breite die Hoehe, sonst
+   waere der Kreis so breit wie die Folie und so hoch wie nichts. */
+#ts-punkt{position:absolute;inset:0;pointer-events:none;overflow:hidden;
+  z-index:6;opacity:0;transition:opacity .12s linear}
+#ts-punkt[data-an="1"]{opacity:1}
+/* Kern und zwei Ringe in einem einzigen Verlauf: aussen dunkel, innen
+   hell. Welchen Grund der Punkt auch trifft -- einer der beiden Ringe
+   trennt ihn davon ab. Derselbe Kniff wie der Saum um die Striche
+   (#ts-ink weiter oben), nur als Verlauf und nicht als Filter, weil hier
+   ein einzelner Kreis steht und kein Pfad, und weil ein Verlauf mit der
+   Kastenbreite mitwaechst -- ein `box-shadow` koennte das nicht, seine
+   Breite ist immer absolut.
+   `closest-side` haelt den Verlauf an der Kante des Kastens an; ohne ihn
+   rechnete er bis zur Ecke und alle drei Zonen waeren um Wurzel 2 zu
+   klein. */
+.ts-punkt-kern{position:absolute;width:var(--ts-zeiger-gr,2.2%);
+  aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle closest-side,
+    var(--ts-zeiger,#eb5e28) 0 50%,
+    #ffffffe8 50% 64%,
+    #000000c4 64% 78%,
+    #00000000 78% 100%)}
+@media (prefers-reduced-motion: reduce){#ts-punkt{transition:none}}
+
 /* Die Vollbilduhr. Kein Aufsatz ueber der Folie, sondern an ihrer Stelle:
    schwarz von Rand zu Rand, wie `b schwarz`, nur dass hier Ziffern stehen.
 
@@ -922,6 +957,7 @@ html[data-ts-rolle="speaker"][data-ts-modus="radier"] #ts-stage{cursor:cell}
 html[data-ts-schwarz="1"],html[data-ts-schwarz="1"] body{background:#000}
 html[data-ts-schwarz="1"] #ts-stage,html[data-ts-schwarz="1"] #ts-chrome,
 html[data-ts-schwarz="1"] #ts-fly,html[data-ts-schwarz="1"] #ts-ink,
+html[data-ts-schwarz="1"] #ts-punkt,
 /* Und die Vollbilduhr dazu. Ohne diese Nennung blieb sie bei `b` voll
    stehen -- gemessen: die Buehne war weg, die Ziffern nicht. Wer schwarz
    drueckt, will die Folie nicht sehen. Schwarz gewinnt.
@@ -949,8 +985,8 @@ html[data-ts-schwarz="1"] #ts-clock:not([data-art="fest"]){opacity:0}
      Pause, die zu Ende geht. `#ts-fortschritt` ebenso: jedes Blatt traegt
      seine Leiste im Druck-Chrome, und die der Buehne lag sonst mit dem
      Stand der Folie, auf der der Vortrag gerade war, ueber Blatt eins. */
-  #ts-overview,#ts-hint,#ts-fly,#ts-chrome,#ts-fortschritt,#ts-ink,#ts-clock,
-  #ts-speaker{display:none!important}
+  #ts-overview,#ts-hint,#ts-fly,#ts-chrome,#ts-fortschritt,#ts-ink,#ts-punkt,
+  #ts-clock,#ts-speaker{display:none!important}
   /* Printing produces the same thing from both windows. The speaker
      view's rules are more specific than the print rule above and would
      otherwise override it: the stage would stay small, nailed to its

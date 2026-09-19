@@ -3034,12 +3034,11 @@ Die Tasten der Ansicht, die `?` dort auch selbst zeigt:
   [`?`], [diese Tabelle, in der Ansicht],
 )
 
-Auf der laufenden Folie lässt sich zeichnen; die Striche erscheinen auf der
-Leinwand und bleiben an ihrer Folie kleben. `x` löscht sie, `z` nimmt den
-letzten Strich zurück, `c` wechselt die Farbe. `b` schaltet den Saal schwarz,
-`e` friert das Bild auf der Leinwand ein, während man bei sich weiterblättert.
-`m` schaltet den Zeiger zwischen Stift und Einbettung um: im Zeigermodus landet
-ein Klick auf einen eingebetteten Rahmen drüben im Vortragsfenster.
+Auf der laufenden Folie lässt sich zeichnen und zeigen; die Striche erscheinen
+auf der Leinwand und bleiben an ihrer Folie kleben. `x` löscht sie, `z` nimmt
+den letzten Strich zurück, `c` wechselt die Farbe. `b` schaltet den Saal
+schwarz, `e` friert das Bild auf der Leinwand ein, während man bei sich
+weiterblättert. `m` schaltet zwischen Stift und Zeiger um.
 
 #warning[
   Die Striche werden *nicht* mitgedruckt: die Druckansicht ist der saubere
@@ -3049,6 +3048,40 @@ ein Klick auf einen eingebetteten Rahmen drüben im Vortragsfenster.
   geschlossen wird. Bleibt es offen und trägt nur kein Deck mehr, dauert das bis
   zu einer Minute.
 ]
+
+=== Der Zeiger
+
+Was der Zeiger tut, ist zeigen: die Maus über die Folienkopie in der
+Sprecheransicht bewegen, und an derselben Stelle der Leinwand steht ein
+Leuchtpunkt. Schweben genügt -- keine Taste, kein Knopf. Der Punkt trägt die
+Akzentfarbe des Decks bei 2,2 % der Folienbreite, und er reist als Bruchteil
+der Bühne: das kleine Fenster vor einem und die große Leinwand dahinter sind
+sich darüber einig, wo er steht.
+
+Er geht aus, wenn man die Folienkopie verlässt, wenn das Fenster den Fokus
+verliert, wenn man zum Stift greift, und beim Folienwechsel. Einen
+Schrittwechsel übersteht er: wer auf einen Begriff zeigt und dabei die nächste
+Zeile aufdeckt, meint weiter denselben Begriff. Loslassen parkt ihn, wo er
+steht -- ein stehengelassener Punkt ist eine Absicht und kein Versehen, und
+eine Handbewegung von der Bühne herunter nimmt ihn.
+
+#info[
+  Was der Punkt nicht tut, ist eine Spur ziehen. Was auf der Folie bleiben
+  soll, gehört dem Stift, und der ist genau eine Taste entfernt.
+]
+
+Derselbe Modus kann ein Zweites, und das ist das Ältere: ein Druck auf einen
+eingebetteten Rahmen landet drüben im Vortragsfenster, in dessen Kopie
+desselben Rahmens. Druck, Zug, Loslassen und Rad reisen in Bruchteilen der
+Bühne, beide Fenster treffen also dieselbe Stelle des Dokuments. Bloßes
+Schweben greift *nicht* in einen Rahmen hinein -- auf etwas zeigen ist nicht
+dasselbe wie es bedienen --, und der Punkt steht dabei mit auf dem Rahmen. Das
+ist gewollt: die Klasse soll sehen, wo die Hand gleich ansetzt.
+
+Wo sich das eingebettete Dokument spiegeln kann, wie ein GeoGebra-Applet, wird
+das lebende vor einem bedient und die projizierte Kopie zieht nach. Über einem
+solchen Rahmen bleibt der Punkt aus: er nimmt den Zeiger für sich, und die
+Bühne sieht die Bewegung dann gar nicht.
 
 === Was die Ansicht zeigen soll
 
@@ -3413,6 +3446,69 @@ der Sprecheransicht, denn der übersetzte Hilfetext kann sie nicht kennen.
 Fehlt die Datei, meldet die Laufzeit das beim Laden und nicht erst, wenn jemand
 drückt: bei einem fehlenden Bild sieht man ein leeres Rechteck, bei einem
 fehlenden Ton nichts.
+
+=== Der Punkt im Saal
+
+Der Leuchtpunkt des Zeigers, aus „Der Zeiger" weiter oben, ist von selbst an
+und braucht keine Angabe. `room` stellt ihn für den Fall, dass die Vorgabe zum
+Deck nicht passt:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(
+  room: (pointer: (color: rgb("#00c853"), size: 4%)),
+)
+```]
+
+`size` ist ein Anteil der *Folienbreite* und keine Länge, denn die Folienkopie
+in der Sprecheransicht und die Leinwand im Saal messen sich in verschieden
+vielen Bildpunkten -- auf diesem Rechner gemessen 622 gegen 1600 --, und der
+Punkt soll auf der Folie in beiden gleich groß sein. Er muss zwischen 0,8 %
+und 6 % liegen: darunter sind im Saal die beiden Ringe dünner als ein
+Bildpunkt, und sie sind es, die den Kontrast tragen -- bei 0,8 % einer Bühne
+von 1600 Bildpunkten misst jeder von ihnen nur noch 0,9 Bildpunkte. Darüber
+verdeckt der Punkt eine Zeile.
+
+// check: dokument bricht=a_ratio_of_the_slide_width
+#show-code[```typ
+#show: presentation.with(room: (pointer: (size: 12%)))
+```]
+
+Die Farbe ist frei, und freier, als sie aussieht: um den Kern liegen ein heller
+und ein dunkler Ring, und welchen Grund der Punkt auch trifft -- einer der
+beiden trennt ihn davon ab. Gemessen kommt auf heller Folie der dunkle Ring auf
+10,90 und auf `themes.night` der helle auf 15,45 -- gleich, welche Farbe der
+Kern hat. Ein Verfahren für beide Zahlen, damit zwei Messungen derselben Sache
+nicht wie ein Widerspruch aussehen: der Punkt steht in einem Saalfenster von
+1600 × 900 auf der Mitte der Bühne und in der Vorgabegröße, das
+Bildschirmfoto wird unskaliert gelesen, der Grund ist die häufigste Farbe auf
+dem Kreis mit zweieinhalb Radien um die Mitte, die beiden Ringe sind die
+häufigsten Farben auf 0,57 und 0,71 Radien, gerechnet nach WCAG 2.1. Die helle
+Folie ist dabei das Vorgabepapier `#fafafa`. Ein eigenes Grün liest mit
+demselben Verfahren 2,14 im Kern und bekommt seine 10,90 trotzdem vom dunklen
+Ring. Eine schlecht gewählte Farbe kostet also Auffälligkeit, nicht
+Lesbarkeit. Ohne eigene Farbe nimmt der Punkt den Akzent des Decks.
+
+`pointer: false` nimmt ihn ganz weg:
+
+// check: dokument
+#show-code[```typ
+#show: presentation.with(room: (pointer: false))
+```]
+
+Eingebettete Rahmen bleiben bedienbar: sie sind die andere Hälfte des
+Zeigermodus und hängen nicht am Punkt. Was mit `false` zurückkommt, ist der
+alte Hinweis -- auf einer Folie ohne Einbettung sagt die Sprecheransicht dann
+wieder, dass es nichts zu zeigen gibt, denn dann stimmt es wieder.
+
+#info[
+  In einem kleinen Sprecherfenster ist die Folienkopie klein und der Punkt
+  darin mit ihr: gemessen 2,7 Bildpunkte bei einem Fenster von 800 × 533,
+  während im Saal gleichzeitig 42,2 standen -- das bei einem Saalfenster von
+  1920 × 1080; bei den 1600 von weiter oben sind es 35,2. Gezeigt wird
+  richtig, nur die eigene Rückmeldung ist dann kaum zu sehen. Das ist die
+  Kachelgröße und nicht der Punkt -- ein größeres Sprecherfenster behebt es.
+]
 
 == Lesezeichen
 
@@ -4510,11 +4606,13 @@ tut nichts.
     `themes.lesson` keine], [`rect`],
   [`ts-section-slide-parent`], [die Zeile darüber mit den übergeordneten
     Abschnitten. Erst ab der zweiten Gliederungsebene], [`text`],
-  [`ts-section-slide-back`], [der Verweis zurück auf das Verzeichnis, unten
-    rechts. Sein Wort folgt `text.lang`. Er steht nur, wenn das Deck ein
-    `contents()` hat und dieses nicht auf der Abschnittsfolie selbst liegt --
-    und als einziges dieser Label zeichnet ihn das Thema auch dann, wenn es
-    eine eigene `section`-Funktion mitbringt], [`text`],
+  [`ts-section-slide-back`], [der Verweis zurück auf das Verzeichnis, am
+    Leseende unten -- rechts in einem Deck, das von links liest, links in
+    einem, das von rechts liest. Sein Wort kommt von `section-back` bei
+    `presentation` und folgt in der Vorgabe `text.lang`. Er steht nur, wenn
+    das Deck ein `contents()` hat und dieses nicht auf der Abschnittsfolie
+    selbst liegt -- und als einziges dieser Label zeichnet ihn das Thema auch
+    dann, wenn es eine eigene `section`-Funktion mitbringt], [`text`],
 )
 
 *Die Bausteine im Folienrumpf*
@@ -4827,6 +4925,67 @@ Nummerierungsmuster wie `"1."` oder eine eigene Funktion, die die
 Abschnittsnummer bekommt.
 Mit `number: none` lässt sich die Nummernzelle vollständig entfernen, sodass
 der Titel die gesamte Breite des Eintrags nutzt.
+
+*Der Rückverweis am Fuß der Abschnittsfolie*
+
+Jede Abschnittsfolie trägt unten einen Verweis zurück auf das Verzeichnis.
+`section-back:` bei `presentation` sagt, was dort steht:
+
+#show-code[```typ
+#show: presentation.with(section-back: [Zur Agenda])
+```]
+
+Vier Werte. `auto` ist die Vorgabe und nimmt das Wort aus der Sprache des
+Decks. `none` lässt den Verweis auf jeder Abschnittsfolie weg. Inhalt oder eine
+Zeichenkette setzen ein eigenes Wort. Und eine Funktion bekommt *ein*
+Wörterbuch und gibt Inhalt zurück -- oder `none`, und dann bleibt genau diese
+eine Folie ohne Verweis:
+
+#table(
+  columns: (auto, 1fr),
+  stroke: none,
+  inset: (x: 0pt, y: 4pt),
+  column-gutter: 1em,
+  table.header([*Feld*], [*Was darin steht*]),
+  [`back.location`], [die `location` der Verzeichnisfolie, fertig für `link()`],
+  [`back.word`], [das Vorgabewort in der Sprache des Decks],
+  [`back.contents.number`], [die gedruckte Foliennummer des Verzeichnisses],
+  [`back.section.number`], [die Nummer des Abschnitts, auf dem der Verweis steht],
+  [`back.section.title`], [sein Titel, mit dem Präfix aus `section-numbering`],
+  [`back.section.depth`], [seine Gliederungsebene],
+  [`back.section.parents`], [die Titel darüber, von außen nach innen],
+)
+
+#show-code[```typ
+#show: presentation.with(
+  section-back: back => [#back.word (Folie #back.contents.number)],
+)
+```]
+
+Die Stelle bleibt beim Thema, der Körper kommt vom Deck. Weil der Körper
+*innerhalb* des `text` des Themas steht, sticht ein eigenes `text` darin die
+Vorgabe aus -- so bekommt der Verweis eine andere Farbe oder Größe, etwa auf
+einem Grund, auf dem die Akzentfarbe zu leise ist:
+
+#show-code[```typ
+#show: presentation.with(
+  theme: themes.editorial,
+  section-back: back => text(fill: white)[#back.word],
+)
+```]
+
+Drei Dinge, die sich damit nicht machen lassen, und eines, das man versehentlich
+macht. Ein eigenes `link()` im Körper sticht das äußere aus -- der Verweis führt
+dann dorthin und *nicht mehr* zum Verzeichnis; das ist der Weg zu einem anderen
+Ziel und zugleich die Falle. `info()` innerhalb der Funktion nennt die Folie
+*vor* der Abschnittsfolie, so wie in einer `show`-Regel; wer die Nummer des
+Verzeichnisses will, nimmt `back.contents.number`, das ist genau dafür da. Hat
+das Deck kein `contents()`, erscheint gar nichts, und die Funktion wird nicht
+einmal gerufen. Und einen anderen *Ort* gibt der Parameter nicht her: dafür
+bleibt `section-back: none` und eine eigene `section`-Funktion im Thema.
+
+Das letzte Wort behält eine `show`-Regel auf `ts-section-slide-back`, die über
+dem Parameter steht.
 
 = Weitergeben
 

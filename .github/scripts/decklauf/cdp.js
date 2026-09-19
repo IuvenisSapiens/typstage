@@ -24,8 +24,8 @@ let einmalGetan = false;
 //
 // Gemessen auf dem Entwicklungsrechner: 4306 liegengebliebene Profile, 912 MB,
 // aus abgebrochenen Läufen über mehrere Monate. Die Altersschwelle trennt sie
-// von den Profilen laufender Nachbarn -- ein voller Decklauf dauert rund 25
-// Minuten, sechs Stunden sind also reichlich Abstand.
+// von den Profilen laufender Nachbarn -- ein voller Decklauf dauert rund
+// zwölf Minuten, sechs Stunden sind also reichlich Abstand.
 const ALTER_STUNDEN = 6;
 function alteProfileFegen() {
   const grenze = Date.now() - ALTER_STUNDEN * 3600 * 1000;
@@ -78,10 +78,20 @@ function aufraeumenAnmelden(profil, kind) {
   offeneProfile.set(profil, kind);
   if (aufraeumenGesetzt) return;
   aufraeumenGesetzt = true;
+  // Nach `kill` schreibt Chrome beim Beenden noch in sein Profil. Gleich
+  // danach geloescht, blieb nach SIGINT ein Ordner liegen (gemessen 12 und
+  // 52 KiB); darum kurz synchron warten und dreimal fegen -- in `exit` geht
+  // nur Synchrones, und `Atomics.wait` ist das.
   process.on("exit", () => {
-    for (const [ordner, k] of offeneProfile) {
-      try { if (k) k.kill(); } catch (e) {}
-      try { fs.rmSync(ordner, { recursive: true, force: true }); } catch (e) {}
+    for (const [, k] of offeneProfile) { try { if (k) k.kill(); } catch (e) {} }
+    const warte = (ms) => {
+      try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch (e) {}
+    };
+    for (let i = 0; i < 3; i++) {
+      warte(i ? 300 : 700);
+      for (const [ordner] of offeneProfile) {
+        try { fs.rmSync(ordner, { recursive: true, force: true }); } catch (e) {}
+      }
     }
   });
   // Ohne das hier beendet ein Abbruch von Hand den Prozess, ohne `exit` zu
@@ -143,13 +153,23 @@ async function verbinde(wsUrl, kind, profil) {
   await new Promise((r, j) => {
     ws.addEventListener("open", r); ws.addEventListener("error", j);
   });
+  // Wie in `bidi.js`: stirbt Chrome mitten im Lauf, scheitert jeder offene
+  // und jeder spaetere Ruf laut, statt ewig zu warten. Gemessen vorher:
+  // Chrome nach 25 s mit SIGKILL beendet, `pruefe-zeiger.js` rc=0.
   let id = 0; const offen = new Map();
+  let abgerissen = null;
   ws.addEventListener("message", e => {
     const m = JSON.parse(e.data);
-    if (m.id && offen.has(m.id)) { offen.get(m.id)(m); offen.delete(m.id); }
+    if (m.id && offen.has(m.id)) { offen.get(m.id).ja(m); offen.delete(m.id); }
   });
-  const ruf = (method, params) => new Promise(r => {
-    const n = ++id; offen.set(n, r);
+  ws.addEventListener("close", () => {
+    abgerissen = new Error("CDP: die Verbindung zu Chrome ist abgerissen");
+    for (const [, w] of offen) w.nein(abgerissen);
+    offen.clear();
+  });
+  const ruf = (method, params) => new Promise((ja, nein) => {
+    if (abgerissen) { nein(abgerissen); return; }
+    const n = ++id; offen.set(n, { ja, nein });
     ws.send(JSON.stringify({ id: n, method, params }));
   });
   const ev = async (ausdruck) => {
@@ -174,10 +194,24 @@ async function verbinde(wsUrl, kind, profil) {
       windowsVirtualKeyCode: k.length === 1 ? k.charCodeAt(0) : undefined
     }).then(() => ruf("Input.dispatchKeyEvent",
       { type: "keyUp", key: k, modifiers: mod || 0 })),
+    // Erst warten, bis Chrome WIRKLICH fort ist, dann das Profil. Bisher
+    // folgte `rmSync` gleich auf `kill`, und Chrome schrieb beim Beenden
+    // weiter in den Ordner: gemessen blieben nach einem sauberen Lauf von
+    // `pruefe-zeiger.js` alle sieben Profile liegen, 44096 KiB.
     ende: async () => {
       try { ws.close(); } catch (e) {}
       if (!kind) return;
-      await schlaf(200); kind.kill();
+      await schlaf(200);
+      const fort = new Promise(r => {
+        if (kind.exitCode !== null || kind.signalCode !== null) r();
+        else kind.once("exit", r);
+      });
+      kind.kill();
+      await Promise.race([fort, schlaf(5000)]);
+      if (kind.exitCode === null && kind.signalCode === null) {
+        try { kind.kill("SIGKILL"); } catch (e) {}
+        await Promise.race([fort, schlaf(2000)]);
+      }
       try { fs.rmSync(profil, { recursive: true, force: true }); } catch (e) {}
       offeneProfile.delete(profil);
     }

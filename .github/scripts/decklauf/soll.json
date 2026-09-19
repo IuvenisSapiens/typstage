@@ -228,6 +228,26 @@
   "gemessen gegen den Stand davor. Ihre linux-Werte waren schon fort und sind",
   "es geblieben.",
   "",
+  "Der Zeigepunkt hat pruefdeck/satz und satzBytes um 2151 Bytes verschoben,",
+  "und die Zahl geht auf: das Stilblatt ist um 2132 Bytes gewachsen -- die",
+  "Punktebene #ts-punkt, ihr Kern und die zwei Nennungen in der Schwarz- und",
+  "der Druckliste, samt Begruendungen --, dazu 19 Bytes fuer die Zeile",
+  "\"pointer\": true in der room-Konfiguration jedes Decks. Die 13217 Bytes,",
+  "um die die Laufzeit seit stand6 gewachsen ist, zaehlen NICHT mit: satz",
+  "schneidet den Laufzeitblock heraus. Gemessen: stand6 ergibt mit demselben",
+  "Verfahren fa809123fcffe49e / 1358895, dieser Stand 79666eef6f4e3e4d /",
+  "1361046.",
+  "Ihre linux-Werte waren schon fort und sind es geblieben.",
+  "",
+  "Der anpassbare Rueckverweis (section-back) steht im selben Stand und hat an",
+  "diesen Zahlen NICHTS bewegt: gemessen wurde die HTML des Pruefdecks mit",
+  "beiden Aenderungen, und sie ergibt genau die 79666eef6f4e3e4d / 1361046 des",
+  "Zeigepunkts allein. Der Rueckverweis fasst nur src/theme.typ und",
+  "src/slides.typ an; die Laufzeit kennt die Marke typstage-contents nicht",
+  "(grep findet sie in assets/ nicht), und bei auto steht derselbe Text an",
+  "derselben Stelle. Die Differenz von 0 Bytes ist also keine Nachlaessigkeit,",
+  "sondern die Messung.",
+  "",
   "Dieser Absatz stand einmal von Hand in soll.json und war nach dem ersten",
   "--neu-soll fort: was hier nicht steht, ueberlebt keine Neuaufnahme."
  ],
@@ -2070,10 +2090,10 @@
    "zeichnung": "3+3 Pfade · hinein/heraus · 0>1 · 0/0 offen · Sprung 0/1/6",
    "kurve": "cubic-bezier(.34,1.56,.64,1) · cubic-bezier(.34,1.56,.64,1) · cubic-bezier(.34,1.56,.64,1)",
    "satz": {
-    "darwin": "fa809123fcffe49e"
+    "darwin": "79666eef6f4e3e4d"
    },
    "satzBytes": {
-    "darwin": 1358895
+    "darwin": 1361046
    },
    "szene": "4 Halte · 28 Bilder · 0/9/18/27/27 · Mitte 7 · Sprung 27",
    "kino": "at 1- 0/0/0/12/23 · at 3- 0/0/0/12/23",

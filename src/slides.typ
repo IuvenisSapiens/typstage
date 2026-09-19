@@ -541,7 +541,16 @@
     // Die Folienzahl und nicht die Seitenzahl: in der HTML-Ausgabe meldet
     // `location().page()` für jeden Fund 1, ein Vergleich über Seiten hätte
     // den Verweis dort auf jeder Abschnittsseite verschluckt.
-    #metadata(deck-info.get().nr) <typstage-contents>
+    //
+    // Zwei Zahlen, kein nacktes `nr` mehr: `number` ist die *gedruckte*
+    // Foliennummer dieses Verzeichnisses, die, die auch in der Fußzeile
+    // steht, und `section-back` reicht sie als `back.contents.number` an eine
+    // eigene Funktion weiter. `info()` steht hier ohnehin schon (`levels`),
+    // die zweite Zahl kostet also keine neue Lesung -- gemessen 0 zusätzliche
+    // Layoutläufe über alle 17 Beispiele. Ein Wörterbuch und kein Paar, damit
+    // ein drittes Feld später nichts umstellt. Wer die Marke von Hand setzt,
+    // wird seit dem übergangen: der Rückverweis filtert auf Wörterbücher.
+    #metadata((nr: deck-info.get().nr, number: info().slide.number)) <typstage-contents>
     #if layout == "1x2-fill" {
       std.columns(2, gutter: column-gutter)[#flow]
     } else if layout == "1x2" {

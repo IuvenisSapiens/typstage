@@ -8,6 +8,106 @@ All notable changes to this package are recorded here. The format follows
 
 ### Added
 
+- **The pointer points.** Reported as "the pointer in presenter view does not
+  work", tried in Chrome and Firefox. Measured, it was not a fault but a gap:
+  the mode handed the mouse to an embedded frame and did nothing at all on a
+  slide without one -- on a text slide it even said so, "nothing to point at on
+  this slide", which was true and no help. `m` now lights a dot on the wall
+  that follows the mouse across the slide copy in the speaker view. Hovering is
+  enough: no button, no key, no new mode. It carries the accent colour at 2.2%
+  of the slide width and travels as a fraction of the stage, so a 622-pixel
+  stage at the desk and a 1600-pixel canvas in the hall put it in the same
+  place. It goes out on
+  leaving the slide copy, on losing focus, on reaching for the pen and on a
+  change of slide; a change of *step* keeps it, because whoever points at a
+  term and uncovers the next line means the same term still. `room: (pointer:
+  false)` takes it away, `room: (pointer: (color: …, size: …))` sets it, and
+  its colour is free -- a light ring and a dark one around the core carry the
+  contrast, measured 10.90 against a light slide and 15.45 on `themes.night`,
+  each by the ring that carries on that ground while the other one sinks into
+  it. One method for both, and it runs: the dot at the middle of the stage in a
+  1600 by 900 hall window at its default 2.2%, the screenshot read unscaled,
+  the ground the most frequent colour on the circle of 2.5 radii, the rings the
+  most frequent colours at 0.57 and 0.71 radii, computed after WCAG 2.1. That
+  is point 16 of `pruefe-zeiger.js` and of `pruefe-zeiger-ff.js`, which measure
+  it on `themes.default` and on `themes.night` and complain at a drift of more
+  than 0.15; the same two numbers stand in both handbooks and in the runtime's
+  comment over the line that gives the dot its colour.
+  Embedded frames are untouched: hovering still reaches into nothing, a press
+  still goes through, and the dot stands on the frame while it does, which is
+  the point. A *mirroring* frame is the one exception, and on purpose: that is
+  the frame which takes the mouse itself in pointer mode -- a GeoGebra applet
+  is the everyday case -- so the stage stops seeing the hand, and `pointerleave`
+  never comes because the frame lies inside the stage. Entering it now takes
+  the dot out instead of leaving it where the hand last was. Measured on a real
+  GeoGebra applet: the speaker moved from 0.030/0.522 onto the construction at
+  0.361/0.522, and the hall went from a dot at 0.030/0.522 to no dot at all,
+  with the applet as operable as before. Three things came with it. The old
+  note moved from the key to `modusSetzen`, so the button beside it stopped
+  being silent, and it is only raised now when a deck has ordered the dot away
+  *and* the slide has no frame. A frozen hall no longer accepts anything on
+  this channel -- until now a blind click went into a frame two slides behind
+  what the speaker was looking at -- and freezing now takes a dot that is
+  already on the wall with it: the bar only caught what arrived *during* the
+  freeze, so measured at 0.4/0.4 the dot stayed while the desk paged two slides
+  on, and it went only when the speaker moved the mouse again. And the runtime's
+  check surface carries the dot: `typstage.pruef.zeiger()` reports `aus`,
+  `ebene`, `an`, `x`, `y`, `px`, `buehne`, `anteil`, `deckkraft` and `farbe`, and
+  `pruef.fassung` rose to 5 because of it, so a run that meets an older deck is
+  told instead of quietly measuring zeros.
+
+  Measured in both browsers, each with two real windows over stages of
+  different size. Chrome 153 over the DevTools protocol: 0.3/0.7 of a
+  622.2-pixel desk stage and of a 1600-pixel hall stage, 13.7 against 35.2
+  pixels, 2.2% in both. Firefox 154 over WebDriver BiDi: 0.2996/0.7011 of a
+  618.7-pixel desk stage and the same 1600-pixel hall, 13.6 against 35.2 pixels,
+  2.2% in both. The two differences are the browsers and not the dot -- Firefox
+  lays the desk stage 3.5 pixels narrower at the same 1120x760 window, and BiDi
+  rounds a hover to whole pixels, which is the 0.0004 and the 0.0011 in the
+  fraction. In both, leaving the stage takes the dot in both windows, a pen
+  stroke still draws in the hall with no dot standing on it, hovering sends
+  nothing into an embedded frame while a press operates it, a mirroring frame
+  takes the dot out, and a desk closed while its dot stands takes the dot out
+  of the hall as well -- the hall's own watch notices, since nobody is left to
+  send the word. A desk reloaded while its dot stands takes it too, with its
+  first hello as a fresh window; until now the dot stayed, still there after
+  70 seconds in Chrome and in Firefox, because the watch saw a live partner. The
+  road is `PointerEvent`, `getBoundingClientRect`, `postMessage` and
+  `requestAnimationFrame`, none of it one browser's own, and the reported "does
+  nothing" was browser-independent because there was no dot layer at all.
+  `.github/scripts/pruefe-zeiger.js` holds the Chrome side and
+  `pruefe-zeiger-ff.js` the Firefox one, each on its own driver, the way
+  `pruefe-decks.js` keeps one driver for each browser: Firefox 154 answers
+  `--remote-debugging-port` with BiDi only, so the DevTools driver cannot reach
+  it.
+
+- **`section-back` -- the link back to the contents, in your own words.** Every
+  section slide carries a link back to the contents slide, and until now its
+  word was the package's. `presentation.with(section-back: [Back to the
+  agenda])` words it differently, a string does the same, `none` takes the link
+  away on every section slide, and a function receives one dictionary and
+  returns content -- or `none`, and then that one slide goes without. The
+  dictionary holds `location` and `contents.number` of the contents slide, the
+  default `word` in the deck's language, and `section` with `number`, `title`
+  (with the `section-numbering` prefix), `depth` and `parents`. The theme keeps
+  the place and the link; the value is only the body, so a `text` of your own
+  inside it beats the accent colour -- `section-back: b => text(fill:
+  white)[#b.word]` lifts the contrast on `themes.editorial`'s ground from 2.95
+  to 9.35. Both numbers by the same method, named so that two measurements of
+  one pair do not read as a contradiction: the two colour values themselves,
+  the link's colour against the section slide's ground as the theme sets them,
+  computed after WCAG 2.1. By that method the accent on the section ground
+  reads 3.94 on `default`, 3.76 on `lesson`, 9.77 on `night`, 16.48 on `plain`
+  and 2.95 on `editorial`. A page rendered to pixels reads a shade lower,
+  because the most frequent pixel of smoothed text is seldom its exact colour.
+  A `link()` of your own in the body beats the outer one, which is how the link
+  reaches another destination, and equally how a deck loses its way
+  back. It rides on the section record and not in a theme key, the same way
+  `section-numbering` does, so the handout, the step-by-step slides and
+  `bundle()` carry it without a line of their own, and a typo in the name still
+  stops the build with the full list of what `presentation` takes. Reported
+  along with the question of how to customise the backlink on section slides.
+
 - **`bleed` -- content to the edge of the canvas.** `#bleed[#image("x.jpg",
   width: 100%, height: 100%, fit: "cover")]` fills the slide edge to edge: the
   body's origin is the canvas corner and its room the whole slide, whatever the
@@ -96,6 +196,22 @@ All notable changes to this package are recorded here. The format follows
   generated in normal Typst file".
 
 ### Changed
+
+- **The link back to the contents follows the reading direction.** It was
+  placed against the right edge by hand, which is the right edge in a deck that
+  reads from the left and the wrong one in a deck that reads from the right.
+  Measured on an Arabic `themes.lesson` deck it moves from x 716.2..809.9 to
+  x 32.0..125.7, the same 93.7 points wide, and so no longer sits on top of the
+  accent bar that `lesson-section` puts along that same edge when the deck is
+  mirrored. Decks that read from the left are byte for byte unchanged: every
+  page image and page text of the seventeen examples came out the same, and so
+  did every HTML file once the `<script>` and `<style>` blocks are cut out. The
+  raw HTML is not the same, and not because of this: each of the seventeen grew
+  by exactly 15368 bytes, none of them on a slide -- 13217 of runtime, the
+  pointer among them, which came in the same step, 2132 of style sheet and the
+  19 of the one line `"pointer": true` that the dot adds to every deck's room
+  configuration. Of the seventeen, two carry a link back at all -- `anziehen`
+  with six and `tour` with five, the same eleven before and after.
 
 - **A slide without a title has no running header.** A bare `==` or
   `slide(none)` used to drop only the title band: under `themes.lesson` slide

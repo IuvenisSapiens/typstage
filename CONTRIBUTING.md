@@ -54,6 +54,8 @@ readers who are not in this repository.
 | `pruefe-inhalt.js` | `contents()` jumps to a section and back |
 | `pruefe-fussnoten.js` | a footnote's note is revealed with its marker, not before |
 | `pruefe-uhr-ziffern.js` | the digits set the class clock, and a `cue()` slide keeps them |
+| `pruefe-zeiger.js` | the pointer lights a dot in the hall on any slide, embedded frames stay operable, and a mirroring frame takes the dot out rather than leaving it behind (Chrome) |
+| `pruefe-zeiger-ff.js` | the same dot in a real Firefox over WebDriver BiDi: it arrives in the hall at the same fraction of the stage, it goes out, pen and frame stay intact |
 | `pruefe-klang.js` | a key plays a sound, in the hall and not at the desk |
 | `pruefe-video-frist.js` | a video ends on the minute the lesson begins |
 | `pruefe-lesezeichen.py` | the PDF carries an outline, one entry per slide, and none of them empty: a heading that draws but carries no character gets no entry |
@@ -140,9 +142,96 @@ node .github/scripts/pruefe-decks.js
 
 No npm and no Playwright. Chrome is reached over the DevTools protocol and
 Firefox over WebDriver BiDi, with what node 22 already brings; the two drivers
-together are 175 lines. Whether this package can be checked should not
+together are 423 lines, 285 of them once comment and blank lines are taken out.
+Whether this package can be checked should not
 depend on a several hundred megabyte download. Playwright may be put beside it
 for WebKit or for the two window case; it is not a prerequisite.
+
+The Firefox driver carries input, a viewport, touch, window activation and the
+second window since the pointer is measured in it as well: the dot hangs on a
+real hover and on two windows of different sizes, and `pruefe-decks.js` only
+ever needed to load a page and take a picture. The pointer therefore has two
+checks rather than one with a switch -- `pruefe-zeiger.js` speaks CDP,
+`pruefe-zeiger-ff.js` speaks BiDi, and both take their decks, their reading
+expressions and the method that measures the dot in a screenshot from
+`decklauf/zeigerdeck.js` so that there are not two versions of one probe deck.
+
+Both now carry the same seventeen numbered points, 1 to 17, and above them the
+same point 0, which says only that the probe deck was not what the check
+needed. A number means the same thing on both sides, so the two outputs can be
+read line against line. The Chrome check has 70 places to complain at and the
+Firefox check 72; two points hold a different count, each for a reason named
+just below: point 1 and point 14 have one place more in Firefox. It was not
+always so: the Firefox check began with 6 of the Chrome check's 13 points and
+20 of its 44 places, and freezing, a change of slide, the throttle, the finger,
+`room: (pointer: false)` and the order against `#ts-ink` went unmeasured there.
+Measured on one of them: a runtime with the `punktWeg()` taken out of a change
+of slide left the Firefox check green while the Chrome one complained.
+
+Two parts came later still, each because a runtime with one line taken out
+left both checks green. Point 17 closes the desk while its dot stands: the
+hall has to notice by itself, through its watch, and any one of the three
+lines that carry this -- starting the watch on a pointer message, keeping it
+running while a dot stands, and `punktWeg()` in `sichtLoesen` -- was missed.
+And point 3 gained a second half: whoever switches from the pen to the pointer
+with `m` in the middle of a stroke and drags out of the stage still holds the
+pointer capture, `pointerleave` does not come until the button is released,
+and only the check on the position takes the dot; without it the dot stood on
+the last place inside the stage.
+
+Three more parts came from a runtime changed in one place that left both
+checks green. Point 5 now compares the z-index of the dot layer with that of
+`#ts-ink` instead of only their order in the tree: with the dot layer on
+z-index 5, a stroke drawn through the dot covered its centre in the hall
+picture (235,94,40, the pen, where 43,127,184, the dot, belongs). Point 6 now
+drags and scrolls into the frame as well as clicking it, because dragging
+and the wheel went through the pointer mode before the dot existed, and
+taking either one out, or the rule that a drag stays with what took the
+press, went unnoticed. Point 11 now asks where the dot stands after the
+burst, not only how many messages it made: a throttle that kept the first
+point of a frame instead of the last made exactly one message with one
+point, and the dot stood at 0.215 while the hand was at 0.8. And point 17
+reloads the desk before it closes it: the hand is gone just the same, but the
+watch sees a live partner, and the dot still stood in the hall after 70
+seconds, in Chrome and in Firefox. The runtime now takes it when a freshly
+loaded desk says hello.
+
+Only one thing is not the same, and it is not a gap in BiDi:
+
+* Point 14, the loss of focus, measures *more* in Firefox.
+  `browsingContext.activate` on the hall really does take the focus from the
+  desk -- measured, `document.hasFocus()` there goes from `true` to `false`.
+  Headless Chrome cannot do it: `Page.bringToFront`,
+  `Emulation.setFocusEmulationEnabled: false` and a third target with
+  `Target.activateTarget` all three leave the desk focused, measured one after
+  the other, so the Chrome check dispatches the `blur` event itself and says so
+  above the point.
+
+Point 11, the throttle, is the same on both sides now, both halves and both
+judged: forty moves dispatched by the *page* must come out as one message with
+one point, and over forty separately awaited driver calls no message may carry
+more than one. Until now the Firefox check had only the first half, while this
+file said it counted the second and did not judge it; it counted nothing.
+
+Two smaller ones are the browser and not the dot: the desk stage is 3.5 pixels
+narrower at the same window, and BiDi rounds a hover to whole pixels, which is
+why the Firefox check allows 0.002 of the stage where Chrome allows 0.001. That
+same stage width is point 1's extra place in Firefox: it refuses to pass if the
+two stages come out nearly the same size, because a dot that travels as a
+fraction of the stage is then not being measured at all.
+
+What differs in a full deck run in Firefox, measured rather than assumed. It
+takes 714.3 seconds against Chrome's 716.1, and over all eighteen decks and
+every field it records the two browsers differ in exactly one: `pruefdeck`'s
+`kamera` reads 7.892 where `soll.json` writes 7.893, and `ohne-flaeche` raises
+no complaint where Chrome raises one. Both are the engine and not this
+package: the same two, word for word, come out of a Firefox run over the state
+before the pointer existed. The desk stage is 3.5 pixels narrower there at the
+same 1120x760 window -- 618.7 against Chrome's 622.2 -- and BiDi rounds a
+hover to whole pixels, so the dot lands on 0.2996/0.7011 where Chrome lands on
+0.3/0.7; the fraction of the stage it takes up is 2.2 percent in both. A
+Firefox run over two states of this package differs in `pruefdeck.satz` and
+`satzBytes` and in nothing else.
 
 The runtime carries the surface the run reads, `window.typstage.pruef`, and it
 is always there rather than behind a build switch: a switch would mean checking

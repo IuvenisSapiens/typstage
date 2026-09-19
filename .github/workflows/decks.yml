@@ -161,6 +161,40 @@ jobs:
       - name: Die Ziffern stellen die Klassenuhr
         run: node .github/scripts/pruefe-uhr-ziffern.js
 
+      # Der Zeiger zeigt -- auf jeder Folie und nicht nur auf denen mit einem
+      # eingebetteten Rahmen. Geprüft wird mit zwei echten Fenstern: der Punkt
+      # reist über `postMessage`, und mit einem Fenster sähe keine Probe, ob er
+      # drüben ankommt. Die Bühnen sind dabei verschieden groß, denn der Punkt
+      # steht in Bruchteilen der Bühne und darf sich von Pixeln nicht beirren
+      # lassen. Dazu die ältere Fähigkeit desselben Modus: ein Klick geht
+      # weiterhin in den Rahmen, ein bloßes Schweben nicht.
+      - name: Der Zeiger setzt einen Punkt im Saal
+        run: node .github/scripts/pruefe-zeiger.js
+
+      # Und dasselbe in Firefox, Punkt für Punkt dasselbe. Gemeldet war der
+      # Zeiger in Chrome UND Firefox, und `pruefe-zeiger.js` hängt an
+      # `decklauf/cdp.js`: Firefox ab 129 antwortet auf
+      # `--remote-debugging-port` nur noch mit WebDriver BiDi. Also eine zweite
+      # Probe über `decklauf/bidi.js`. Beide Proben tragen dieselben Punkte 1
+      # bis 17, dazu Punkt 0 für ein Probedeck, das nicht taugt, und nehmen
+      # ihre Decks aus `decklauf/zeigerdeck.js`; den Fokusverlust misst die
+      # Firefox-Probe sogar echt, weil BiDi ein Fenster nach vorn holen kann.
+      #
+      # Dies ist der erste Schritt dieses Laufs, der auf dem Läufer einen
+      # Firefox braucht -- `pruefe-decks.js` fährt immer genau EINEN Browser
+      # und nimmt Chrome zuerst. Deshalb dieselbe Wache wie bei ffmpeg, qpdf
+      # und poppler-utils weiter unten. Gemessen, warum sie hier sein muss:
+      # ohne einen Firefox auf einem ihrer fünf Pfade bricht die Probe mit
+      # rc=2 und der Meldung „kein Firefox gefunden -- mit --browser einen Pfad
+      # angeben. Geprüft wurde damit nichts." ab. Sie meldet also nie still
+      # grün; der Schritt würde rot, und niemand wüsste, dass nicht das Paket
+      # kaputt ist, sondern der Läufer leer. Auf einem GitHub-Läufer ist das
+      # hier nicht erprobt -- gemessen ist der Abbruch, nicht der `apt-get`.
+      - name: Der Zeiger setzt einen Punkt im Saal -- auch in Firefox
+        run: |
+          firefox --version >/dev/null 2>&1 || sudo apt-get install -y firefox
+          node .github/scripts/pruefe-zeiger-ff.js
+
       # Eine Taste, ein Klang, und zwar im Saal. Ob der Ton im richtigen
       # Fenster landet, sagt keine Datei; und dass der Befehl über eine eigene
       # Nachrichtenart fährt und nicht im Zustandskanal, sieht nur ein Lauf

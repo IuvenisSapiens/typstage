@@ -469,6 +469,19 @@
 /// renumbered every deck already written -- measured on `gliedern`, "Where we
 /// are going" became "1. Where we are going" without anyone asking.
 ///
+/// `section-back:` is the link back to the contents at the foot of a section
+/// slide. `auto` is the word in the deck's language, `none` leaves it out
+/// everywhere, content or a string words it differently, and a function gets
+/// one dictionary -- `location` of the contents slide, `word`, `contents`
+/// with its printed slide `number`, and `section` with `number`, `title`,
+/// `depth` and `parents` -- and returns content, or `none` to drop the link
+/// on that one slide. The theme keeps the place and the link; the value is
+/// the body, so a `text` of your own inside wins over the accent.
+///
+/// ```typ
+/// #show: presentation.with(section-back: [Back to the agenda])
+/// ```
+///
 /// ```typ
 /// #show: presentation.with(title: [Analysis], slide-level: 3)
 /// = Part I
@@ -535,6 +548,25 @@
 /// `t` and `⇧t` do nothing and no longer stand in the key bar. A view that
 /// advertises a key which does nothing is worse than one that is missing it.
 /// `tools: false` removes the drawing bar the same way.
+///
+/// `room` is the counterpart: what reaches the hall, as opposed to what only
+/// the speaker sees. It knows `clock` (how coarsely the class clock reads,
+/// and whether the digit keys start it), `sounds` (a key, a sound file),
+/// `bell` (the time the lesson begins, which `video(ends-at: auto)` counts
+/// towards) and `pointer` (the dot the speaker view guides across the slide):
+///
+/// ```typ
+/// #show: presentation.with(room: (
+///   clock: (step: 5),                            // the clock reads in fives
+///   pointer: (color: rgb("#00c853"), size: 4%),  // colour, share of the width
+/// ))
+/// ```
+///
+/// `pointer: false` takes the dot away again; embedded frames stay operable
+/// either way, they are the pointer mode's other half. The dot defaults to
+/// the accent at 2.2% of the slide width, and `size` is a ratio between 0.8%
+/// and 6%. Its colour need not contrast with anything: a light ring and a
+/// dark one around the core carry that, whichever ground it lands on.
 ///
 /// The PDF is a handout: one page per slide, every tracked element in its
 /// final state. What belongs only to the motion, the notes, the slide transitions,
@@ -636,6 +668,7 @@
   drift: "error",
   slide-level: 2,
   section-numbering: none,
+  section-back: auto,
   pages: "slide",
 ) = {
   // `..slides` would otherwise swallow any named argument without a word:
@@ -647,7 +680,7 @@
     + ". It takes title, subtitle, author, date, assets, theme, palette, "
     + "transition, transition-duration, duration, speaker-view, room, style, "
     + "width, height, margin, handout, overflow, drift, slide-level, "
-    + "section-numbering and pages.")
+    + "section-numbering, section-back and pages.")
   assert(pages in ("slide", "step"), message:
     "typstage: pages is \"slide\" -- one page per slide, every tracked "
     + "element in its final state -- or \"step\": one page per step, so the "
@@ -660,6 +693,26 @@
          or type(section-numbering) == function, message:
     "typstage: section-numbering is a numbering pattern, none or a function "
     + "receiving the section number. Not " + repr(section-numbering))
+  // Ein Symbol bekommt hier kein `repr`. Gemessen an `section-back:
+  // sym.arrow.l`: die Meldung wuchs beim PDF-Bau auf 65 Zeilen und 1945
+  // Zeichen (beim HTML-Bau samt dessen Warnung auf 70 und 2195), weil
+  // `repr` eines Symbols die ganze Variantenliste druckt -- der lesbare Satz
+  // steht dann in Zeile 1 und ertrinkt. Nur hier, und nur weil ein Pfeil bei
+  // genau diesem Parameter die naheliegende falsche Eingabe ist: ein
+  // Rueckverweis heisst in vielen Decks schlicht "←". Die uebrigen
+  // Zusicherungen behalten die Hausform `repr`.
+  let rueck-repr = if type(section-back) == symbol {
+    "a symbol. Wrap it in content: section-back: [#sym.arrow.l]"
+  } else { repr(section-back) }
+  assert(section-back == auto or section-back == none
+         or type(section-back) in (content, str)
+         or type(section-back) == function, message:
+    "typstage: section-back is the link back to the contents at the foot of "
+    + "a section slide: auto for the word in the deck's language, none for "
+    + "no link at all, content or a string to word it differently, or a "
+    + "function taking one dictionary -- location, word, contents, section "
+    + "-- and returning content, or none to leave this one out. Not "
+    + rueck-repr)
   assert(overflow in ("none", "error", "record"), message:
     "typstage: overflow is \"none\" (the default), \"error\" or \"record\", "
     + "not " + repr(overflow))
@@ -734,12 +787,46 @@
   // ist keine Erfindung -- die Hilfezeile nennt diese Gruppe seit je "Saal:".
   assert(type(room) == dictionary, message:
     "typstage: room takes a dictionary, not " + str(type(room))
-    + ". It knows clock, sounds and bell.")
+    + ". It knows clock, sounds, bell and pointer.")
   for k in room.keys() {
-    assert(k in ("clock", "sounds", "bell"), message:
+    assert(k in ("clock", "sounds", "bell", "pointer"), message:
       "typstage: room has no entry \"" + k + "\". It takes clock (how the "
       + "class clock reads in the hall, and whether the digit keys start it), "
-      + "sounds (a key, a sound file) and bell (when the lesson begins).")
+      + "sounds (a key, a sound file), bell (when the lesson begins) and "
+      + "pointer (the dot the speaker view guides across the slide).")
+  }
+  // Der Zeigepunkt. `false` schaltet ihn ab; ein Woerterbuch stellt ihn.
+  // Die Bedienung eingebetteter Rahmen haengt nicht daran -- der Zeigermodus
+  // kann beides, und wer den Punkt nicht will, will den Rahmen vielleicht
+  // trotzdem bedienen.
+  if "pointer" in room {
+    let z = room.pointer
+    assert(type(z) == bool or type(z) == dictionary, message:
+      "typstage: room.pointer is false (no dot in the hall), true, or a "
+      + "dictionary with color and size. Not " + repr(z))
+    if type(z) == dictionary {
+      for k in z.keys() {
+        assert(k in ("color", "size"), message:
+          "typstage: room.pointer has no entry \"" + k + "\". It takes color "
+          + "and size (a ratio of the slide width).")
+      }
+      if "color" in z {
+        assert(type(z.color) == color, message:
+          "typstage: room.pointer.color is a colour, written as a colour and "
+          + "not as a string. Not " + repr(z.color))
+      }
+      if "size" in z {
+        // Als Anteil der Folienbreite und nicht in Punkten: die Buehne ist im
+        // Sprecherfenster gemessen 622 und im Saal 1600 Bildpunkte breit, und
+        // der Punkt soll auf der Folie dieselbe Groesse haben. Die Schranken
+        // sind gemessen: unter 0,8% sind im Saal die beiden Ringe, die den
+        // Kontrast tragen, duenner als ein Bildpunkt -- bei 0,8% von 1600
+        // misst jeder 0,9 --, ueber 6% verdeckt er eine ganze Zeile.
+        assert(type(z.size) == ratio and z.size >= 0.8% and z.size <= 6%,
+          message: "typstage: room.pointer.size is a ratio of the slide "
+            + "width between 0.8% and 6%. Not " + repr(z.size))
+      }
+    }
   }
   if "bell" in room {
     assert(type(room.bell) == str
@@ -1087,7 +1174,8 @@
         raus.push(s + (depth: abschnitte.at(k).depth,
                        parents: abschnitte.at(k).parents,
                        number: ebenen-satz.at(k).number,
-                       section-numbering: section-numbering))
+                       section-numbering: section-numbering,
+                       section-back: section-back))
         k += 1
       }
     }
@@ -1867,6 +1955,19 @@
               room.clock.digits
             } else { true },
             bell: room.at("bell", default: none),
+            // Der Punkt. `false` kommt als `false` an, ein Woerterbuch als
+            // die zwei Zeichenketten, die das Stilblatt als eigene
+            // Eigenschaften setzt -- die Laufzeit kennt weder Typst-Farben
+            // noch Typst-Anteile.
+            pointer: {
+              let z = room.at("pointer", default: true)
+              if z == false { false } else if type(z) == dictionary {
+                (
+                  color: if "color" in z { rgb(z.color).to-hex() } else { none },
+                  size: if "size" in z { repr(z.size) } else { none },
+                )
+              } else { true }
+            },
           ))
         + ",\"words\":" + json.encode((
             noNote: worte.no-note,

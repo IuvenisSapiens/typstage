@@ -7,10 +7,20 @@
 //
 //   node .github/scripts/pruefe-inhalt.js [--browser /pfad]
 //
-// Geprüft wird beides, hin und zurück:
+// Geprüft wird beides, hin und zurück, und dazu der anpassbare Rückverweis:
 //   1. Ein Klick auf den n-ten Eintrag führt auf die n-te Abschnittsfolie.
 //   2. Ein Klick auf "zurück zum Inhalt" führt auf die Folie mit dem
 //      Verzeichnis.
+//   3. Dasselbe Deck mit `section-back:` trägt weiterhin einen Verweis auf
+//      `#typstage-contents`, der Klick landet auf demselben Schritt, und das
+//      Rechteck des `<a>` ist ein anderes -- das eigene Wort steht wirklich da.
+//
+// Zu 3.: gemessen wird die Breite und kein fester Pixelwert. Ein Wort ist in
+// der HTML ein Pfad, seine Farbe oder sein Text lassen sich dort nicht lesen;
+// wie breit der Verweis trägt, schon. An diesem Deck headless gemessen:
+// "Back to contents" 140.2, "Agenda 2" 77.1, beide Klicks von Schritt 2 auf
+// Schritt 1. Verglichen werden die beiden Breiten gegeneinander und nicht mit
+// einer festen Zahl -- die hinge an Schriftschnitt und Fensterbreite.
 //
 // Der zweite Punkt ist der, an dem eine Prüfung von Hand scheitert: steht man
 // schon auf der Inhaltsfolie, bewegt sich nichts, und der Verweis sieht kaputt
@@ -25,8 +35,7 @@ const arg = (n, v) => { const i = process.argv.indexOf(n); return i > 0 ? proces
 const CHROME = arg("--browser",
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
 
-const DECK = `#import "@preview/typstage:0.1.2": *
-#show: presentation.with(theme: themes.night, title: [Inhalt])
+const RUMPF = `
 
 == Inhalt
 #contents()
@@ -41,6 +50,15 @@ Text.
 == Und noch eine
 Text.
 `;
+const KOPF = `#import "@preview/typstage:0.1.2": *
+#show: presentation.with(theme: themes.night, title: [Inhalt]`;
+const DECK = KOPF + ")" + RUMPF;
+// Die Funktionsform, weil sie am meisten zusagt: sie bekommt `location` und
+// `contents.number` und baut ihr eigenes `link` daraus. Führt das noch auf das
+// Verzeichnis, führen die einfacheren Formen erst recht.
+const DECK_EIGEN = KOPF
+  + ",\n  section-back: b => link(b.location)[Agenda #b.contents.number])"
+  + RUMPF;
 
 const schritt = "window.typstage.state()";
 const klick = h => `(function(){
@@ -57,22 +75,27 @@ const klick = h => `(function(){
     fs.mkdirSync(path.join(paket, raum, "typstage"), { recursive: true });
     fs.symlinkSync(WURZEL, path.join(paket, raum, "typstage", "0.1.2"));
   }
-  fs.writeFileSync(path.join(tmp, "deck.typ"), DECK);
-  try {
-    execFileSync("typst", ["compile", "--format", "html", "--features", "html",
-      "--package-path", paket, "--root", tmp,
-      path.join(tmp, "deck.typ"), path.join(tmp, "deck.html")],
-      { stdio: ["ignore", "ignore", "pipe"] });
-  } catch (e) {
-    const wort = String((e.stderr || "")).split("\n")
-      .find(z => z.startsWith("error:")) || "unbekannter Fehler";
-    console.log("Inhalt: das Probedeck übersetzt nicht -- " + wort);
-    process.exit(1);
-  }
+  const uebersetze = (name, quelle) => {
+    fs.writeFileSync(path.join(tmp, name + ".typ"), quelle);
+    try {
+      execFileSync("typst", ["compile", "--format", "html", "--features", "html",
+        "--package-path", paket, "--root", tmp,
+        path.join(tmp, name + ".typ"), path.join(tmp, name + ".html")],
+        { stdio: ["ignore", "ignore", "pipe"] });
+    } catch (e) {
+      const wort = String((e.stderr || "")).split("\n")
+        .find(z => z.startsWith("error:")) || "unbekannter Fehler";
+      console.log("Inhalt: das Probedeck " + name + " übersetzt nicht -- " + wort);
+      process.exit(1);
+    }
+    return "file://" + path.join(tmp, name + ".html");
+  };
+  const wegVorgabe = uebersetze("deck", DECK);
+  const wegEigen = uebersetze("deck-eigen", DECK_EIGEN);
 
   const b = await starte(CHROME);
   const klagen = [];
-  await b.navigiere("file://" + path.join(tmp, "deck.html"));
+  await b.navigiere(wegVorgabe);
   await schlaf(2500);
   await b.taste("ArrowRight");
   await schlaf(900);
@@ -111,6 +134,51 @@ const klick = h => `(function(){
     if (zurueck !== aufInhalt) {
       klagen.push("der Rückverweis landet auf Schritt " + zurueck
         + " statt auf " + aufInhalt + ".");
+    }
+  }
+
+  // 3. Derselbe Rückverweis, vom Deck selbst gesetzt.
+  //
+  // Die Breite des `<a>` steht in beiden Decks für das Wort darin: das eine
+  // trägt "Back to contents", das andere "Agenda 2". Sind sie gleich breit,
+  // hat `section-back` nichts bewirkt -- und das wäre die stille Art zu
+  // versagen, denn der Verweis funktionierte dann ja weiter.
+  const massEigen = async weg => {
+    await b.navigiere(weg);
+    await schlaf(2500);
+    await b.taste("ArrowRight");
+    await schlaf(900);
+    const aufVerzeichnis = await b.ev(schritt);
+    await b.taste("ArrowRight");
+    await schlaf(900);
+    const breite = await b.ev(`(function(){
+      var f=window.typstage.slides[window.typstage.steps[window.typstage.state()].slide];
+      var a=f.querySelector('a[href="#typstage-contents"]');
+      if(!a) return -1;
+      var r=a.getBoundingClientRect();
+      return Math.round(r.width*10)/10;})()`);
+    let gelandet = -1;
+    if (breite >= 0 && await b.ev(klick("#typstage-contents"))) {
+      await schlaf(1200);
+      gelandet = await b.ev(schritt);
+    }
+    return { aufVerzeichnis, breite, gelandet };
+  };
+  const vorgabe = await massEigen(wegVorgabe);
+  const eigen = await massEigen(wegEigen);
+  if (eigen.breite < 0) {
+    klagen.push("mit `section-back: b => link(b.location)[…]` trägt die "
+      + "Abschnittsfolie keinen Verweis auf #typstage-contents mehr. Das "
+      + "Paket behält das äußere `link`, der Wert gibt nur den Körper.");
+  } else {
+    if (eigen.gelandet !== eigen.aufVerzeichnis) {
+      klagen.push("der eigene Rückverweis landet auf Schritt "
+        + eigen.gelandet + " statt auf " + eigen.aufVerzeichnis + ".");
+    }
+    if (vorgabe.breite >= 0 && Math.abs(eigen.breite - vorgabe.breite) < 0.5) {
+      klagen.push("der eigene Rückverweis ist so breit wie der vorgegebene ("
+        + eigen.breite + " gegen " + vorgabe.breite + " Punkte) -- "
+        + "`section-back` setzt das Wort nicht.");
     }
   }
 

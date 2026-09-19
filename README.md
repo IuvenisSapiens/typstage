@@ -129,6 +129,10 @@ Use `number: none` to remove the number cell entirely.
 Section slide titles carry no number unless asked:
 `presentation.with(section-numbering: "1.")` puts one there, and a function
 gives a prefix of your own.
+Each section slide carries a link back to the contents;
+`presentation.with(section-back: [Back to the agenda])` words it differently,
+`section-back: none` takes it away, and a function receives the contents slide's
+location and number along with the section it stands on.
 
 Slides may also be handed over as arguments, `presentation(title-slide(…),
 section([…]), slide([Title])[…])`, for decks that are generated rather than
@@ -275,9 +279,11 @@ them elapsed time, slide and step, the planned length, the clock the class
 sees, and the next **step** — not the next slide, because a deck that counts in
 steps has to answer what the next keypress does.
 
-You can draw on the running slide, and the strokes appear on the projected one.
-`b` blacks the room out, `e` freezes the projected image while you page ahead
-in private, and `t` puts a clock on the wall for the break or the group work.
+You can draw on the running slide, and the strokes appear on the projected one;
+`m` swaps the pen for a pointer, and then a lit dot follows your mouse across
+the wall. `b` blacks the room out, `e` freezes the projected image while you
+page ahead in private, and `t` puts a clock on the wall for the break or the
+group work.
 Steering works from either window, and either one may be reloaded: they find
 each other again and the strokes come back.
 
@@ -304,6 +310,7 @@ has the keyboard, so a single machine at a beamer needs no second window at all.
   clock: (step: 5),                          // the clock reads in five-second steps
   sounds: (a: "airhorn.mp3"),                // a key, a sound, played in the hall
   bell: "08:15",                             // when the lesson begins
+  pointer: (color: red, size: 4%),           // the pointer's dot on the wall
 ))
 ```
 
@@ -313,6 +320,12 @@ beside the HTML like any other media, and the package ships none of its own. And
 `bell` is what a `video(ends-at: auto)` ends on: the runtime reads the video's
 length and starts it far enough in that its last frame falls on that minute, so
 the music before the lesson stops as the lesson starts.
+
+`pointer` is the dot, on by default in the accent colour at 2.2% of the slide
+width; `size` is a ratio between 0.8% and 6%, and the colour need not contrast
+with the slide, because a light ring and a dark one around the core do that on
+any ground. `pointer: false` takes the dot away and leaves embedded frames
+operable, which is the pointer mode's other half.
 
 ## On paper
 

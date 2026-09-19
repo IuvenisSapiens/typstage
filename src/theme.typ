@@ -382,17 +382,63 @@
     // Gefragt wird im eigenen Dokument: in einem Bündel ist das letzte
     // Verzeichnis vor dieser Folie sonst das des Handzettels, und der Verweis
     // führte aus der HTML und dem Foliensatz dorthin (siehe `im-dokument`).
-    context {
-      let marken = query(im-dokument(<typstage-contents>))
-      let hier = marken.any(mark => mark.value == nr)
-      let davor = marken.filter(mark => mark.value < nr)
-      let ziel = if davor.len() > 0 { davor.last() }
-                 else { marken.find(mark => mark.value > nr) }
-      if not hier and ziel != none {
-        place(bottom + right, dx: -m.right, dy: -m.bottom,
-          link(ziel.location(),
-            text(size: 11pt * k, fill: t.accent,
-                 [#doc-word("back-to-contents") <ts-section-slide-back>])))
+    //
+    // Das Wort, der Körper und das Ob kommen aus `section-back` am Deck; der
+    // Ort bleibt hier. Derselbe Zuschnitt wie `section-numbering`: der Wert
+    // reist auf dem Abschnittssatz und nicht in einem Themenschlüssel, denn
+    // ein Themenschlüssel nähme jeden Tippfehler wortlos an (Wörterbuch-
+    // addition) -- und dieses eine Stück malt das Thema ohnehin selbst.
+    // Der Satzweg trägt ihn außerdem ohne weitere Zeile in Handzettel,
+    // Schrittfassung und `bundle()`.
+    let rueck = s.at("section-back", default: auto)
+    if rueck != none {
+      context {
+        // Nur die Marken, die `contents()` selbst gesetzt hat. Seit sie ein
+        // Wörterbuch tragen, wäre eine von Hand gesetzte nackte Zahl
+        // (`#metadata(5) <typstage-contents>`) ein "cannot access fields on
+        // type integer" aus dieser Zeile; gemessen bleibt mit dem Filter der
+        // echte Rückverweis richtig, 1 Verweis statt Abbruch. Die Marke ist
+        // nirgends dokumentiert -- damit ist sie jetzt wirklich privat.
+        let marken = query(im-dokument(<typstage-contents>))
+          .filter(mark => type(mark.value) == dictionary)
+        let hier = marken.any(mark => mark.value.nr == nr)
+        let davor = marken.filter(mark => mark.value.nr < nr)
+        let ziel = if davor.len() > 0 { davor.last() }
+                   else { marken.find(mark => mark.value.nr > nr) }
+        if not hier and ziel != none {
+          let wort = doc-word("back-to-contents")
+          let koerper = if rueck == auto { wort }
+            else if type(rueck) == function {
+              rueck((
+                location: ziel.location(),
+                word: wort,
+                contents: (number: ziel.value.number),
+                section: (number: s.number, title: title,
+                          depth: s.depth, parents: s.parents),
+              ))
+            } else { rueck }
+          if koerper != none {
+            // `am-ende` statt `place(bottom + right)`: in LTR Byte für Byte
+            // dasselbe, in RTL wandert der Verweis mit der Leserichtung -- an
+            // einem arabischen `themes.lesson`-Deck von x 716,2..809,9 auf
+            // x 32,0..125,7, Breite unverändert 93,7. Damit steht er nicht
+            // mehr auf dem Akzentbalken, den `lesson-section` in RTL auf
+            // dieselbe Kante legt.
+            //
+            // Gebaut wurden für das „Byte für Byte" alle 17 Beispiele; der
+            // Umbau hier berührt davon zwei, weil nur sie überhaupt einen
+            // Rückverweis tragen: `anziehen` mit 6 und `tour` mit 5, in
+            // beiden Ständen dieselben 11. Bei allen 17 ist das Markup ohne
+            // die `<script>`- und `<style>`-Blöcke byteweise gleich; die 17
+            // rohen HTML wachsen um denselben Betrag, und der steckt
+            // vollständig in Laufzeit, Stilblatt und der einen Zeile
+            // `"pointer": true` des Zeigepunkts.
+            am-ende(bottom, m, dy: -m.bottom,
+              link(ziel.location(),
+                text(size: 11pt * k, fill: t.accent,
+                     [#koerper <ts-section-slide-back>])))
+          }
+        }
       }
     }
   } else {

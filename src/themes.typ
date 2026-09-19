@@ -488,6 +488,10 @@
 /// slide elsewhere in the deck -- a deck with none, or one whose contents
 /// stands on the section slide itself, gets no link.
 ///
+/// The word and the body are the deck's, not the theme's: `section-back` on
+/// `presentation` takes `auto`, `none`, content, a string or a function. The
+/// place is still the theme's, at the end of the line along the bottom edge.
+///
 /// The last of those is the line naming the sections a deeper section hangs
 /// under. It exists only from the second structure level on, so a deck at the
 /// default `slide-level: 2` never draws it.

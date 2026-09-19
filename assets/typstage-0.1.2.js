@@ -2686,6 +2686,10 @@
       // two would keep pushing the same strokes back and forth at the pace
       // of the heartbeat.
       if (d.frisch && TINTE_AN) sende("tintestand", { liste: tinteAbschrift() });
+      // Und der Zeigepunkt geht: er gehoerte der Hand des Pults von vorher,
+      // und `weg` schickt niemand mehr. Gemessen ohne diese Zeile: im Saal
+      // stand er nach 70 s noch -- die Wache sah einen lebenden Partner.
+      if (d.frisch) punktWeg();
     } else if (d.kanal === "schritt") {
       // With an id it is a greeting, without one a real step change. The
       // difference matters: blindly following the greeting would mean
@@ -2956,6 +2960,108 @@
   var MODUS = "stift";
   var ZIEL_FERN = null;    // what took the press, so a drag stays with it
 
+  // ── Der Zeigepunkt ────────────────────────────────────────────────────
+  //
+  // Der Zeigermodus reichte die Maus bisher nur in eingebettete Rahmen
+  // durch. Auf einer gewoehnlichen Folie -- und das sind die meisten --
+  // tat er nichts: gemessen kam der Druck als `{t:"down",x,y}` im Saal an,
+  // fand dort keinen Rahmen und verfiel. Wer den Knopf mit dem Mauszeiger
+  // fuer einen Laserpointer hielt, hatte recht und bekam nichts.
+  //
+  // Der Punkt ist genau das fehlende Stueck. Er reist auf demselben Kanal
+  // wie bisher (`zeiger`), in Bruchteilen der Buehne wie die Striche, und
+  // er kostet keine neue Nachrichtenart: jedes Ereignis, das ohnehin
+  // hinueberfaehrt, traegt x und y. Neu sind nur zwei Arten ohne Rahmen:
+  // `hin` bewegt allein den Punkt, `weg` nimmt ihn fort.
+  var PUNKT = null, PUNKT_AN = 0;
+  // Was der Saal sehen soll. `room.pointer: false` schaltet den Punkt ab;
+  // die Bedienung eingebetteter Rahmen bleibt davon unberuehrt.
+  var RAUM_ZEIGER = (CFG.room || {}).pointer;
+  var PUNKT_AUS = RAUM_ZEIGER === false;
+  if (RAUM_ZEIGER && typeof RAUM_ZEIGER === "object") {
+    if (RAUM_ZEIGER.color) {
+      document.documentElement.style.setProperty("--ts-zeiger", RAUM_ZEIGER.color);
+    }
+    if (RAUM_ZEIGER.size) {
+      document.documentElement.style.setProperty("--ts-zeiger-gr", RAUM_ZEIGER.size);
+    }
+  }
+  // Ohne eigene Angabe traegt der Punkt den Akzent des Decks -- dieselbe
+  // Farbe, die schon die Ueberzeit der Uhr faerbt. Die zwei Ringe im
+  // Stilblatt tragen den Kontrast, nicht die Farbe selbst: gemessen liegt
+  // der Akzent auf dem Grund der Abschnittsfolie je nach Thema zwischen
+  // 2,95 (`themes.editorial`) und 16,48 (`themes.plain`), und ein Punkt darf
+  // nicht davon abhaengen.
+  //
+  // Ein Verfahren fuer alle diese Zahlen, damit zwei Messungen desselben
+  // Paares nicht wie ein Widerspruch aussehen: die zwei Farbwerte selbst,
+  // Akzent gegen den Grund der Abschnittsfolie, wie das Thema sie setzt,
+  // gerechnet nach WCAG 2.1. Das ergibt `default` 3,94, `lesson` 3,76,
+  // `night` 9,77, `plain` 16,48, `editorial` 2,95. Eine in Bildpunkte
+  // gerenderte Seite liest eine Spur tiefer, weil der haeufigste Bildpunkt
+  // geglaetteter Schrift selten genau ihre Farbe traegt. Dieselbe Zahl steht
+  // so auch im CHANGELOG.
+  //
+  // Was die Ringe tragen, gemessen nach WCAG 2.1: auf heller Folie -- dem
+  // Vorgabepapier #fafafa, also `themes.default` -- der DUNKLE Ring 10,90,
+  // auf `themes.night` der HELLE 15,45. Der jeweils andere sinkt dann in den
+  // Grund (1,04 und 1,10) und wird dort nicht gebraucht; das ist der Sinn
+  // des Paares. Ein eigenes Gruen (#00c853) liest auf derselben hellen Folie
+  // 2,14 im Kern und bekommt seine 10,90 trotzdem vom dunklen Ring.
+  //
+  // Ein Verfahren fuer alle drei Zahlen, und es laeuft ab: Saalfenster
+  // 1600x900, Punkt auf 0,5/0,5 der Buehne, Vorgabegroesse 2,2 % -- also ein
+  // Kasten von 35,2 px und ein Radius von 17,6 px --, Bildschirmfoto
+  // unskaliert gelesen, Grund = haeufigste Farbe auf dem Kreis mit 2,5
+  // Radien um die Mitte, heller Ring auf 0,57 und dunkler auf 0,71 Radien.
+  // Das ist Punkt 16 von `pruefe-zeiger.js` und `pruefe-zeiger-ff.js`, die
+  // bei einer Abweichung von mehr als 0,15 klagen. Dieselben Zahlen stehen
+  // im CHANGELOG und in beiden Handbuechern.
+  if (CFG.accent && !(RAUM_ZEIGER && RAUM_ZEIGER.color)) {
+    document.documentElement.style.setProperty("--ts-zeiger", CFG.accent);
+  }
+
+  // Die Ebene entsteht erst, wenn zum ersten Mal gezeigt wird, und sie
+  // entsteht in der Laufzeit und nicht im Geruest: ein Deck, das die
+  // Laufzeit als eigene Datei laedt (`assets: "split"`, CDN), bekommt den
+  // Punkt damit ohne neu gebautes HTML. Hinter #ts-ink eingehaengt --
+  // gleiche z-Stufe, spaeter im Baum, also darueber.
+  function punktEbene() {
+    if (PUNKT && PUNKT.isConnected) return PUNKT;
+    var wirt = (INK && INK.parentNode) || B;
+    if (!wirt) return null;
+    PUNKT = document.createElement("div");
+    PUNKT.id = "ts-punkt";
+    PUNKT.appendChild(document.createElement("div")).className = "ts-punkt-kern";
+    wirt.appendChild(PUNKT);
+    return PUNKT;
+  }
+  function punktSetzen(x, y) {
+    if (PUNKT_AUS) return;
+    var p = punktEbene();
+    if (!p) return;
+    var k = p.firstChild;
+    k.style.left = (x * 100).toFixed(3) + "%";
+    k.style.top = (y * 100).toFixed(3) + "%";
+    if (!PUNKT_AN) { PUNKT_AN = 1; p.dataset.an = "1"; }
+  }
+  function punktWeg() {
+    if (!PUNKT_AN) return;
+    PUNKT_AN = 0;
+    if (PUNKT) delete PUNKT.dataset.an;
+  }
+  // Beim Folienwechsel geht der Punkt aus: er zeigte auf etwas, das nicht
+  // mehr da ist. Beim Schrittwechsel bleibt er -- wer auf einen Begriff
+  // zeigt und dabei die naechste Zeile aufdeckt, meint weiter denselben
+  // Begriff. Dieselbe Trennung fuehrt die Tinte (`tinteFolie`).
+  var PUNKT_FOLIE = -1;
+  function punktFolie() {
+    var si = (current >= 0 && STEPS[current]) ? STEPS[current].slide : -1;
+    if (si === PUNKT_FOLIE) return;
+    PUNKT_FOLIE = si;
+    punktWeg();
+  }
+
   // Which frame lies under a point of the stage. Not `elementFromPoint`:
   // in the speaker view the embeds are switched off for hit testing, and
   // there they would never be found. Rectangles hold in both windows.
@@ -3009,7 +3115,14 @@
   }
 
   function zeigerZustellen(ev) {
-    if (!B || !ev || typeof ev.x !== "number") return;
+    if (!B || !ev) return;
+    // Zwei Arten ohne Rahmen. `weg` nimmt den Punkt fort, `hin` bewegt ihn
+    // allein -- ein Schweben ueber der Folienkopie soll im Saal zu sehen
+    // sein, aber nichts anklicken.
+    if (ev.t === "weg") { punktWeg(); return; }
+    if (typeof ev.x !== "number") return;
+    punktSetzen(ev.x, ev.y);
+    if (ev.t === "hin") return;
     var r = B.getBoundingClientRect();
     if (!r.width || !r.height) return;
     var cx = r.left + ev.x * r.width, cy = r.top + ev.y * r.height;
@@ -3049,7 +3162,19 @@
     zeigerZustellen(ev);
     strom("zeiger", ev);
   }
-  horch("zeiger", function (d) { zeigerBuendel(d.punkte); });
+  // Eingefroren nimmt dieses Fenster nichts an. Der Saal zeigt dann eine
+  // andere Folie als das Pult, und ein Punkt darauf zeigte auf die falsche
+  // Stelle -- gemessen ging bisher sogar ein Klick in einen eingefrorenen
+  // Rahmen, waehrend der Sprecher zwei Folien weiter auf Text zeigte.
+  horch("zeiger", function (d) {
+    if (FROST) { punktWeg(); return; }
+    zeigerBuendel(d.punkte);
+    // Solange im Saal ein Punkt steht, laeuft die Wache mit. Sie ist die
+    // einzige Stelle, die ein geschlossenes Pult bemerkt -- ohne sie bliebe
+    // ein Punkt stehen, dessen Hand es nicht mehr gibt, bis zum naechsten
+    // Folienwechsel. Sie endet mit dem Punkt.
+    if (ROLLE !== "speaker" && PUNKT_AN) wacheAn();
+  });
 
   // The counterpart in the talk window: what came from the view goes into
   // the frame of the same name. Only on the running slide, since only that
@@ -3107,6 +3232,10 @@
     if (FROST_ZIEL != null) { var z = FROST_ZIEL; FROST_ZIEL = null; fernGoto(z, false); }
   }
   function sichtLoesen() {
+    // Und der Zeigepunkt. Er haengt an einer Hand, die nicht mehr da ist:
+    // ein Pult, das geschlossen wurde, nimmt seinen Punkt sonst nicht mit,
+    // und im Saal stuende er bis zum naechsten Folienwechsel.
+    punktWeg();
     if (document.documentElement.dataset.tsSchwarz) {
       delete document.documentElement.dataset.tsSchwarz;
       schwarzMedien(false);
@@ -3208,7 +3337,7 @@
       // Wache jede per Ziffer gestartete Uhr rund eine Sekunde nach dem
       // Neuladen wieder ab.
       if (!FROST && !document.documentElement.dataset.tsSchwarz
-          && (!UHR || UHR.eigen)) {
+          && (!UHR || UHR.eigen) && !PUNKT_AN) {
         clearInterval(WACHE); WACHE = 0; return;
       }
       // What is measured is the partner, not the clock. `closed` on the
@@ -3237,7 +3366,14 @@
       schwarzMedien(!!d.schwarz);
     }
     if (d.frost != null) {
-      if (d.frost) FROST = 1; else if (FROST) auftauen();
+      // Und der schon stehende Punkt geht mit. Die Schranke in
+      // `horch("zeiger")` faengt nur, was WAEHREND des Frosts ankommt --
+      // gemessen: Punkt auf 0,4/0,4, Taste `e`, die Hand bleibt liegen, und
+      // im Saal stand er weiter; nach zwei Pfeilen am Pult stand er immer
+      // noch dort, auf einer Folie, die das Pult laengst verlassen hatte. Er
+      // ging erst weg, als der Sprecher die Maus wieder bewegte. Ein Punkt
+      // ohne Hand zeigt auf nichts.
+      if (d.frost) { FROST = 1; punktWeg(); } else if (FROST) auftauen();
     }
     // Der dritte Wert. `uhr` ist die ganze Dauer in Sekunden, 0 heisst aus,
     // `uhrLauf` die Nummer des Laufs. An ihr allein haengt, ob neu gestempelt
@@ -4623,6 +4759,9 @@
     document.documentElement.dataset.tsModus = MODUS;
     // A half-drawn stroke and a held press must not survive the switch.
     MALT = 0; ZEIGT = 0; LETZT = null; OFFEN = null; GESETZT = 0;
+    // Und der Punkt auch nicht: er gehoert zum Zeigermodus, und wer zum
+    // Stift greift, zeigt nicht mehr.
+    if (MODUS !== "zeiger" && (PUNKT_AN || partner())) zeigerSenden({ t: "weg" });
     if (ELN.wzKasten) ELN.wzKasten.dataset.modus = MODUS;
     if (ELN.werkzeug) {
       for (var w in ELN.werkzeug) {
@@ -4648,20 +4787,24 @@
         ELN.tupf[t].disabled = MODUS !== "stift";
       }
     }
-  }
-  function modusUm() {
-    var neu = MODUS === "zeiger" ? "stift" : "zeiger";
-    modusSetzen(neu);
-    // Der Zeiger greift nur in eingebettete Dokumente hinein. Auf einer
-    // Textfolie tat er bisher gar nichts und sagte es auch nicht: der
-    // Schalter versprach eine Faehigkeit, die es nur auf manchen Folien
-    // gibt, und das Pult zeigte nicht, auf welchen.
-    if (neu === "zeiger" && current >= 0 && STEPS[current]) {
+    // Die Meldung stand frueher in `modusUm` und damit nur am Tastenweg:
+    // gemessen sagte `m` "nichts zu zeigen", der Knopf daneben schwieg. Sie
+    // steht jetzt hier, wo beide Wege durchkommen -- und sie ist nur noch
+    // dann wahr, wenn ein Deck den Punkt abbestellt hat (`room: (pointer:
+    // false)`) UND auf dieser Folie kein Rahmen liegt. Mit Punkt gibt es auf
+    // jeder Folie etwas zu zeigen.
+    if (MODUS === "zeiger" && PUNKT_AUS && current >= 0 && STEPS[current]) {
       var f = SLIDES[STEPS[current].slide];
       if (f && !f.querySelector("iframe")) {
         hint(wort("pointerNone", "nothing to point at on this slide"));
       }
     }
+  }
+  // Knopf und Taste tun dasselbe: beide gehen durch `modusSetzen`, und dort
+  // steht auch die Meldung. Vorher hing sie an dieser Stelle und damit nur
+  // an der Taste.
+  function modusUm() {
+    modusSetzen(MODUS === "zeiger" ? "stift" : "zeiger");
   }
 
   function farbeSetzen(i) {
@@ -4958,6 +5101,30 @@
       if (weg !== null) tinteSenden({ b: "radier", s: si, n: weg });
     }
 
+    // Ein Schweben erzeugt mehr Ereignisse, als ein Bild zeigen kann.
+    // `strom` buendelt zwar pro Bild, sammelt dabei aber jeden Punkt --
+    // gemessen 4 bis 9 Punkte je Buendel, von denen nur der letzte etwas
+    // bewegt. Hier bleibt darum nur der letzte stehen; ein Zug mit
+    // gedrueckter Taste geht weiter Punkt fuer Punkt hinueber, denn dort
+    // ist die Reihenfolge die Geste.
+    var HIN_TAKT = 0, HIN_P = null;
+    function hinSenden(p) {
+      if (PUNKT_AUS) return;   // kein Punkt, kein Grund fuer die Leitung
+      HIN_P = p;
+      if (HIN_TAKT) return;
+      HIN_TAKT = window.requestAnimationFrame
+        ? requestAnimationFrame(hinRaus) : setTimeout(hinRaus, 16);
+    }
+    function hinRaus() {
+      HIN_TAKT = 0;
+      if (HIN_P) zeigerSenden({ t: "hin", x: HIN_P.x, y: HIN_P.y, k: 0 });
+      HIN_P = null;
+    }
+    function hinAus() {
+      HIN_P = null;
+      zeigerSenden({ t: "weg" });
+    }
+
     B.addEventListener("pointerdown", function (e) {
       if (e.button !== 0) return;
       if (MODUS === "radier") {
@@ -4989,12 +5156,18 @@
         return;
       }
       if (MODUS === "zeiger") {
-        // Only while pressed. A hover would put a message on the wire for
-        // every mouse movement across the slide, and nothing in the hall
-        // would change because of it.
-        if (!ZEIGT) return;
         var pm = anteil(e);
         if (!pm) return;
+        // Frueher ging hier ohne gedrueckte Taste nichts hinueber, und der
+        // Grund stand daneben: im Saal aenderte sich davon nichts. Seit es
+        // den Punkt gibt, aendert sich etwas -- das Schweben *ist* das
+        // Zeigen. Gedrueckt bleibt es wie bisher: der Zug geht in den
+        // Rahmen darunter.
+        if (!ZEIGT) {
+          if (!drin(pm)) { hinAus(); return; }
+          hinSenden(pm);
+          return;
+        }
         zeigerSenden({ t: "move", x: pm.x, y: pm.y, k: 1 });
         e.preventDefault();
         return;
@@ -5030,6 +5203,34 @@
     }
     B.addEventListener("pointerup", schluss);
     B.addEventListener("pointercancel", schluss);
+    // Wer die Folienkopie verlaesst, zeigt nicht mehr. Mit dem Finger
+    // kommt dieses Ereignis nach dem Loslassen von selbst -- der Punkt
+    // haengt also nicht an einer Beruehrung, die niemand mehr haelt.
+    B.addEventListener("pointerleave", function () {
+      if (MODUS === "zeiger") hinAus();
+    });
+    // Und wer in einen spiegelnden Rahmen faehrt. Der bekommt im Zeigermodus
+    // die Maus (Stilblatt, `.ts-bridged[data-spiegel="1"]`), damit eine
+    // Konstruktion sich auch vom Pult aus bedienen laesst -- von da an sieht
+    // die Buehne keine Bewegung mehr, und `pointerleave` kommt nicht, weil der
+    // Rahmen IN der Buehne liegt. Gemessen an einem GeoGebra-Applet: der
+    // Sprecher fuhr aus 0,030/0,522 mitten auf die Konstruktion, und im Saal
+    // stand der Punkt weiter bei 0,030/0,522 -- er zeigte auf eine Stelle, auf
+    // die niemand mehr zeigte. Ein stehengebliebener Punkt ist schlimmer als
+    // keiner. `pointerover` auf dem Rahmenknoten ist der letzte Augenblick,
+    // den dieses Fenster vom Eintritt sieht; die Ereignisse IM Rahmen danach
+    // treten nicht mehr nach aussen.
+    B.addEventListener("pointerover", function (e) {
+      if (MODUS !== "zeiger") return;
+      var z = e.target;
+      if (z && z.closest && z.closest('[data-spiegel="1"]')) hinAus();
+    });
+    // Und wer das Fenster verlaesst. Ein Punkt, der im Saal stehen bleibt,
+    // waehrend das Pult laengst in einem anderen Programm ist, zeigt auf
+    // nichts.
+    addEventListener("blur", function () {
+      if (MODUS === "zeiger") hinAus();
+    });
     // A construction is zoomed with the wheel, and that is worth carrying
     // across too. Not passive, because the page behind it must not scroll
     // along.
@@ -5286,6 +5487,7 @@
     melde(n);
     sprecherStand();
     tinteStand();
+    punktFolie();
     mark();
     // Before the badges are painted: which points count as named can change
     // with the step, and the badges follow from that.
@@ -6668,13 +6870,63 @@
       // veraendert, was ein Lauf misst: `clock().text` liest jetzt die
       // gerasterte Anzeige, und ein Ton hatte im Decklauf bisher ueberhaupt
       // keine Zahl.
-      fassung: 4,
+      //
+      // Fuenf, seit es den Zeigepunkt und `zeiger()` gibt. Ein Lauf, der ihn
+      // misst, faende an einem Deck von gestern keine Punktebene vor und
+      // koennte das nicht von einem abbestellten Punkt (`room: (pointer:
+      // false)`) unterscheiden -- beides sieht von aussen gleich aus und
+      // bedeutet Verschiedenes. Gemessen war das keine graue Sorge: die erste
+      // Fassung von `pruefe-zeiger.js` griff an dieser Oberflaeche vorbei
+      // direkt nach `#ts-punkt`, `.ts-punkt-kern` und `--ts-zeiger`, und wer
+      // einen dieser drei Namen umbenannt haette, haette still gemessene
+      // Nullen bekommen statt einer Klage.
+      fassung: 5,
       // Was zuletzt gespielt wurde, und wie oft ueberhaupt. Ohne den Zaehler
       // liesse sich "hat gespielt" nicht von "spielte schon vorher" trennen.
       klang: function () {
         return { tasten: Object.keys(klangTabelle()),
                  zuletzt: KLANG_ZULETZT, mal: KLANG_MAL };
       },
+      // Der Zeigepunkt, so wie eine Probe ihn ohnehin ausrechnen muesste:
+      // in Bruchteilen der Buehne und in Prozent ihrer Breite, nicht in
+      // Pixeln. Die zwei Fenster sind verschieden gross -- gemessen 622,2 px
+      // am Pult in Chrome und 618,7 px in Firefox, beide gegen 1600 px im
+      // Saal --, und der Punkt steht in Bruchteilen.
+      //
+      // `aus` und `ebene` trennen die zwei Faelle, die von aussen gleich
+      // aussehen: abbestellt (`room: (pointer: false)`) und noch nie gezeigt.
+      // Die Ebene entsteht erst beim ersten Zeigen.
+      //
+      // `zeiger` und nicht `punkt`: `punkt()` ist seit den cue-Gruppen der
+      // Pfeil einer adaptiven Gruppe und schon vergeben. Gemessen: mit beiden
+      // unter demselben Namen gewann der spaetere, und diese Probe bekam aus
+      // `JSON.stringify(pruef.punkt())` schlicht `false` -- ein stiller
+      // Fehlgriff der Art, gegen die `fassung` steht.
+      zeiger: function () {
+        var aus = !!PUNKT_AUS;
+        var farbe = getComputedStyle(document.documentElement)
+                      .getPropertyValue("--ts-zeiger").trim();
+        if (!PUNKT || !PUNKT.isConnected || !B) {
+          return { aus: aus, ebene: false, an: false, x: null, y: null,
+                   px: null, buehne: null, anteil: null, deckkraft: 0,
+                   farbe: farbe };
+        }
+        var k = PUNKT.firstChild.getBoundingClientRect();
+        var r = B.getBoundingClientRect();
+        return {
+          aus: aus, ebene: true, an: !!PUNKT_AN,
+          x: r.width ? +((k.left + k.width / 2 - r.left) / r.width).toFixed(4) : null,
+          y: r.height ? +((k.top + k.height / 2 - r.top) / r.height).toFixed(4) : null,
+          px: +k.width.toFixed(1), buehne: +r.width.toFixed(1),
+          anteil: r.width ? +(k.width / r.width * 100).toFixed(2) : null,
+          // Eigene Zahl und nicht aus `an` abgeleitet: `b` blendet die ganze
+          // Ebene aus, und danach fragt eine Probe anders als danach, ob ein
+          // Punkt gesetzt ist. Zwei Fragen, zwei Zahlen.
+          deckkraft: +getComputedStyle(PUNKT).opacity,
+          farbe: farbe
+        };
+      },
+
       // Die Wanduhr festnageln, wie `uhr()` die Buehnenzeit. Ohne das waere
       // jede Messung an einer Videofrist tagesabhaengig -- und die Frist in
       // `sichtMerken`, die ein Neuladen ueberbrueckt, war bisher ueberhaupt
