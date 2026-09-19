@@ -721,6 +721,37 @@ and the wrong two find each other), the piece gets a name instead.
 
 #v(1fr)
 
+== bleed: to the edge of the canvas
+
+// `bleed` lays its body over the whole canvas: from the top left corner, as
+// wide and as tall as the slide, whatever the margins and the title take. It
+// lies right above the ground and under everything else -- the band with the
+// title and the card further down are drawn on top of it -- and a slide that
+// carries one draws no chrome: no number, no progress bar. It still counts.
+//
+// It stands first in the body, above any other content. A `place` inside it
+// counts from the corner of the canvas; anchored at `bottom`, as below, from
+// the lower edge. The photograph is one of the synthetic plates described in
+// `mosaic-bilder/PROVENANCE.md`.
+#bleed[
+  #image("mosaic-bilder/street.webp", width: 100%, height: 100%, fit: "cover")
+  #place(bottom + left, dx: 40pt, dy: -36pt, anim(at: 2, enter: "fade-up",
+    block(width: 330pt, callout(title: [Tracked inside])[
+      #set text(size: 0.8em)
+      An `anim` in the picture lands on the canvas, as a `morph` would.
+    ])))
+]
+
+#v(1fr)
+
+#align(end, block(width: 380pt, align(start, card(title: [Edge to edge])[
+  #set text(size: 0.8em)
+  The picture reaches all four edges of the slide. The title and this card lie
+  on top of it, and the slide carries no number and no bar.
+])))
+
+#v(1fr)
+
 == Video and flipbook
 
 // Vertically centred: both boxes are shorter than the body, and pinned to the

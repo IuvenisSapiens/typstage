@@ -324,6 +324,91 @@
   else { "" }
 }
 
+/// Trägt eine Folie keinen Titel? Die eine Regel für das Band, die Laufzeile,
+/// das Lesezeichen und die beiden Chrome-Ebenen im HTML.
+///
+/// Leer ist, was nichts zeichnet: nichts, Leerraum, Marken und
+/// Zustandsschreiber, beliebig in Folgen und `styled` verschachtelt. `h` und
+/// `v` zählen dazu, denn `example.typ` schreibt zweimal `== #h(0pt)` für eine
+/// Folie ohne Titel; ohne sie änderte sich sein HTML.
+///
+/// Nicht mehr, was keinen Text hat. Bis dahin entschied `plain-text`, und das
+/// gibt für `$a^2$`, ein `box`, ein Bild und ein `context` "" zurück: solche
+/// Titel verschwanden samt Band ohne ein Wort. Seit eine leere Überschrift
+/// auch die Laufzeile nimmt, verlören sie die noch dazu.
+///
+/// `data-titel` im HTML bleibt bei `plain-text`: ein Attribut ist eine
+/// Zeichenkette, und eine Formel hat dort keinen Namen.
+#let leerer-titel(t) = {
+  if t == none { return true }
+  if type(t) == str { return t.trim() == "" }
+  if type(t) != content { return false }
+  let art = repr(t.func())
+  if art in ("space", "parbreak", "linebreak", "h", "v", "state-update", "counter-update") { return true }
+  if t.func() == text { return t.text.trim() == "" }
+  if t.func() == metadata { return true }
+  if art == "sequence" { return t.children.all(leerer-titel) }
+  if art == "styled" { return leerer-titel(t.child) }
+  false
+}
+
+/// Trägt dieser Titel ein Zeichen, das in einem Lesezeichen stünde?
+///
+/// Nicht `leerer-titel`: der sagt, ob der Titel *zeichnet*, und ein `box`, ein
+/// Bild und eine Formel zeichnen. Ein Lesezeichen ist aber eine Zeichenkette,
+/// und aus einem Bild holt Typst keine. Seit `leerer-titel` über das Band
+/// entscheidet, hing auch das Lesezeichen daran, und `== #box(width: 20pt)`
+/// bekam einen Eintrag ohne Text -- gemessen drei leere Einträge in einem Deck
+/// mit einem Kasten-, einem Bild- und einem `context`-Titel. Ein leerer Eintrag
+/// im Verzeichnis ist schlechter als keiner.
+///
+/// `plain-text` genügt hier nicht: es gibt für `$a^2$` "" zurück, während
+/// Typsts eigene Auszeichnung daraus "a2" macht. Gemessen an dreizehn Titeln
+/// -- Kasten mit Text, Bild mit `alt`, leeres Kästchen, `$a^2$`, `$alpha$`,
+/// `#sym.star`, `raw`, `link`, `strong`, `context`, `figure`, `table`, `v` --
+/// stimmt dieser Gang mit Typsts Lesezeichen in allen dreizehn überein,
+/// `plain-text` in zwölf.
+///
+/// Der tiefe Gang von `bleed-tief`, mit `text` und `raw` als Blatt.
+#let titel-hat-text(c) = {
+  if type(c) == str { return c.trim() != "" }
+  if type(c) != content { return false }
+  if c.func() == text or c.func() == raw { return c.text.trim() != "" }
+  if repr(c.func()) == "symbol" { return true }
+  for (_, v) in c.fields() {
+    if type(v) == content and titel-hat-text(v) { return true }
+    if type(v) == array {
+      for e in v { if type(e) == content and titel-hat-text(e) { return true } }
+    }
+  }
+  false
+}
+
+/// Ist `c` die Marke eines `bleed`?
+///
+/// Die Marke ist *ein* Element mit Etikett, ein `box`. `+` und `join` machten
+/// aus Marke und Wächter eine Folge, und die ginge in der Folge des Rumpfs
+/// auf: das Etikett hinge an nichts mehr, das der Gang wiederfände.
+#let ist-bleed(c) = (type(c) == content
+  and c.at("label", default: none) == <typstage-bleed>)
+
+/// Steht irgendwo in `c` eine `bleed`-Marke?
+///
+/// Der tiefe Gang von `fussnote-im-titel`, über `fields()`: für Titel, Notizen
+/// und den Inhalt eines `bleed` selbst. Im Rumpf wird er nicht gebraucht, dort
+/// meldet sich eine Marke, die niemand herausgezogen hat, beim Setzen selbst.
+#let bleed-tief(c) = {
+  if type(c) != content { return false }
+  if ist-bleed(c) { return true }
+  for (_, v) in c.fields() {
+    if type(v) == content and bleed-tief(v) { return true }
+    if type(v) == array {
+      for e in v { if type(e) == content and bleed-tief(e) { return true } }
+    }
+  }
+  false
+}
+
 /// A speaker note has to carry text, because nothing else reaches the speaker.
 ///
 /// The presenter view transports the note as an HTML attribute, so it can only
@@ -340,6 +425,13 @@
     + "text, so a note made purely of layout -- fit(), a bare rect, an image "
     + "-- would reach neither. Write the note as text. What is meant to be "
     + "seen belongs on the slide, not in the note.")
+  // Eine Notiz mit Text und `bleed` käme an der Prüfung oben vorbei. Gesetzt
+  // wird eine Notiz nur im Handzettel, und dort meldete sich erst der Wächter
+  // der Marke -- mit einem Satz über den Rumpf der Folie, nicht über die Notiz.
+  assert(not bleed-tief(body), message:
+    "typstage: bleed() cannot stand in a speaker note. The note reaches the "
+    + "presenter view as plain text and has no canvas to lay it over. Put "
+    + "bleed() at the top of the slide body.")
 }
 
 /// Largest step number occurring in a selector.
@@ -1192,6 +1284,67 @@
   false
 }
 
+/// Der Inhalt einer `bleed`-Marke: `box` > Folge > erstes Kind `metadata`.
+#let bleed-inhalt(c) = c.body.children.first().value
+
+/// Zieht die `bleed`-Marken aus der obersten Ebene eines Folienrumpfs.
+///
+/// Der flache Gang von `pause-tokens`: in Folgen und in `styled` hinein, und
+/// der Stil reist mit, damit ein `#set` oder `#show` über dem `bleed` auch
+/// dessen Inhalt erreicht. Tiefer nicht. Eine Marke in einem `block`, einem
+/// `grid`, einem `anim` wird nicht gefunden und meldet sich beim Setzen selbst.
+///
+/// Zurück kommt
+/// - `rumpf`: der Rumpf ohne die Marken, ohne Fund das Original. `presentation`
+///   übernimmt ihn nur bei einem Fund; eine Folie ohne `bleed` behält ihren
+///   Rumpf, wie er geschrieben war. Gemessen setzten alle Beispieldecks danach
+///   Seite für Seite wie zuvor, und ihr HTML kam bytegleich heraus;
+/// - `funde`: die Inhalte, jeder mit dem Stil seines Orts;
+/// - `vor`: was vor dem ersten Fund stand, `none`, `"pause"` oder `"inhalt"`;
+/// - `inhalt`: dasselbe für den ganzen Teilbaum, für den Gang eine Ebene höher.
+///
+/// Still, also kein Inhalt davor, sind Leerraum, leerer Text, Zustands- und
+/// Zählerschreiber und Marken außer `#pause`. Damit dürfen `#set`- und
+/// `#show`-Regeln, `#invert`, `#transition`, `#speaker-note` und `#class-clock`
+/// über dem `bleed` stehen; die letzten drei sind Zustandsschreiber. Ein `#v`
+/// davor ist dagegen Inhalt: es nimmt dem Rumpf Platz.
+#let bleed-teilen(c, restyle: x => x) = {
+  if type(c) != content { return (rumpf: c, funde: (), vor: none, inhalt: none) }
+  if ist-bleed(c) {
+    return (rumpf: [], funde: (restyle(bleed-inhalt(c)),), vor: none, inhalt: none)
+  }
+  let art = repr(c.func())
+  if art == "sequence" and c.has("children") {
+    let teile = ()
+    let funde = ()
+    let vor = none
+    let erstes = none
+    for k in c.children {
+      let t = bleed-teilen(k, restyle: restyle)
+      if t.funde.len() > 0 and funde.len() == 0 {
+        vor = if erstes != none { erstes } else { t.vor }
+      }
+      if erstes == none { erstes = t.inhalt }
+      funde += t.funde
+      teile.push(t.rumpf)
+    }
+    if funde.len() == 0 { return (rumpf: c, funde: (), vor: none, inhalt: erstes) }
+    return (rumpf: teile.join(), funde: funde, vor: vor, inhalt: erstes)
+  }
+  if art == "styled" and c.has("child") {
+    let maker = c.func()
+    let st = c.styles
+    let t = bleed-teilen(c.child, restyle: x => restyle(maker(x, st)))
+    if t.funde.len() == 0 { return (rumpf: c, funde: (), vor: none, inhalt: t.inhalt) }
+    return (rumpf: maker(t.rumpf, st), funde: t.funde, vor: t.vor, inhalt: t.inhalt)
+  }
+  let still = (art in ("space", "parbreak", "linebreak", "state-update", "counter-update")
+    or (c.func() == text and c.text.trim() == "")
+    or (c.func() == metadata and c.value != "typstage-pause"))
+  let inhalt = if still { none } else if c.func() == metadata { "pause" } else { "inhalt" }
+  (rumpf: c, funde: (), vor: none, inhalt: inhalt)
+}
+
 /// Wie viele Fußnoten stehen im Rumpf dieses verfolgten Elements?
 ///
 /// Derselbe flache Gang wie `hat-invert` nebenan, nur mit `footnote` als Blatt.
@@ -1578,7 +1731,7 @@
 /// measurement altogether. What still reads high, and is therefore over-
 /// reported: trailing spacing, a `v()` at the end of a body, which takes room
 /// in the measurement but draws nothing.
-#let ueberlauf-pruefen(nr, rumpf, breite, raum, schritte: true) = context {
+#let ueberlauf-pruefen(nr, rumpf, breite, raum, schritte: true, randlos: false) = context {
   // Does it fit at all? Anything that comes back short of the room has
   // settled inside it and is done with.
   if measure(rumpf, width: breite, height: raum).height < raum - ueberlauf-toleranz {
@@ -1588,7 +1741,19 @@
   if hoch - raum <= ueberlauf-toleranz { return }
   // On paper every step stands on the page at once, so there is no step to
   // name and 0 says so.
-  let schritt = if schritte { ueberlauf-schritt(sprites.get(), hoch - raum) } else { 0 }
+  let liste = sprites.get()
+  if schritte and randlos {
+    // Ein `bleed` wird vor dem Rumpf gesetzt, seine Sprites stehen also vorn
+    // in der Liste -- und nehmen dem Rumpf keinen Punkt Platz. Mitgezählt
+    // verschöben sie den Schritt: gemessen an einem `bleed` mit
+    // `anim(at: 2, rect(height: 400pt))` über einem Rumpf, der ab Schritt 1
+    // überläuft, hieß es "ab Schritt 2". Gelesen wird die Marke hinter dem
+    // `bleed` nur hier, wo ein Überlauf schon feststeht, und das Ergebnis geht
+    // in den Bericht und nicht in den Satz.
+    let ende = query(std.selector(<typstage-bleed-ende>).before(here()))
+    if ende.len() > 0 { liste = liste.slice(sprites.at(ende.last().location()).len()) }
+  }
+  let schritt = if schritte { ueberlauf-schritt(liste, hoch - raum) } else { 0 }
   ueberlauf-satz(nr, schritt, hoch, raum)
 }
 

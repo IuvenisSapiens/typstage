@@ -56,7 +56,7 @@ readers who are not in this repository.
 | `pruefe-uhr-ziffern.js` | the digits set the class clock, and a `cue()` slide keeps them |
 | `pruefe-klang.js` | a key plays a sound, in the hall and not at the desk |
 | `pruefe-video-frist.js` | a video ends on the minute the lesson begins |
-| `pruefe-lesezeichen.py` | the PDF carries an outline, one entry per slide |
+| `pruefe-lesezeichen.py` | the PDF carries an outline, one entry per slide, and none of them empty: a heading that draws but carries no character gets no entry |
 | `pruefe-woerter.py` | de, en and fr carry the same runtime words |
 | `pruefe-cue-pfeil.js` | a `cue()` group claims the arrow only when due |
 | `pruefe-cue-folien.js` | a `cue()` group stays on its slide, a layer on its point |
@@ -65,6 +65,8 @@ readers who are not in this repository.
 | `pruefe-papierregel.py` | each PDF page shows what the manual promises: all reveals on a slide page and in the handout, only the last version of what is replaced, and layers on their own step |
 | `pruefe-verzeichnis.py` | `contents()` shows its levels and where the talk stands |
 | `pruefe-ueberlauf.py` | no example deck runs over its slide |
+| `pruefe-vollbild.py` | `bleed` reaches the edges and takes the chrome off, a slide without a title has no running header, what may stand above `bleed` is kept, and every misplaced `bleed` stops with its message |
+| `pruefe-vollbild.js` | sprites inside `bleed` sit on the canvas, morphs fly on and off it, the progress bar hides and comes back, the print view carries no chrome there |
 | `pruefe-desmos.js` | the Desmos bridge, by hand (see below) |
 
 A full deck run takes about 25 minutes, longer than a laptop stays awake. On

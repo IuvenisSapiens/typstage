@@ -40,7 +40,7 @@ tile in the contact sheet, so it is stored at tile size.
 | File | Pixels | Bytes | Where it appears |
 |---|---|---|---|
 | `photographer.webp` | 820x551 | 4 176 | cover, the big number |
-| `street.webp` | 820x551 | 31 976 | contents, the contact sheet, the print |
+| `street.webp` | 820x551 | 31 976 | contents, the contact sheet, the print; the `bleed` slide of `tour.typ` |
 | `facade.webp` | 820x551 | 20 966 | the contact sheet, closing |
 | `trays.webp` | 820x273 | 5 326 | about us |
 | `pier.webp` | 383x570 | 14 254 | the pier, exhibitions |

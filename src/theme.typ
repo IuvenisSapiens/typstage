@@ -26,6 +26,7 @@
 
 #import "config.typ": *
 #import "internal.typ": (cue-basis, deck-info, folien-notizen, html-output,
+                        leerer-titel, titel-hat-text,
                         marker, note-state, notiz-marke-ab,
                         papier-modus, papier-schritt, papier-verborgen,
                         papier-zahlen, im-dokument,
@@ -107,7 +108,10 @@
 /// `fortschritt: false` lässt die Leiste weg -- für die HTML-Ausgabe, wo die
 /// Laufzeit sie selbst zieht. Auf Papier und in der Druckansicht bleibt sie,
 /// wo sie war.
-#let slide-chrome(geo, t, fortschritt: true) = context {
+///
+/// `laufzeile: false` lässt die Laufzeile weg, und nur sie: eine Folie ohne
+/// Titel hat keine. Fußzeile und Fortschritt bleiben.
+#let slide-chrome(geo, t, fortschritt: true, laufzeile: true) = context {
   // Every number below comes out of `info()`, and that is the point of the
   // detour: the deck may call the same function, so a hand-built footer and
   // this one read the same dictionary and cannot disagree.
@@ -131,7 +135,7 @@
     // stage, not to the slide. It stays in place while paging, as does
     // the footer, otherwise the orientation it is meant to give would
     // travel out with the slide.
-    if t.header == "run" {
+    if t.header == "run" and laufzeile {
       let zeile = text(size: 11.5pt * k, fill: t.muted, [#{
         str(n)
         if sect != none [ #h(1fr) #sect ]
@@ -396,10 +400,17 @@
     // `==`. The body then moves up and gets the height the bar would
     // otherwise have occupied, since otherwise a titleless slide would be
     // smaller than one with a title.
-    // `plain-text` used to return `none` for an empty heading rather than "";
-    // it no longer does, and the `!= none` below is the belt beside the braces.
-    let roh = if s.title == none { none } else { plain-text(s.title) }
-    let titel = roh != none and roh.trim() != ""
+    //
+    // Und keine Laufzeile, samt ihrer Höhe. Die blieb bis dahin stehen:
+    // Foliennummer, Abschnitt und Haarlinie über einer Folie, die sonst
+    // nichts oben trägt, und darunter 27pt Luft (bei `themes.lesson`), die der
+    // Rumpf nicht bekam. Leer ist ein Titel, der nichts zeichnet, siehe
+    // `leerer-titel`.
+    let titel = not leerer-titel(s.title)
+    // Der Inhalt eines `bleed`, oder `none`. `presentation` hat ihn schon aus
+    // dem Rumpf gezogen; ob eine Folie randlos ist, steht damit vor jedem
+    // Layout fest.
+    let randlos = s.at("bleed", default: none)
     let bar = t.band-height * k
     let strich = if t.rule-size > 0pt {
       t.rule-size * k + t.title-size * 0.34 * k
@@ -408,8 +419,10 @@
     // without a bar, the title line's height is computed rather than
     // measured: measuring would mean setting the title twice, and the
     // spacing below absorbs the few points of difference anyway.
-    let lauf = lauf-hoehe(t, k)
-    let kopf = if not titel { m.top + lauf } else if t.header == "band" { bar } else {
+    // Eine Folie mit `bleed` trägt kein Chrome, also auch keine Laufzeile, und
+    // ihr Titel rückt um deren Höhe hinauf.
+    let lauf = if titel and randlos == none { lauf-hoehe(t, k) } else { 0pt }
+    let kopf = if not titel { m.top } else if t.header == "band" { bar } else {
       m.top + lauf + t.title-size * 1.35 * k + strich
     }
     let titel-text = text(
@@ -419,6 +432,42 @@
     {
       set rect(fill: t.paper, stroke: none)
       [#rect(width: 100%, height: 100%) <ts-slide-ground>]
+    }
+    // ── bleed: die Leinwand, direkt über dem Grund ─────────────────────────
+    //
+    // Vor dem Band, dem Titel und dem Rumpf gesetzt, also unter ihnen; im
+    // Browser stehen seine Sprites in der Überlagerung vor denen des Rumpfs,
+    // aus demselben Grund, und liegen damit unter ihnen. Der Block ist genau
+    // so groß wie die Leinwand und der Rahmen von `.ts-bg` damit, was er war:
+    // gegen ihn rechnet die Laufzeit jeden Sprite.
+    //
+    // `am-anfang` statt `place(top + left, …)`, aus dem Grund, der bei `raum`
+    // unten steht: in einem Deck, das von rechts liest, gäbe ein `left` jedem
+    // Absatz darin die falsche Seite.
+    //
+    // `set place(top + start)`: ein `place` ohne Anker setzt Typst an die
+    // Stelle im Fluss, und hinter einem Bild in voller Höhe ist die unter der
+    // Leinwand. Gemessen stand ein `morph` mit `dy: 60pt` hinter dem Bild bei
+    // y = 533.56pt statt 60pt -- außerhalb der Folie. Mit der Regel zählt jedes
+    // `place` von der Ecke, wie das Handbuch es sagt. Das Paket setzt seine
+    // eigenen `place` alle mit Anker, und `track` reicht beim Hochziehen
+    // eines `place` einen nicht genannten nicht weiter; die Regel erreicht
+    // also auch `anim(place(dx: …, dy: …, …))`. Ein unverankertes `place` in
+    // einem verschachtelten Block im `bleed` geht damit an dessen Oberkante.
+    //
+    // Durch den `style`-Haken wie der Rumpf: Hintergrund und Sprite werden
+    // getrennt gesetzt und bekommen nur so dieselbe Typografie. Der Haken
+    // läuft auf einer Folie mit `bleed` deshalb zweimal, und einer, der ein
+    // `pad` um alles legt, rückt auch das Bild ein.
+    //
+    // Die Marke dahinter liest nur die Überlaufprüfung: bis zu ihr stehen die
+    // Sprites des `bleed`.
+    if randlos != none {
+      am-anfang(top, none, block(width: geo.width, height: geo.height, {
+        set place(top + start)
+        style(randlos)
+        [#metadata(none) <typstage-bleed-ende>]
+      }))
     }
     if titel and t.header == "band" {
       place(top + left, {
@@ -450,7 +499,12 @@
     // full slide height. In the flow it would push everything below it
     // away, and its `bottom` anchors would refer to itself instead of to
     // the slide.
-    if chrome { place(top + left, slide-chrome(geo, t)) }
+    //
+    // Eine Folie mit `bleed` gar keins: das Bild reicht bis an die Kante, und
+    // eine Nummer, eine Haarlinie oder die Leiste lägen mitten darin.
+    if chrome and randlos == none {
+      place(top + left, slide-chrome(geo, t, laufzeile: titel))
+    }
 
     // The room the deck's content gets, and the one measure the overflow
     // check asks against. Everything else the slide shows, the band, the
@@ -617,7 +671,10 @@
         deck-info.get().data.slide.number, style(s.body), inner, raum,
         // The step is read off the slide's own reveals, and on paper there
         // are none: every step stands on the page at once.
-        schritte: html-output.get()))
+        //
+        // Gemessen wird nur der Rumpf; ein `bleed` läuft nie über. Seine
+        // Sprites stehen aber mit in der Liste, aus der der Schritt kommt.
+        schritte: html-output.get(), randlos: randlos != none))
     }
   }
   // ── Das Lesezeichen dieser Folie ──────────────────────────────────────
@@ -647,7 +704,10 @@
     let titel = s.at("title", default: none)
     // Eine Folie ohne Titel hat nichts zu benennen; ein leerer Eintrag im
     // Verzeichnis ist schlechter als keiner.
-    let leer = titel == none or plain-text(titel).trim() == ""
+    // Und nichts zu benennen hat auch ein Titel, der zwar zeichnet, aber kein
+    // Zeichen trägt: ein Kasten, ein Bild, ein `context`. Der zieht sein Band,
+    // aber Typst holt aus ihm keine Zeile für das Verzeichnis.
+    let leer = leerer-titel(titel) or not titel-hat-text(titel)
     if html-output.get() or not erste or leer { [] } else {
       hide(heading(level: buchtiefe, outlined: false, bookmarked: true, titel))
     }

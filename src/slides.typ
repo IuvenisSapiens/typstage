@@ -69,6 +69,93 @@
 /// whole slide either way, not the part after it.
 #let invert = metadata("typstage-invert")
 
+/// Content laid over the whole canvas, edge to edge.
+///
+/// ```typ
+/// ==
+/// #bleed[
+///   #image("harbour.jpg", width: 100%, height: 100%, fit: "cover")
+///   #place(dx: 480pt, dy: 300pt, morph("k", card[Next stop]))
+/// ]
+/// ```
+///
+/// The body gets the canvas: its origin is the corner the text begins at, its
+/// room the slide's full width and height, whatever the margins, the title
+/// and the running header take. A `place` inside it counts from that corner,
+/// with or without an anchor and behind a picture of full height too. It lies
+/// right above the slide's ground and below everything else: the title and
+/// the rest of the body are drawn on top.
+///
+/// In a deck that reads from the right that corner is the top right one, and a
+/// positive `dx` leads off the slide -- the way Typst's own `place` counts,
+/// here and in the slide body. Spell the anchor out to count from the left:
+/// `#place(top + left, dx: 40pt, dy: 300pt, ..)` lands at (40, 300) in a
+/// Persian deck too, and an `align(start)` around the content keeps the
+/// paragraphs inside it on their own side.
+///
+/// The `style` hook of the deck wraps the bleed as it wraps the slide body: a
+/// hook that indents the body with `pad` indents the picture as well, so it no
+/// longer reaches the edges. And it runs twice on a slide with `bleed`, once
+/// for the canvas and once for the body, so a hook that counts something on
+/// the side counts it twice.
+///
+/// A slide with `bleed` draws no chrome: no running header, no slide number,
+/// no footer line, no progress bar. It still counts. That holds for the
+/// handout too, where the bleeding slide is then the one without a number;
+/// put the number into the bleed yourself where it is wanted on paper.
+///
+/// `#bleed(none)` is the empty canvas, like `#bleed[]`: a slide without chrome
+/// and without a picture. A deck that sets its picture conditionally --
+/// `#bleed(if cover != none { image(cover, ..) })` -- needs that.
+///
+/// It stands at the top level of a regular slide's body, before any other
+/// content -- `#set` and `#show` rules, `#invert`, `#transition`,
+/// `#speaker-note` and `#class-clock` may come first -- and before the first
+/// `#pause`. One per slide.
+#let bleed(body) = {
+  // Eine Marke, kein Element, das etwas setzt: `presentation` zieht sie aus
+  // dem Rumpf, bevor die Pausen ihn schneiden, und `slide-body` legt ihren
+  // Inhalt direkt über den Grund. Was davon abhängt -- keine Laufzeile, kein
+  // Chrome, keine Kopfhöhe -- entscheidet damit der Schlüssel `bleed` der
+  // Folie vor jedem Layout, und keine Lesung fließt in den Satz zurück.
+  //
+  // Der Wächter im `context` wird nur gesetzt, wo niemand die Marke
+  // herausgezogen hat: in einem Block, einem `anim`, auf einer Titelfolie,
+  // außerhalb des Decks. Dort stünde der Inhalt sonst still im Fluss, zwischen
+  // den Rändern, statt bis an die Kante zu reichen. Das `box` hält Inhalt und
+  // Wächter in *einem* Element, das das Etikett trägt (siehe `ist-bleed`).
+  //
+  // Dieser Kommentar steht im Rumpf und nicht über dem `#let`: zwischen den
+  // `///`-Zeilen und der Funktion fand die API-Referenz der Handbücher sie
+  // nicht mehr, gemessen fehlte `bleed` dort ganz.
+  //
+  // `none` wird zu leerem Inhalt. Der Fund reist als *Wert* der Marke, und
+  // `presentation` liest ihn mit `funde.at(0, default: none)`: ein `none`
+  // darin wäre von "kein bleed gefunden" nicht zu unterscheiden, die Folie
+  // behielte ihren Rumpf samt Marke, und der Wächter unten meldete eine
+  // Verschachtelung, die niemand geschrieben hat. Ein Deck, das sein Bild
+  // bedingt setzt -- `#bleed(if bild != none { image(bild, ..) })` --, schreibt
+  // genau das. Leerer Inhalt tut, was `#bleed[]` schon tat: kein Bild, aber
+  // eine Folie ohne Chrome.
+  let body = if body == none { [] } else { body }
+  [#box(width: 0pt, height: 0pt, metadata(body) + context {
+    let stand = deck-info.get()
+    panic("typstage: bleed() was laid out as a part of the page"
+      + (if stand == none or stand.at("nach-deck", default: false) {
+           " outside the deck" }
+         else if stand.data.slide.numbered { " on slide " + str(stand.data.slide.number) }
+         else { " on a title or section slide" })
+      + " instead of being taken out of it, so it cannot reach the edges. It "
+      + "works only at the top level of a regular slide's body: not inside a "
+      + "block, a grid, an align, a list, context, anim, fit, card or "
+      + "alternatives, not below a `#show: it => ...` rule that wraps the rest "
+      + "of the slide into one of those, not on a title or a section slide, and "
+      + "not outside the deck. A label of your own on the call -- `#bleed(..) "
+      + "<mine>` -- lands here too: it takes the place of the label bleed() "
+      + "sets, and the slide finds the layer by that label.")
+  })<typstage-bleed>]
+}
+
 /// A section slide.
 ///
 /// `depth` is the level in the heading hierarchy the section stands on: `1`

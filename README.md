@@ -85,12 +85,12 @@ This file compiles, as it stands, with both commands above.
 ```
 
 `=` opens a section slide and `==` a slide; a bare `==` with nothing after it
-is a slide without a title band. `stagger` reveals a list point by point, and the same
-`morph(<pythagoras>)` on two slides makes the formula fly from the one place to
-the other, growing on the way. Nothing carries a step number: `at` is `auto` by
-default and means *the next free step*, so consecutive reveals number
-themselves. Names are labels or strings: `morph(<pythagoras>, …)` and
-`morph("pythagoras", …)` are the same thing.
+is a slide without a title band and without a running header. `stagger` reveals
+a list point by point, and the same `morph(<pythagoras>)` on two slides makes
+the formula fly from the one place to the other, growing on the way. Nothing
+carries a step number: `at` is `auto` by default and means *the next free
+step*, so consecutive reveals number themselves. Names are labels or strings:
+`morph(<pythagoras>, …)` and `morph("pythagoras", …)` are the same thing.
 
 For a slide that simply unfolds, nothing needs wrapping at all:
 
@@ -180,6 +180,7 @@ else, no Node, no bundler.
 | `info` | what the deck knows about itself: title, slide and step number, section, and with `slide-level` the whole outline — for a footer, a running head or an agenda of your own |
 | `transition`, `speaker-note` | how this slide comes in, and what only you see |
 | `themes`, `theme` | the five built-in looks, and the builder behind them |
+| `bleed` | content over the whole canvas, edge to edge: a photograph under the slide, with places counted from the corner the text begins at and the chrome left off, in the handout too. A `style` hook that pads the body pads the bleed as well, and runs twice on such a slide |
 | `palettes`, `palette:`, `invert` | colour separately from design: five bundled palettes that compose with every theme, a partial override on `presentation`, and one slide set in the palette turned around |
 | `contrast`, `palette-report` | the WCAG contrast of two colours, and the seven pairs the bundled palettes are held to |
 | `video`, `embed`, `flipbook` | media, arbitrary web content in a sandboxed frame, and animation drawn frame by frame by Typst |

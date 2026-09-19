@@ -4243,8 +4243,11 @@ Browserzweig -- auf Papier steht ein Standbild, und das wandert nicht.
 
 === Folien ohne Titel
 
-Ein nacktes `==` lässt den Titelbalken weg; der Rumpf beginnt oben und bekommt
-die Höhe, die sonst der Balken belegt hätte. Das ist die Folienart für die eine
+Ein nacktes `==` lässt den Titelbalken weg; der Rumpf rückt an den oberen Rand
+und bekommt die Höhe, die sonst der Balken belegt hätte. Eine Laufzeile wie die
+von `themes.lesson` -- Foliennummer, Abschnitt, Haarlinie -- entfällt auf einer
+solchen Folie mit, und ihre Höhe bleibt nicht frei. Fußzeile und Fortschritt
+stehen wie auf jeder Folie. Das ist die Folienart für die eine
 große Formel -- und das Ziel eines Morphs, der in die Mitte fliegen soll:
 
 #show-code(```typ
@@ -4256,6 +4259,84 @@ große Formel -- und das Ziel eines Morphs, der in die Mitte fliegen soll:
 
 In der Argumentform sind alle drei Schreibweisen erlaubt: `slide[Rumpf]` ohne
 Titel, `slide(none)[Rumpf]` ausdrücklich ohne, `slide([Titel])[Rumpf]` mit.
+Ohne Titel ist eine Folie, deren Überschrift nichts zeichnet: `==`,
+`slide(none)`, auch `== #h(0pt)`. Eine Überschrift, die nur eine Formel oder
+ein Bild trägt, ist ein Titel und bekommt Band und Laufzeile.
+
+=== bleed -- bis an die Kante
+
+`bleed` legt seinen Inhalt über die ganze Leinwand: Ursprung ist die linke
+obere Ecke der Folie, der Raum ihre volle Breite und Höhe, gleich was Ränder,
+Titel und Laufzeile belegen. Es liegt direkt über dem Grund der Folie und unter
+allem anderen; Titel und Rumpf stehen obenauf.
+
+// check: folgen dateien=hafen.png
+#show-code[```typ
+==
+#bleed[
+  #image("hafen.png", width: 100%, height: 100%, fit: "cover")
+  #place(dx: 480pt, dy: 300pt, morph(<schild>, card[Wie weit ist es?]))
+]
+```]
+
+Ein `place` in `bleed` rechnet von der Ecke der Leinwand, auch ohne Anker und
+auch hinter einem Bild in voller Höhe. Es ist die Ecke, an der die Schrift
+beginnt: in einem Deck, das von rechts liest, die rechte obere, und ein
+positives `dx` führt von dort nach rechts aus der Folie hinaus. So rechnet
+Typsts `place` überall, auch im Rumpf und ohne dieses Paket. Wer von links
+zählen will, schreibt den Anker aus -- `#place(top + left, dx: 40pt, dy: 300pt,
+…)` landet auch in einem persischen Deck genau bei (40, 300) --, und ein
+Absatz in einem so gesetzten Block richtet sich dann nach links aus, bis
+`align(start)` um den Inhalt ihn zurückstellt.
+
+`anim`, `cue` und `morph` darin arbeiten wie überall: das Schild fliegt von der
+Folie davor auf das Bild und von dort auf die nächste. Der Haken `style` legt
+sich um den Inhalt von `bleed` wie um den Rumpf; ein `style`, der den Rumpf mit
+`pad` einrückt, rückt auch das Bild ein. Und er läuft auf einer randlosen Folie
+zweimal, weil Bild und Rumpf getrennt gesetzt werden: ein Haken, der nebenbei
+zählt oder einen Zustand schreibt, tut das dort doppelt.
+
+Eine Folie mit `bleed` zeichnet kein Chrome: keine Laufzeile, keine
+Foliennummer, keine Fußlinie, keinen Fortschritt -- auf Papier, im Browser und
+in dessen Druckansicht. Mitgezählt wird sie trotzdem, und auf der nächsten Folie
+steht die Leiste mit deren Stand wieder da. Auch der Handzettel ist ein PDF:
+dort steht die randlose Folie als einzige ohne ihre Nummer. Wer sie im Gespräch
+benennen können will, setzt die Nummer selbst in das `bleed` -- dort liegt sie
+auf der Leinwand und kommt mit. Die Überlaufprüfung misst nur den
+Rumpf; was in `bleed` steht, läuft nie über.
+
+#warning[
+  `bleed` steht oben im Rumpf einer gewöhnlichen Folie, vor anderem Inhalt und
+  vor dem ersten `#pause`, einmal je Folie. Davor dürfen `#set`- und
+  `#show`-Regeln stehen, `#invert`, `#transition`, `#speaker-note` und
+  `#class-clock`. Es wird vor dem Rumpf gesetzt; weiter unten geschrieben,
+  folgten Schritte, Fußnotenzahlen und Stapelung einer anderen Reihenfolge als
+  der Quelle. Deshalb bricht die Übersetzung ab, statt still umzusortieren:
+
+  // check: folgen bricht=comes_after_other_content
+  #show-code[```typ
+  ==
+  Wie weit ist es?
+  #bleed(rect(width: 100%, height: 100%, fill: blue))
+  ```]
+
+  Ebenso bei `bleed` in einem Titel, in einer Notiz, außerhalb des Decks und in
+  einem Block, einem Raster, einer Liste, `align`, `context`, `anim`, `fit`,
+  `card` oder `alternatives` -- auch unter einer Regel `#show: it => block(it)`,
+  die den Rest der Folie in einen Block legt. Was erst später erscheinen soll,
+  steht in `bleed` in einem `anim`.
+]
+
+#info[
+  *Was im Browser obenauf liegt.* Verfolgte Elemente -- `anim`, `cue`, `morph`
+  -- zeichnet der Browser in einer eigenen Ebene über der Folie. Ein Bild in
+  `bleed` bleibt deshalb besser unverfolgt; stünde es selbst in einem `anim`,
+  läge es im Browser über dem Text des Rumpfs, auf Papier darunter.
+
+  *Was ein Bild kostet.* Im HTML trägt jede Folie ihr Bild eigens eingebettet.
+  Zwei Folien mit demselben Foto tragen es zweimal; ein Foto für den Beamer
+  braucht selten mehr als 1920 Bildpunkte in der Breite.
+]
 
 == Labels: jede gebaute Form ansprechen
 

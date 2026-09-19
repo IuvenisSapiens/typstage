@@ -946,8 +946,10 @@ html[data-ts-schwarz="1"] #ts-clock:not([data-art="fest"]){opacity:0}
   .ts-bg,.ts-ov{transform:none!important}
   /* `#ts-clock` steht mit in dieser Liste, sonst laege eine schwarze
      Countdown-Seite im Handout -- gemessen. Auf Papier gibt es keine
-     Pause, die zu Ende geht. */
-  #ts-overview,#ts-hint,#ts-fly,#ts-chrome,#ts-ink,#ts-clock,
+     Pause, die zu Ende geht. `#ts-fortschritt` ebenso: jedes Blatt traegt
+     seine Leiste im Druck-Chrome, und die der Buehne lag sonst mit dem
+     Stand der Folie, auf der der Vortrag gerade war, ueber Blatt eins. */
+  #ts-overview,#ts-hint,#ts-fly,#ts-chrome,#ts-fortschritt,#ts-ink,#ts-clock,
   #ts-speaker{display:none!important}
   /* Printing produces the same thing from both windows. The speaker
      view's rules are more specific than the print rule above and would

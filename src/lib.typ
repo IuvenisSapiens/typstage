@@ -24,6 +24,8 @@
   slide, section, title-slide, transition, speaker-note, class-clock,
   // One slide in the palette turned around, for the heading notation.
   invert,
+  // Content over the whole canvas, edge to edge, with the chrome left off.
+  bleed,
   // What the deck knows about itself, so a deck can build its own chrome
   // instead of forking the theme. `info` says where it stands,
   // `deck-outline` how the whole thing is cut.

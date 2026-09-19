@@ -846,11 +846,40 @@
       (head,) + rest
     } else { rest }
   }
+  // Wo eine Folie steht, für die Meldungen um `bleed`: ihr Titel, sonst ihre
+  // Nummer. Eine Zeile im Deck kann keine davon nennen, die Marke ist dort
+  // längst ein Wert.
+  let wo(i) = {
+    let s = all.at(i)
+    let name = plain-text(s.at("title", default: none)).trim()
+    // Die Art vor dem Namen. Ohne sie hieß eine Abschnittsfolie mit Titel hier
+    // "the slide \"Abschnitt\"", und wer das las, suchte nach einem `==`, das
+    // es nicht gibt -- während dieselbe Stelle ohne Titel schon immer richtig
+    // "a section slide" sagte.
+    let art = if s.kind == "section" { "the section slide " }
+              else if s.kind == "title" { "the title slide " }
+              else { "the slide " }
+    if name != "" { art + "\"" + name + "\"" }
+    else if s.kind == "slide" {
+      "slide " + str(all.slice(0, i + 1).filter(x => x.kind == "slide").len())
+    } else if s.kind == "section" { "a section slide" } else { "the title slide" }
+  }
   // Eine Fußnote in der Überschrift bricht ab, statt still falsch zu stehen:
   // der Titel wird wiederholt, und jede Wiederholung setzt sie neu. Vor der
   // Abzweigung darunter, denn eine Titel- oder Abschnittsfolie hat keinen
   // Rumpf und käme dort nie vorbei.
-  for s in all {
+  //
+  // Ein `bleed` im Titel ebenso, und aus demselben Grund hier: auch
+  // `section(bleed(…))` und `presentation(title: bleed(…))` sind Titel. Gesetzt
+  // meldete sich erst der Wächter der Marke, und der spricht vom Rumpf.
+  for (i, s) in all.enumerate() {
+    if bleed-tief(s.at("title", default: none)) {
+      panic("typstage: bleed() cannot stand in a title, and it does on "
+            + wo(i) + ". A title is drawn in its band and repeated in the "
+            + "running header, the contents and the speaker view, and a layer "
+            + "the size of the canvas fits none of them. Put bleed() at the top "
+            + "of the slide body, directly below the heading.")
+    }
     if fussnote-im-titel(s.at("title", default: none)) {
       panic("typstage: a footnote in a slide title cannot work. The title is "
             + "repeated -- as a running head above the slides of its section, "
@@ -861,14 +890,58 @@
             + plain-text(s.title))
     }
   }
-  let all = all.map(s => if s.body == none { s } else {
+  let all = all.enumerate().map(((i, s)) => if s.body == none { s } else {
+    // `bleed` kommt aus dem Rumpf, bevor die Pausen ihn schneiden: danach
+    // stünde eine Marke hinter einer Pause in einem `anim` und wäre für den
+    // flachen Gang verloren. Nur bei einem Fund bekommt die Folie einen neuen
+    // Rumpf und den Schlüssel `bleed`; jede andere bleibt, wie sie war.
+    //
+    // Umsortiert wird nichts. Ein `bleed` weiter unten, hinter einer Pause
+    // oder zweimal bricht ab: es wird zuerst gesetzt, und still nach vorn
+    // geholt folgten die Schritte, die Fußnotenzahlen und die Stapelung der
+    // Sprites einer anderen Reihenfolge als der Quelle.
+    let geteilt = bleed-teilen(s.body)
+    let randlos = geteilt.funde.at(0, default: none)
+    if geteilt.funde.len() > 1 {
+      panic("typstage: " + wo(i) + " holds " + str(geteilt.funde.len())
+            + " bleed() calls, and a slide has one canvas. Put everything that "
+            + "goes edge to edge into a single bleed().")
+    }
+    if geteilt.vor == "pause" {
+      panic("typstage: bleed() on " + wo(i) + " stands behind a #pause. It is "
+            + "the layer right above the slide's ground and stands from the first "
+            + "step, so the pause would be ignored without a word. Move bleed() "
+            + "above the first #pause; to bring a part of it in later, wrap that "
+            + "part in anim() inside the bleed().")
+    }
+    if geteilt.vor == "inhalt" {
+      panic("typstage: bleed() on " + wo(i) + " comes after other content. It "
+            + "is laid out first, right above the slide's ground, and the rest of "
+            + "the slide lies on top of it -- written further down, the steps, "
+            + "the footnote numbers and the stacking would follow another order "
+            + "than the source. Move it to the top of the slide body; #set and "
+            + "#show rules, #invert, #transition, #speaker-note and #class-clock "
+            + "may stand above it.")
+    }
+    if randlos != none and hat-pause(randlos) {
+      panic("typstage: a #pause inside bleed() on " + wo(i) + " does nothing. "
+            + "The pauses of a slide are cut from its body, and bleed() is taken "
+            + "out of the body before that. Wrap the part that comes in later in "
+            + "anim() instead.")
+    }
+    if randlos != none and bleed-tief(randlos) {
+      panic("typstage: bleed() inside bleed() on " + wo(i) + ". The outer one "
+            + "already covers the canvas; drop the inner call.")
+    }
+    let s = if randlos == none { s } else { s + (body: geteilt.rumpf, bleed: randlos) }
     // The marker is looked for in the body as it was written, before the
     // pauses cut it into runs: after that, a marker standing behind a pause
     // sits inside an `anim` wrapper and the walk would miss it. The title is
     // searched too, because in heading notation `== A slide #invert` is the
     // place the marker naturally lands, and it went unseen there.
     s + (invert: s.at("invert", default: false)
-                 or hat-invert(s.body) or hat-invert(s.title),
+                 or hat-invert(s.body) or hat-invert(s.title)
+                 or (randlos != none and hat-invert(randlos)),
          body: apply-pauses(s.body))
   })
   let total = all.filter(s => s.kind == "slide").len()
@@ -1108,6 +1181,20 @@
   // The branch has to enclose the *whole* build, not just the output: in
   // paged mode the module `html` does not even exist, so an `html.elem` in the
   // dead branch would already be an error.
+  // Der Vermerk am Deckende, für alle drei Zweige. Ohne ihn behielte
+  // `deck-info` hinter dem Deck den Stand der letzten Folie, und was danach im
+  // Dokument steht, läse ihn: ein `#bleed` hinter der schließenden Klammer von
+  // `presentation` meldete sich mit "on slide 13" statt "outside the deck".
+  //
+  // Ein Vermerk und kein `none`: `info()` gibt hinter dem Deck weiter die
+  // Zahlen der letzten Folie aus, wie sein Docstring es zusagt, und alles, was
+  // `deck-info` liest, liest es unverändert weiter. Gelöscht wurde der Stand
+  // hier einmal, und das kostete die Konvergenz (siehe `info()`).
+  //
+  // Er steht in jedem Zweig zuletzt, hinter allen Berichten, die selbst noch
+  // lesen.
+  let deck-ende = deck-info.update(
+    x => if x == none { none } else { (..x, nach-deck: true) })
   context if target() != "html" and handout != false {
     let per = if handout == true { 2 } else { handout }
     assert(type(per) == int and per >= 1 and per <= 6,
@@ -1141,6 +1228,7 @@
     ueberlauf-bericht(ueberlauf-handzettel)
     cue-luecken-bericht()
     drift-bericht(drift)
+    deck-ende
   } else if target() != "html" {
     set page(width: geo.width, height: geo.height, margin: 0pt)
     theme-state.update(thema-hell)
@@ -1279,8 +1367,13 @@
           // fände der Verweis es einmal je Schritt und bräche ab. Hier der
           // Rumpf selbst; was ein aufdeckendes Element in sich trägt, nimmt
           // `track` (siehe `ohne-verweislabel` in internal.typ).
+          //
+          // Der Inhalt eines `bleed` wird auf jeder Seite der Folie neu gesetzt
+          // wie der Rumpf und braucht dasselbe: gemessen brach eine Abbildung
+          // mit Label darin sonst mit "label `<abb>` occurs multiple times" ab.
           let s = if j == 0 or s.at("body", default: none) == none { s } else {
-            s + (body: ohne-verweislabel(s.body))
+            s + (body: ohne-verweislabel(s.body)) + (
+              if "bleed" in s { (bleed: ohne-verweislabel(s.bleed)) } else { (:) })
           }
           seiten.push((if j == 0 { slide-counter.step() } else { none })
                  + zaehler-vor
@@ -1351,6 +1444,7 @@
     // Papierfassung, die beide weiter pruefen.
     if pages != "step" { cue-luecken-bericht() }
     drift-bericht(drift)
+    deck-ende
   } else {
     html-output.update(true)
     zaehler-je-dokument()
@@ -1397,7 +1491,11 @@
       }
       chrome-teile.push(html.elem("div",
         attrs: (class: "ts-chrome", ..if anteil != none { ("data-anteil": anteil) }),
-        if s.kind == "slide" {
+        // Eine Folie mit `bleed` bekommt einen leeren Eintrag wie eine
+        // Abschnittsfolie, aber mit ihrem Anteil: die Laufzeit nimmt die Leiste
+        // an einem Eintrag ohne Kinder weg und führt ihren Stand trotzdem nach,
+        // und die Einträge passen weiter nach Index zu den Folien.
+        if s.kind == "slide" and "bleed" not in s {
           // The step is said out loud as well, even though the chrome prints
           // no step: chrome stands inside no reveal, so its step is the first
           // one. Without it the reading would hang off whatever the last
@@ -1408,7 +1506,8 @@
           deck-info.update(hier)
           step-here.update(())
           sprite-number.update(none)
-          html.frame(slide-chrome(geo, thema(s), fortschritt: false))
+          html.frame(slide-chrome(geo, thema(s), fortschritt: false,
+                                  laufzeile: not leerer-titel(s.title)))
         } else { [] }))
       parts.push({
         slide-counter.step()
@@ -1467,11 +1566,14 @@
           // layer above the stage cannot travel along there, because the
           // slides stand one below another. On screen this one stays
           // hidden.
-          if s.kind == "slide" {
+          //
+          // Keins auf einer Folie mit `bleed`, wie auf der Bühne.
+          if s.kind == "slide" and "bleed" not in s {
             html.elem("div", attrs: (class: "ts-chromep"), {
               step-here.update(())
               sprite-number.update(none)
-              html.frame(slide-chrome(geo, thema(s)))
+              html.frame(slide-chrome(geo, thema(s),
+                                      laufzeile: not leerer-titel(s.title)))
             })
           }
           context {
@@ -1774,6 +1876,7 @@
             sp: worte.sp,
           )) + "}")
     if assets == "inline" { html.elem("script", runtime-js) } else { links.js }
+    deck-ende
   }
 }
 

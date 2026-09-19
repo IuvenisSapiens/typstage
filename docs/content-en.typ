@@ -3601,8 +3601,11 @@ a single still image stands there, and a still image does not travel.
 
 === Slides without a title
 
-A bare `==` leaves the title band off; the body starts at the top and gets the
-height the band would have taken. This is the slide for the one large formula,
+A bare `==` leaves the title band off; the body moves up to the top margin and
+gets the height the band would have taken. A running header such as the one of
+`themes.lesson` -- slide number, section, hairline -- goes with it, and its
+height is not held back either. Footer and progress stand as on every slide.
+This is the slide for the one large formula,
 and the target of a morph that is to fly into the middle:
 
 #show-code(```typ
@@ -3614,6 +3617,84 @@ and the target of a morph that is to fly into the middle:
 
 In the argument form all three spellings are allowed: `slide[body]` without a
 title, `slide(none)[body]` explicitly without, `slide([Title])[body]` with.
+A slide is without a title when its heading draws nothing: `==`, `slide(none)`,
+also `== #h(0pt)`. A heading that carries only a formula or a picture is a
+title and gets its band and its running header.
+
+=== bleed: to the edge of the canvas
+
+`bleed` lays its body over the whole canvas: its origin is the slide's top left
+corner, its room the slide's full width and height, whatever the margins, the
+title and the running header take. It lies right above the slide's ground and
+below everything else; the title and the body are drawn on top.
+
+// check: folgen dateien=harbour.png
+#show-code[```typ
+==
+#bleed[
+  #image("harbour.png", width: 100%, height: 100%, fit: "cover")
+  #place(dx: 480pt, dy: 300pt, morph(<sign>, card[How far is it?]))
+]
+```]
+
+A `place` inside `bleed` counts from the corner of the canvas, without an
+anchor too and behind a picture of full height too. It is the corner where the
+text begins: in a deck that reads from the right it is the top right one, and a
+positive `dx` leads from there off the slide to the right. That is how Typst's
+`place` counts everywhere, in the slide body as well and without this package.
+To count from the left, spell the anchor out -- `#place(top + left, dx: 40pt,
+dy: 300pt, …)` lands at exactly (40, 300) in a Persian deck too --, and a
+paragraph inside a block placed that way then aligns to the left until an
+`align(start)` around the content puts it back.
+
+`anim`, `cue` and `morph` inside work as anywhere else: the sign flies in from
+the slide before and on to the next one. The `style` hook wraps the body of
+`bleed` as it wraps the slide body; a `style` that indents the body with `pad`
+indents the picture as well. And on a slide with `bleed` the hook runs twice,
+because picture and body are laid out separately: a hook that counts something
+on the side, or writes a state, does so twice there.
+
+A slide with `bleed` draws no chrome: no running header, no slide number, no
+footer line, no progress bar -- on paper, in the browser and in its print view.
+It still counts, and on the next slide the bar is back with that slide's
+reading. The handout is a PDF as well: there the bleeding slide is the one
+slide without its number. To be able to name it in a conversation, put the
+number into the `bleed` yourself -- there it lies on the canvas and comes
+along. The overflow check measures the body alone; what stands in `bleed`
+never overruns.
+
+#warning[
+  `bleed` stands at the top of a regular slide's body, before other content and
+  before the first `#pause`, once per slide. `#set` and `#show` rules,
+  `#invert`, `#transition`, `#speaker-note` and `#class-clock` may come first.
+  It is laid out before the body; written further down, the steps, the footnote
+  numbers and the stacking would follow another order than the source. So the
+  build stops instead of reordering without a word:
+
+  // check: folgen bricht=comes_after_other_content
+  #show-code[```typ
+  ==
+  How far is it?
+  #bleed(rect(width: 100%, height: 100%, fill: blue))
+  ```]
+
+  The same for `bleed` in a title, in a note, outside the deck, and inside a
+  block, a grid, a list, `align`, `context`, `anim`, `fit`, `card` or
+  `alternatives` -- also below a rule `#show: it => block(it)`, which lays the
+  rest of the slide into a block. What is to appear later stands inside `bleed`
+  in an `anim`.
+]
+
+#info[
+  *What lies on top in the browser.* Tracked elements -- `anim`, `cue`, `morph`
+  -- are drawn by the browser on a layer of their own above the slide. So a
+  picture in `bleed` is best left untracked; wrapped in an `anim` itself, it
+  would lie over the body's text in the browser and under it on paper.
+
+  *What a picture costs.* In the HTML every slide carries its picture embedded
+  on its own. Two slides with the same photograph carry it twice; a photograph
+  for a projector rarely needs more than 1920 pixels across.
+]
 
 == Labels: reaching every shape the package builds
 

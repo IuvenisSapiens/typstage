@@ -8,6 +8,26 @@ All notable changes to this package are recorded here. The format follows
 
 ### Added
 
+- **`bleed` -- content to the edge of the canvas.** `#bleed[#image("x.jpg",
+  width: 100%, height: 100%, fit: "cover")]` fills the slide edge to edge: the
+  body's origin is the canvas corner and its room the whole slide, whatever the
+  margins, the title and the running header take, and a `place` inside counts
+  from that corner even without an anchor. It lies right above the slide's
+  ground and under the title and the body. A slide with `bleed` draws no chrome
+  -- no running header, number, footer line or progress bar -- on paper, in the
+  browser and in its print view; it still counts, and the bar comes back on the
+  next slide. `anim`, `cue` and `morph` inside work as anywhere: sprites land
+  on the canvas and morph chains to the neighbouring slides fly. It is taken out
+  of the body before the pauses are cut, so it must stand at the top of a
+  regular slide's body, once, before the first `#pause`; anywhere else the
+  build stops with a message saying where. `#bleed(none)` is the empty canvas,
+  like `#bleed[]`, so a deck can set its picture conditionally. The overflow
+  check does not measure it. Two things to know: the `style` hook of the deck
+  wraps the bleed as well, so a hook that pads the body pads the picture, and
+  it runs twice on such a slide; and in the handout the bleeding slide is the
+  one without a number. Reported from a Year 5 deck that laid four quartet
+  cards over a photograph.
+
 - **The digits set the class clock.** `3` starts three minutes, `7` seven, `0`
   ends it again -- for the question at the start of the lesson and the minute of
   talking in pairs, where the hand is on the keyboard anyway and a number is
@@ -77,6 +97,27 @@ All notable changes to this package are recorded here. The format follows
 
 ### Changed
 
+- **A slide without a title has no running header.** A bare `==` or
+  `slide(none)` used to drop only the title band: under `themes.lesson` slide
+  number, section and hairline stayed on top and their height stayed reserved.
+  Both go now, on paper, in the chrome layer and in the print view; footer and
+  progress stay. Slides with a title are unchanged: measured on the seventeen
+  example decks before the tour gained its `bleed` slide, every page image and
+  every HTML file came out the same.
+
+- **A title is empty when it draws nothing, not when it has no text.** The
+  decision used to go through the heading's plain text, so `== $a^2$`, a logo
+  in a `box` or a `context` title counted as no title and vanished without a
+  word. Now only nothing, space, `h`/`v` and markers count as empty; `== #h(0pt)`
+  stays a slide without a title. Such a heading therefore draws its band and
+  its running header now, and the body loses their height: measured under
+  `themes.lesson` with a logo in a `box`, the body starts 32.4pt further down
+  than before, at 117.6pt from the top instead of 85.2pt. A deck that filled
+  such a slide to the brim and builds with `overflow: "error"` can stop where
+  it used to go through. The PDF bookmark still follows the text: a heading
+  that draws but carries no character -- a picture, an empty `box`, a `context`
+  -- gets no entry, because an empty line in the contents is worse than none.
+
 - **`pages: "step"` does not check the PDF for overflow.** Every step page sets
   the same body as the one page per slide, so measuring each of them only
   repeated the same finding once per step -- and the measurement cost a layout
@@ -101,6 +142,12 @@ All notable changes to this package are recorded here. The format follows
   number.
 
 ### Fixed
+
+- **The print view carries no stage progress bar.** `#ts-fortschritt` was left
+  out of the print rule, so printing from the browser put the bar of the slide
+  the talk stood on across the first page, over the bar that page carries itself.
+  Measured on a four-slide deck printed from its last slide: page one showed a
+  bar across 99.9 % of its width instead of its own quarter.
 
 - **Paper prints what the manual promises again.** On paper `after` does
   nothing, the manual says, and a page shows every step at once. Since

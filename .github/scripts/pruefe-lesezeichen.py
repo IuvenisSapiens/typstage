@@ -25,7 +25,10 @@ Geprüft wird:
      Verzeichnis und zeigte unter `pages: "step"` auf Seiten, auf denen er
      gar nicht steht -- genau das war der Anlass der Meldung.
   6. `pages: "step"` gibt ein Lesezeichen je FOLIE und nicht je Schritt.
-  7. Eine Folie ohne Titel bekommt keinen leeren Eintrag.
+  7. Eine Folie ohne Titel bekommt keinen leeren Eintrag. Ebenso eine, deren
+     Überschrift zwar zeichnet, aber kein Zeichen trägt: ein Bild, ein leeres
+     `box`, ein `context`. Ein Titel mit Text -- auch `$a^2$`, aus dem Typst
+     „a2" macht -- bekommt seinen Eintrag.
   8. Der Handzettel trägt seine Lesezeichen ebenfalls.
   9. Und dasselbe für das SPRUNGZIEL, auf das `contents()` verweist: eines je
      Folie, in BEIDEN Seitenfassungen. Es hing an derselben Frage wie das
@@ -123,6 +126,18 @@ DECKS = {
         "  slide([Ein Satz ohne Titel.]),\n"
         "  slide([Mit Titel], [Zwei.]),\n"
         ")\n"),
+    # Vier Überschriften, die zeichnen: drei ohne ein Zeichen (Kasten, Bild,
+    # `context`), eine mit (die Formel). Seit eine leere Überschrift auch die
+    # Laufzeile nimmt, entscheidet über Band und Laufzeile, ob der Titel
+    # *zeichnet* -- über das Lesezeichen aber muss weiter entscheiden, ob er
+    # ein Zeichen trägt. Sonst stehen hier drei leere Zeilen im Verzeichnis.
+    "zeichnender_titel": KOPF.format(mehr="") + (
+        "= Alpha\n"
+        "== #box(width: 20pt, height: 10pt)\nEins.\n"
+        "== #image(\"punkt.svg\", width: 20pt)\nZwei.\n"
+        "== #context [X]\nDrei.\n"
+        "== $a^2$\nVier.\n"
+        "== Mit Wort\nFünf.\n"),
     "handzettel": KOPF.format(mehr=", handout: true") + (
         "= Alpha\n== A1\nEins.\n== A2\nZwei.\n"),
     # Vier Folien, davon eine mit Aufdecker -- die verlor ihr Sprungziel.
@@ -144,6 +159,9 @@ def main():
         return 1
     tmp = tempfile.mkdtemp(prefix="typstage-lz-")
     paket = paketwurzel(tmp)
+    Path(os.path.join(tmp, "punkt.svg")).write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+        '<circle cx="5" cy="5" r="4" fill="#c00"/></svg>', encoding="utf-8")
     klagen = []
     gebaut = {}
     for name, quelle in DECKS.items():
@@ -198,6 +216,20 @@ def main():
     v = eintraege("ohne_titel")
     if any(t.strip() == "" for t, _, _ in v):
         klagen.append("7. eine Folie ohne Titel bekam einen leeren Eintrag")
+
+    # ── 7b: eine Überschrift, die zeichnet, aber kein Zeichen trägt ─────────
+    v = eintraege("zeichnender_titel")
+    namen = [t for t, _, _ in v]
+    leere = [t for t in namen if t.strip() == ""]
+    if leere:
+        klagen.append(f"7. {len(leere)} leere(r) Eintrag im Verzeichnis: {namen} "
+                      f"-- ein Bild, ein leeres box oder ein context im Titel "
+                      f"gehört in kein Lesezeichen")
+    if v and len(namen) != 4:
+        klagen.append(f"7. {namen} statt vier Einträgen (Titel, Alpha, die "
+                      f"Formel, „Mit Wort“): entweder ist ein zeichnender "
+                      f"Titel ohne Zeichen mitgekommen, oder der Formeltitel, "
+                      f"aus dem Typst Text holt, ist verlorengegangen")
 
     # ── 8: der Handzettel ───────────────────────────────────────────────────
     if "handzettel" in gebaut and not eintraege("handzettel"):

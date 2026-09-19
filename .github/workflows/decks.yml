@@ -104,6 +104,20 @@ jobs:
       - name: Kein Deck ragt aus seiner Folie
         run: python3 .github/scripts/pruefe-ueberlauf.py
 
+      # Reicht `bleed` bis an die Kante, und fehlt dort das Chrome? Hat eine
+      # Folie ohne Titel keine Laufzeile mehr? Das Standardthema zeigte auf
+      # einer titellosen Folie auch vorher keine; die Probe nimmt deshalb
+      # `themes.lesson` mit Bruchzahl und Leiste. Farben statt Glyphen: jedes
+      # Stück Chrome trägt über sein Label eine eigene.
+      - name: bleed und Folien ohne Titel auf Papier
+        run: python3 .github/scripts/pruefe-vollbild.py
+
+      # Dasselbe Deck im Browser: sitzen die Sprites im Bild auf der Leinwand,
+      # fliegen die Morphs hinein und hinaus, geht die Leiste und kommt sie
+      # wieder, und trägt die Druckansicht kein Chrome?
+      - name: bleed im Browser
+        run: node .github/scripts/pruefe-vollbild.js
+
       # Springt das Inhaltsverzeichnis wirklich? Typst schreibt interne Ziele
       # als erzeugte DOM-Namen, und ob der Klick auf dem richtigen Schritt
       # landet, sagt nur der Browser. Der Rückweg ist der Teil, an dem eine

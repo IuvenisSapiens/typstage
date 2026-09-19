@@ -1380,12 +1380,12 @@
     if (!FORTSCHRITT) return;
     var c = CHROME[i];
     if (!c) return;
-    // Eine Folie ohne Chrome ist eine Titel- oder Abschnittsfolie. Dort
-    // zeichnet das Theme nichts an den Rand, und die Leiste hat dort ebenso
-    // wenig zu suchen -- gemeldet aus einem echten Deck: sie stand plötzlich
-    // unter einer Abschnittsfolie, wo nie eine war. Sie geht also mit dem
-    // Chrome mit; ihr *Stand* wird trotzdem nachgeführt, damit sie beim
-    // Wiederauftauchen richtig steht.
+    // Eine Folie ohne Chrome ist eine Titel- oder Abschnittsfolie oder eine
+    // mit `bleed()`. Dort zeichnet das Theme nichts an den Rand, und die
+    // Leiste hat dort ebenso wenig zu suchen -- gemeldet aus einem echten
+    // Deck: sie stand plötzlich unter einer Abschnittsfolie, wo nie eine war.
+    // Sie geht also mit dem Chrome mit; ihr *Stand* wird trotzdem nachgeführt,
+    // damit sie beim Wiederauftauchen richtig steht.
     var traegt = c.children.length > 0;
     FORTSCHRITT.style.opacity = traegt ? "1" : "0";
     var a = c.dataset.anteil;
