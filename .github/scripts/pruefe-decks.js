@@ -93,6 +93,29 @@ const args = process.argv.slice(2);
 const hat = n => args.indexOf(n) >= 0;
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 
+// Die Bauordner dieses Laufs: der Paketpfad, die Kopien ohne GeoGebra, die
+// übersetzten Prüfdecks und ihr Papier. Jeder entsteht über `bauordner` und
+// geht mit dem Lauf wieder -- am Ende wie beim Abbruch, denn `process.exit`
+// und die drei Signale laufen alle über `exit`. Vorher blieben sie liegen,
+// gemessen: vierzehn nach einem ganzen Lauf (neun typstage-pd-, drei -ggb-,
+// je ein -pp- und -pp2-), elf nach Strg-C bei hundert Sekunden. Jetzt keiner,
+// in beiden Fällen. `rmSync` folgt keinem Verweis: der Paketpfad zeigt auf
+// den Arbeitsbaum, und der bleibt stehen (gemessen an einer Attrappe).
+const BAUORDNER = [];
+function bauordner(vorsilbe) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), vorsilbe));
+  BAUORDNER.push(d);
+  return d;
+}
+process.on("exit", () => {
+  for (const d of BAUORDNER) {
+    try { fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* dann eben nicht */ }
+  }
+});
+for (const zeichen of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(zeichen, () => process.exit(1));
+}
+
 // Welcher Browser. Ohne `--browser` wird gesucht, statt einen Pfad zu raten:
 // auf einem GitHub-Läufer heißt Chrome anders als auf einem Mac, und ein
 // falsch geratener Pfad sieht aus wie ein kaputtes Paket.
@@ -136,7 +159,7 @@ const neuSoll = hat("--neu-soll");
 const paketpfad = (function () {
   const gesetzt = opt("--paketpfad", null);
   if (gesetzt) return path.resolve(gesetzt);
-  const wurzel = fs.mkdtempSync(path.join(os.tmpdir(), "typstage-pp-"));
+  const wurzel = bauordner("typstage-pp-");
   const ziel = path.join(wurzel, "schule", "typstage");
   fs.mkdirSync(ziel, { recursive: true });
   fs.symlinkSync(WURZEL, path.join(ziel, "0.1.2"), "dir");
@@ -392,7 +415,7 @@ const SOLL_HINWEIS = [
   "und die Zahl geht auf: das Stilblatt ist um 2132 Bytes gewachsen -- die",
   "Punktebene #ts-punkt, ihr Kern und die zwei Nennungen in der Schwarz- und",
   "der Druckliste, samt Begruendungen --, dazu 19 Bytes fuer die Zeile",
-  "\"pointer\": true in der room-Konfiguration jedes Decks. Die 13217 Bytes,",
+  "\"pointer\": true in der room-Konfiguration jedes Decks. Die 14619 Bytes,",
   "um die die Laufzeit seit stand6 gewachsen ist, zaehlen NICHT mit: satz",
   "schneidet den Laufzeitblock heraus. Gemessen: stand6 ergibt mit demselben",
   "Verfahren fa809123fcffe49e / 1358895, dieser Stand 79666eef6f4e3e4d /",
@@ -408,17 +431,50 @@ const SOLL_HINWEIS = [
   "derselben Stelle. Die Differenz von 0 Bytes ist also keine Nachlaessigkeit,",
   "sondern die Messung.",
   "",
+  "Die neuen Folien des Rundgangs und zweier Beispiele (Zeiger, Ziffern,",
+  "Klang, ends-at, section-back, Papier) haben drei Decks bewegt und kein",
+  "anderes. tour: folien 39 auf 48, schritte 109 auf 133, elemente 101 auf",
+  "124; grund, sichtbar und sichtbarRueck tragen die neuen Eintraege.",
+  "hashStand 0/0 auf 2/0, weil #8 jetzt auf der dritten Stufe von \"Typst",
+  "sets, the browser moves\" landet statt auf dem ersten Schritt der Folie",
+  "danach: die Route vorn hat alles um eine Folie verschoben. sprecher 233",
+  "auf 376, und die 143 gehen auf, gemessen an der Sprecherbox beider",
+  "Staende: 139 Knoten mehr in der Vorschau der naechsten Folie -- dort",
+  "steht jetzt die Route mit ihren sechs Eintraegen statt einer",
+  "Abschnittsfolie -- und 4 fuer die Gruppe der Klangtasten (ein div, zwei",
+  "span, ein kbd). unterrichten: folien 12 auf 13, schritte 19 auf 20 (die",
+  "titellose Schlussfolie), sprecher 205 auf 209, dieselben 4 der",
+  "Klangtasten. anziehen: folien 18 auf 19, schritte 28 auf 30, elemente 10",
+  "auf 12 (die Folie zum Rueckverweis mit zwei anim). flieger, fliegerRueck,",
+  "feder, fehler und pruefdeck/satz stehen unveraendert; der Klang laedt in",
+  "Chrome und in Firefox ohne Fehler, fehler ist in allen drei Decks [].",
+  "",
+  "Die Behebungen nach der zweiten und der dritten Pruefung -- die",
+  "angeheftete Uhr auf freier Flaeche, der Griff der Sprecheransicht auf",
+  "der Zeigerfolie, ends-at ohne Plan von vorn, Wortlaute -- haben keinen",
+  "Sollwert bewegt. Gemessen gegen den Sollstand davor: Chrome rc=0, 18 von",
+  "18, tour weiter 48/133/124, hashStand 2/0, sprecher 376, pruefdeck/satz",
+  "79666eef6f4e3e4d / 1361046. Die Laufzeit ist dabei um 332 Bytes",
+  "gewachsen -- fristStellen stellt ein Video ohne Plan bei jedem Stellen",
+  "auf den Anfang, auch wo ein verworfener Plan es mitten hinein gesetzt",
+  "hatte, und die Kommentare zur Wanduhr schreiben 00:15 statt 0:15 --, und",
+  "satz schneidet sie heraus. Neu aufgenommen wurde allein fuer diesen",
+  "Absatz.",
+  "",
   "Dieser Absatz stand einmal von Hand in soll.json und war nach dem ersten",
   "--neu-soll fort: was hier nicht steht, ueberlebt keine Neuaufnahme."
 ];
 
 // ── Welche Decks ────────────────────────────────────────────────────────────
-// Die fünfzehn Beispiele plus das Prüfdeck. Letzteres steht nicht unter
+// Die siebzehn Beispiele plus das Prüfdeck. Letzteres steht nicht unter
 // `examples/`, weil es nicht auf die Website gehört; es wird hier übersetzt.
-// Es deckt ab, was die anderen nicht anfassen. Nachgezählt in ihren Quellen:
-// `after: "dimmed"` 0x, `stagger(dim: true)` 0x, `invert` 0x, `info()` 0x,
-// `fit` 0x. Ohne das Prüfdeck kann man diese fünf zerstören, ohne dass hier
-// eine Zahl wackelt.
+// Es deckte ab, was die anderen nicht anfassten: als es entstand, standen
+// `after: "dimmed"`, `stagger(dim: true)`, `invert`, `info()` und `fit` in
+// keinem Beispiel. Heute, nachgezählt in `examples/*.typ`: `after: "dimmed"`
+// in einem Deck, `stagger(dim: true)` in fünf, `invert` und `fit` in einem,
+// `info()` in zweien. Es bleibt trotzdem: was `fit`, `info()` und `invert`
+// tun, entsteht in Typst und hat im Browser keine Zahl, und `satz` misst es
+// nur am Prüfdeck.
 //
 // `ziehen` ist das einzige Beispiel mit `scene()`. Es trägt drei Szenen und
 // ein Daumenkino und ist deshalb das größte Deck der Reihe: seine Schrittzahl
@@ -479,7 +535,7 @@ const GGB_QUELLE = "https://www.geogebra.org/apps/";
 function ohneGeoGebra(datei) {
   const text = fs.readFileSync(datei, "utf8");
   if (text.indexOf(GGB_QUELLE) < 0) return datei;
-  const ordner = fs.mkdtempSync(path.join(os.tmpdir(), "typstage-ggb-"));
+  const ordner = bauordner("typstage-ggb-");
   const aus = path.join(ordner, path.basename(datei));
   fs.writeFileSync(aus, text.split(GGB_QUELLE).join(TOTE_QUELLE), "utf8");
   // Und daneben alles, was im Ordner des Originals liegt. Ein Deck lädt seine
@@ -504,7 +560,7 @@ const LAUFZEIT = fs.readFileSync(path.join(WURZEL, "assets", "typstage-0.1.2.js"
 // der Meldung von typst.
 function decklaufBauen(name) {
   const quelle = path.join(__dirname, "decklauf", name + ".typ");
-  const aus = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "typstage-pd-")),
+  const aus = path.join(bauordner("typstage-pd-"),
                         name + ".html");
   const rufe = ["compile", "--format", "html", "--features", "html",
                 "--root", WURZEL];
@@ -657,7 +713,7 @@ function notizProbe() {
 // dort das Weiterzählen wegfiel: der Browserlauf blieb grün.
 function papierProbe() {
   const quelle = path.join(__dirname, "decklauf", "pruefdeck.typ");
-  const aus = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "typstage-pp2-")),
+  const aus = path.join(bauordner("typstage-pp2-"),
                         "pruefdeck.pdf");
   try {
     execFileSync("typst", ["compile", "--root", WURZEL,

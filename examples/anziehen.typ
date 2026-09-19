@@ -5,9 +5,10 @@
 //
 // This deck is `themes.default` and nothing else. Everything that makes it
 // look unlike `theme-default.typ` next door is five palette entries and seven
-// `show` rules on labels -- the two instruments the talk is about. There is no
-// theme of its own anywhere in this file, and that is the argument: a look you
-// can reach from outside is a look you never have to fork.
+// `show` rules on labels -- the two instruments the talk is about -- plus the
+// colour of one link, set through `section-back`. There is no theme of its
+// own anywhere in this file, and that is the argument: a look you can reach
+// from outside is a look you never have to fork.
 //
 // Three heading levels (`slide-level: 3`), so the section slides carry the
 // path they hang under and the structure is visible rather than described.
@@ -83,6 +84,12 @@
   // the way of what is on the slide; a sliding or zooming page change would
   // be the first thing to break that promise.
   transition: "fade",
+  // The link back to the contents at the foot of every section slide. The
+  // theme sets it in the accent, and this accent on the dark green of a
+  // section slide is under three to one -- a deck about contrast cannot ship
+  // that. A `text` inside the body beats the theme's colour; the slide "The
+  // way back is measured too" prints both numbers.
+  section-back: back => text(fill: p.paper)[#back.word],
   style: it => { set par(justify: false); it },
 )
 
@@ -285,6 +292,37 @@
   paper and #calc.round(contrast(rgb("#5ec8f2"), rgb("#e6ebf2")), digits: 2) on
   its own ink. Nothing about the colour says so. The arithmetic does.
 ], at: 3, enter: "fade-up")
+
+#v(1fr)
+
+=== The way back is measured too
+
+#speaker-note[
+  Every section slide of this deck carries a link back to the contents at its
+  foot. In the accent it would stand on the section's dark green at the ratio
+  on the left; the deck sets it in the paper colour instead, one line at the
+  top of the file.
+]
+
+#v(1fr)
+
+// The same `swatch` as on the slide before, on the section slide's ground:
+// that is `strong` under `themes.default`. Measured here, not quoted.
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  swatch([The accent on a section slide], p.accent, p.strong,
+         [Back to contents]),
+  swatch([The paper, as this deck sets it], p.paper, p.strong,
+         [Back to contents]),
+)
+
+#anim(text(size: 0.56em, raw(lang: "typ",
+  "#show: presentation.with(\n  section-back: back => text(fill: p.paper)[#back.word],\n)")),
+  at: 2, enter: "fade-up")
+
+#anim([The theme keeps the place and the link; the words and their colour
+       come from the deck. A `text` of your own inside the body wins.],
+      at: 2, enter: "fade-up")
 
 #v(1fr)
 

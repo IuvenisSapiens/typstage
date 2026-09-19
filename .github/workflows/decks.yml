@@ -90,8 +90,10 @@ jobs:
 
       # Ob der Rundgang sein eigenes Versprechen noch hält. Ohne Browser und in
       # einer Sekunde: `tour.typ` sagt im Untertitel „every function once", und
-      # als das zum ersten Mal nachgezählt wurde, waren es 34 von 57.
-      - name: Der Rundgang zeigt jede Ausfuhr
+      # als das zum ersten Mal nachgezählt wurde, waren es 34 von 57. Dazu die
+      # Schlüssel ohne eigene Ausfuhr -- `room` und seine Einträge,
+      # `section-back`, `ends-at` --, jeder dort, wo er wirkt.
+      - name: Der Rundgang zeigt jede Ausfuhr und jeden neuen Schlüssel
         run: python3 .github/scripts/pruefe-rundgang.py
 
       # Ragt in einem Beispieldeck etwas aus seiner Folie? Der Melder des

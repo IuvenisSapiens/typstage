@@ -220,8 +220,8 @@ typst compile talk.typ talk.pdf
 The HTML is one file. Double-click it and it runs: no server, no network,
 nothing loaded afterwards.
 
-Arrow keys page. `?` shows every key, `o` opens the overview, `f` goes full
-screen, and `n` opens the speaker view in a second window.
+Arrow keys page. `?` shows a line with the main keys, `o` opens the overview,
+`f` goes full screen, and `n` opens the speaker view in a second window.
 
 == While you write
 
@@ -348,7 +348,8 @@ No more structure than this is needed.
 ]
 ```]
 
-The slide now has four steps: the body and the three points.
+The slide now has three steps: the first point stands there with the body, and
+each of the other two comes one step later.
 
 == A box that has to stick
 
@@ -2395,8 +2396,13 @@ the second window.
   [`Home` `End`], [to the first or the last step],
   [`o` `Esc`], [the overview, and a click there goes to that slide],
   [`f`], [full screen],
-  [`?`], [every key],
+  [`?`], [a line with the main keys; the deck's sound keys stand in the
+    speaker view's key row],
   [`n`], [open the speaker view, or bring the talk forward],
+  [`1` to `9`, `0`], [the class clock for that many minutes, `0` ends it; on
+    a slide with a `cue` group the digits call its points],
+  [the deck's sound keys], [play their sound in the hall, see "A sound on a
+    key"],
 )
 
 A click pages forward, a click in the left quarter pages back. The address bar
@@ -2435,9 +2441,9 @@ second window: one for the projector, one for the machine in front of you. The
 two talk over `postMessage`, which works between two local files, so no server
 is needed.
 
-The view is a lectern made of tiles. Two large ones on top -- the running slide
-on the left, the note on the right -- and below them a row of four small tiles
-and one wide one:
+The view is a lectern made of tiles. The running slide stands on top, across
+the whole width; under it the note, and beside the note the next step; under
+those a row of four small tiles:
 
 #table(
   columns: (auto, 1fr),
@@ -2453,9 +2459,16 @@ and one wide one:
   [next step], [the preview: what the next keypress does],
 )
 
-Below that the tool row: pen or pointer, the four colours, the key help. The
-state of the hall -- `black`, `frozen`, `no talk window` -- stands at the top
-right inside the slide tile.
+The seam between the slide and the note is a handle: drag it down for more
+slide, up for more note. Tab reaches it; the arrow keys then move it by 16
+pixels, by 64 with Shift, `Home` and `End` take it to the stops, and a
+double-click or `Enter` puts it back. A reload keeps the split. A deck without
+notes has nothing to divide and gets no handle.
+
+Under the tiles the tool row -- pen, pointer and eraser, the four colours, undo
+and clear, light or dark --, and under that the key row with every key of the
+view, the deck's sound keys at its end. The state of the hall -- `black`,
+`frozen`, `no talk window` -- stands at the top right inside the slide tile.
 
 The keys of the view, which `?` also shows inside it:
 
@@ -2536,7 +2549,7 @@ clears the current slide, `z` takes back the last stroke, `c` changes colour.
 === A clock the class can see
 
 `t` asks for a number of minutes, and the wall then carries nothing but a clock:
-black ground, white digits, `m:ss`, large enough to read from the back row. It
+black ground, white digits, `mm:ss`, large enough to read from the back row. It
 replaces the slide rather than sitting on it -- the twin of `b`, only with
 something on it. It is meant for the break, the group work, the experiment being
 set up.
@@ -2557,7 +2570,7 @@ whole minutes you set once per talk, the class clock a running `m:ss` with a bar
 that empties. While none runs a dash stands there, and while no talk window
 answers a longer one.
 
-At zero it does not stop but carries on to `+0:01` in the deck's accent colour,
+At zero it does not stop but carries on to `+00:01` in the deck's accent colour,
 with the word "over" above it. Nothing blinks and nothing chimes. The overtime
 is capped at the duration itself and at thirty minutes. At the lectern the whole
 tile turns over at the same moment, in the warning colour, so that the teacher
@@ -2911,9 +2924,9 @@ sets the step for the whole deck:
 )
 ```]
 
-The last step still counts down singly -- 0:15, 0:10, 0:05, 0:04, 0:03, 0:02,
-0:01, 0:00. A clock that shows 0:00 for a full five seconds while time is left
-sends the class home early.
+The last step still counts down singly -- 00:15, 00:10, 00:05, 00:04, 00:03,
+00:02, 00:01, 00:00. A clock that shows 00:00 for a full five seconds while time
+is left sends the class home early.
 
 The step has to divide 60 evenly: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 or 60
 seconds; `duration(seconds: 5)` works in place of the number. One that does not
@@ -2925,7 +2938,7 @@ is refused at compile time:
 ```]
 
 Otherwise the number is already wrong the moment it starts -- a `class-clock(1)`
-would read 0:56 at a step of seven seconds, and that reads like a fault of the
+would read 00:56 at a step of seven seconds, and that reads like a fault of the
 clock rather than one of the setting.
 
 On the deck and not on the slide, deliberately. How coarsely the clock reads is
@@ -2949,7 +2962,10 @@ file.
 ```]
 
 The file travels beside the HTML like any other media file; the package ships
-no sound of its own. It is heard in the hall and only there: the speaker sits
+no sound of its own. The example decks `tour` and `unterrichten` carry a horn
+computed for them rather than recorded, `examples/medien/airhorn.mp3`, with the
+command that builds it in `PROVENANCE.md` beside it. It is heard in the hall
+and only there: the speaker sits
 at the machine, the speakers are in the room, and the sound is never heard
 twice. The key may be pressed in either window.
 
@@ -4286,6 +4302,11 @@ Put it on a regular slide, since a section slide has no body:
 #contents(layout: "1x2-fill")
 ```]
 
+It lists the sections: the headings above `slide-level` between the slides, or
+the `section` calls where the slides are handed over as arguments. A deck
+without any -- in heading notation at the default `slide-level: 2`, one without
+an `=` -- gets an empty list, and no message says so.
+
 `layout: "1x1"` is the default single-column list. `layout: "1x2"` creates
 balanced columns, while `layout: "1x2-fill"` fills the first column by
 available height before flowing into the second. For a long agenda, use the
@@ -4507,9 +4528,9 @@ A slide is typeset once per state, and every tracked element once more, in a
 frame of its own. Compile time therefore grows with steps, not with slides,
 and `flipbook` grows with frames.
 
-The example decks compile in seconds and stay under 5 MB. A hundred slides
-with a flip book on each is a different matter -- measure it rather than
-guess.
+The example decks compile in seconds, and as HTML they weigh between 0.70 and
+6.22 MB, the tour with its 48 slides the most. A hundred slides with a flip
+book on each is a different matter -- measure it rather than guess.
 
 = When nothing happens
 

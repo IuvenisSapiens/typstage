@@ -21,7 +21,29 @@ Namen, was als Vorführung zählt.
   MARKE   `#pause` und `#invert` tragen keine Klammern.
   WERT    Farben, Maße, Wörterbücher. Sie werden in einem Ausdruck gebraucht,
           nicht aufgerufen -- `swatch(dark, …)`, `themes.plain`, `#runtime-version`.
-  ZITAT   was dieses Deck nicht aufrufen *kann*. Vier Namen, jeder mit Grund.
+  ZITAT   was dieses Deck nicht aufrufen *kann*, jeder Name mit Grund: vier
+          Namen und die elf der Desmos-Seite.
+
+Seit 0.1.2 hängt ein Gutteil dessen, was neu ist, an keinem Namen in
+`lib.typ`, sondern an einem Schlüssel: `room` und seine Einträge an
+`presentation`, `section-back`, `ends-at` an `video`. Die Ausfuhrliste sieht
+keinen davon, und die Probe blieb grün, solange der Rundgang keinen zeigte --
+gemessen 71 Ausfuhren, 56 vorgeführt, 15 zitiert, 0 fehlen, vor den Folien
+dazu wie danach. Deshalb eine zweite Tabelle:
+
+  SCHLUESSEL  muss als `name:` im Code stehen, und zwar dort, wo er wirkt:
+              `room` und `section-back` in der Klammer von `presentation(…)`
+              oder `presentation.with(…)`, die Einträge von `room` in dessen
+              Klammer dort, `step` in der von `clock`, `ends-at` in einem
+              `video(`-Aufruf. `digits: 2` in `calc.round` ist kein Beweis
+              für `room.clock.digits`, und die Überschrift
+              `== section-back: …` keiner für `section-back`.
+  SCHLUESSEL_ZITAT  was der Rundgang nicht setzen kann, mit Grund.
+
+Tasten -- die Ziffern, `a`, `m`, `b` -- prüft keine Tabelle. Ob eine Notiz
+„Press `3`" sagt, ist Text, und Text fällt vor der Suche weg; ob die Taste
+wirkt, zeigen die Browserproben (`pruefe-uhr-ziffern.js`, `pruefe-klang.js`,
+`pruefe-zeiger.js`).
 
 Vor der Suche fallen Kommentarzeilen, Zaunblöcke, Codespannen in Backticks und
 der Inhalt von Zeichenketten weg. Was dort steht, wird zitiert, nicht benutzt.
@@ -70,6 +92,74 @@ ZITAT = {
     "dsm-tween": DESMOS_GRUND,
     "dsm-view": DESMOS_GRUND,
 }
+
+# Schlüssel ohne eigene Ausfuhr. Je Eintrag: wo er stehen muss.
+#   ("presentation", None)  in der Klammer von `presentation(` oder `.with(`
+#   ("room", None)          in der Klammer von `room:` dort
+#   ("room", "clock")       in der Klammer von `clock:` in diesem `room:`
+#   ("video", None)         in der Klammer eines `video(`-Aufrufs
+SCHLUESSEL = {
+    "room": ("presentation", None),
+    "section-back": ("presentation", None),
+    "clock": ("room", None),
+    "sounds": ("room", None),
+    "bell": ("room", None),
+    "pointer": ("room", None),
+    "step": ("room", "clock"),
+    "ends-at": ("video", None),
+}
+
+SCHLUESSEL_ZITAT = {
+    "digits": "`digits: false` nähme dem Rundgang die Zifferntasten, die er "
+              "auf seiner Uhrenfolie vorführt; das Listing dort zitiert es",
+    "pages": "`pages: \"step\"` gäbe dem PDF des Rundgangs eine Seite je "
+             "Schritt, und er muss eine je Folie liefern; die Folie „On "
+             "paper\" zitiert es",
+}
+
+def klammer(code, i):
+    """Der Inhalt der Klammer, die bei code[i] == "(" aufgeht."""
+    tiefe, j = 0, i
+    while j < len(code):
+        if code[j] in "([{":
+            tiefe += 1
+        elif code[j] in ")]}":
+            tiefe -= 1
+            if tiefe == 0:
+                return code[i + 1:j]
+        j += 1
+    return code[i + 1:]
+
+def unter(code, name, aufruf=False):
+    """Alle Klammerinhalte von `name: (…)`, oder mit aufruf von `name(…)`."""
+    muster = (r"(?<![\w-])" + re.escape(name) + (r"\s*\(" if aufruf else r"\s*:\s*\("))
+    return [klammer(code, m.end() - 1) for m in re.finditer(muster, code)]
+
+def im_aufruf(code):
+    """Die Klammerinhalte von `presentation(…)` und `presentation.with(…)`.
+
+    Dort und nicht irgendwo im Code: `nur_code` nimmt Kommentare, Zäune,
+    Codespannen und Zeichenketten weg, Überschriften aber nicht, und die
+    Folie, die `section-back` vorführt, heißt `== section-back: …`. Gemessen,
+    als die Probe noch im ganzen Code suchte: ohne die Zeile im Aufruf blieb
+    sie mit „8 gesetzt, 0 fehlen" grün, und ebenso mit dem ganzen `room:`
+    als Wert vor dem Aufruf statt in ihm.
+    """
+    return (unter(code, "presentation.with", aufruf=True)
+            + unter(code, "presentation", aufruf=True))
+
+def gesetzt(schluessel, code):
+    ort, tiefer = SCHLUESSEL[schluessel]
+    if ort == "presentation":
+        felder = im_aufruf(code)
+    elif ort == "video":
+        felder = unter(code, "video", aufruf=True)
+    else:
+        felder = [r for f in im_aufruf(code) for r in unter(f, "room")]
+        if tiefer:
+            felder = [x for f in felder for x in unter(f, tiefer)]
+    muster = r"(?<![\w-])" + re.escape(schluessel) + r"\s*:"
+    return any(re.search(muster, f) for f in felder)
 
 def arg(name, vorgabe):
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else vorgabe
@@ -158,6 +248,10 @@ def main():
 
     print("Rundgang: %d Ausfuhren, %d vorgeführt, %d zitiert, %d fehlen"
           % (len(namen), len(namen) - len(ZITAT) - len(fehlt), len(ZITAT), len(fehlt)))
+    s_fehlt = [k for k in SCHLUESSEL if not gesetzt(k, code)]
+    print("          %d Schlüssel, %d gesetzt, %d zitiert, %d fehlen"
+          % (len(SCHLUESSEL) + len(SCHLUESSEL_ZITAT), len(SCHLUESSEL) - len(s_fehlt),
+             len(SCHLUESSEL_ZITAT), len(s_fehlt)))
     for n in sorted(ZITAT):
         if n in namen:
             print("  zitiert: %-12s %s" % (n, ZITAT[n]))
@@ -165,6 +259,18 @@ def main():
         print("\n  Als Zitat geführt, aber gar nicht mehr ausgeführt: "
               + ", ".join(sorted(unbekannt)))
         print("  Aus ZITAT nehmen.")
+    for k in sorted(SCHLUESSEL_ZITAT):
+        print("  zitiert: %-12s %s" % (k + ":", SCHLUESSEL_ZITAT[k]))
+    if s_fehlt:
+        print("\n  Nicht gesetzt in %s:" % os.path.relpath(deck_pfad, WURZEL))
+        for k in s_fehlt:
+            ort, tiefer = SCHLUESSEL[k]
+            wo = {"presentation": "in presentation(…) oder presentation.with(…)",
+                  "video": "in einem video()-Aufruf",
+                  "room": "in room: (…) an presentation"}[ort]
+            if tiefer:
+                wo = "in " + tiefer + ": (…) in room: (…) an presentation"
+            print("    %-13s %s" % (k + ":", wo))
     if fehlt:
         print("\n  Nicht vorgeführt in %s:" % os.path.relpath(deck_pfad, WURZEL))
         for n in fehlt:
@@ -172,7 +278,7 @@ def main():
         print("\n  Der Rundgang verspricht im Untertitel jede Funktion einmal.")
         print("  Eine Folie dafür bauen -- oder, wenn er sie nicht aufrufen")
         print("  kann, mit Grund in ZITAT eintragen.")
-    return 1 if (fehlt or unbekannt) else 0
+    return 1 if (fehlt or unbekannt or s_fehlt) else 0
 
 if __name__ == "__main__":
     sys.exit(main())

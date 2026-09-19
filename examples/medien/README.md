@@ -18,3 +18,11 @@ wieder ans erste an.
 
 Nicht in `examples/` selbst ablegen: der Seitenbau übersetzt jede `.typ` dort
 als eigene Präsentation.
+
+# Wie `airhorn.mp3` entsteht
+
+Das Horn auf der Taste `a` in `tour.typ` und `unterrichten.typ` liegt hier im
+Ordner und wird dort als `medien/airhorn.mp3` genannt. Es ist mit `ffmpeg` aus
+drei Sägezahntönen gerechnet, keine Aufnahme; Befehl, Messwerte und Prüfsumme
+stehen in `PROVENANCE.md`. Wie der Clip von Hand gebaut, der Seitenbau kopiert
+den ganzen Ordner mit.

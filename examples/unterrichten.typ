@@ -14,7 +14,11 @@
 // without a second window at all: a digit. `5` starts five minutes on the
 // spot. Both start the same pinned clock -- it stands *on* the slide instead
 // of over it, so the task stays readable while it counts, and paging ahead
-// does not end it.
+// does not end it. The notes say which key each burst wants; the ten-minute
+// one is more than a digit holds and goes through `Shift+T`.
+//
+// And one sound: `a` blows the horn at the end, the signal to pack away. The
+// file is `medien/airhorn.mp3` and has to travel beside the HTML.
 //
 // Written for somebody who holds it: every working slide carries the minutes,
 // a note, and nothing the class has to wait for.
@@ -39,7 +43,10 @@
   // Mal von der Aufgabe weg, während die Klasse rechnet; alle fünf Sekunden
   // ist ruhig genug, um sie im Vorbeisehen zu lesen. Die letzte Stufe zählt
   // trotzdem einzeln, damit niemand zu früh aufhört.
-  room: (clock: (step: 5)),
+  //
+  // Das Horn auf `a`. Es klingt im Raum und nur dort, gleich in welchem
+  // Fenster die Lehrkraft die Taste drückt.
+  room: (clock: (step: 5), sounds: (a: "medien/airhorn.mp3")),
   style: it => { v(1fr); it; v(1fr) },
 )
 
@@ -74,8 +81,9 @@
 == The rule of the game
 
 #speaker-note[
-  Two minutes, no more. They will want to start guessing; let them, but the
-  rule has to be said out loud first or the whole hour turns into a quiz.
+  Two minutes, no more -- press `2`. They will want to start guessing; let
+  them, but the rule has to be said out loud first or the whole hour turns
+  into a quiz.
 ]
 
 #class-clock(2)
@@ -97,9 +105,9 @@
 == First go: alone
 
 #speaker-note[
-  Eight minutes, alone, on paper. Walk the room and say nothing. This is the
-  burst where the clock matters most -- they will look up at it, and it should
-  be on the slide with the task, not over it.
+  Eight minutes, alone, on paper: press `8`. Walk the room and say nothing.
+  This is the burst where the clock matters most -- they will look up at it,
+  and it should be on the slide with the task, not over it.
 ]
 
 #class-clock(8)
@@ -114,7 +122,7 @@
 == Second go: in pairs
 
 #speaker-note[
-  Five minutes. Pairs, not fours -- in a four one person writes and three
+  Five minutes, `5`. Pairs, not fours -- in a four one person writes and three
   watch. The instruction to *compare lists* rather than agree on one is the
   whole difference.
 ]
@@ -148,8 +156,9 @@
 
 #speaker-note[
   Ten minutes, in fours now, because the arithmetic is worth arguing over.
-  This is the longest burst of the hour, and the one where somebody will
-  discover their factor-of-two rule was generous.
+  Ten is more than a digit holds: `Shift+T` in the speaker view, then 10. This
+  is the longest burst of the hour, and the one where somebody will discover
+  their factor-of-two rule was generous.
 ]
 
 #class-clock(10)
@@ -186,8 +195,8 @@
 == Last go: what would you check first?
 
 #speaker-note[
-  Four minutes, and then the bell. They should leave with the one number they
-  most distrust, not with an answer.
+  Four minutes, `4`, and then the bell. They should leave with the one number
+  they most distrust, not with an answer.
 ]
 
 #class-clock(4)
@@ -200,3 +209,17 @@
 #text(fill: leise)[
   One sentence on a slip of paper. Four minutes.
 ]
+
+// No title on purpose. Under `themes.lesson` the running header -- slide
+// number, section, hairline -- goes with the title, so the last slide is the
+// sentence and nothing else.
+==
+
+#speaker-note[
+  When the four minutes are up, press `a`. The class knows the sound, and
+  nobody has to shout over the scraping of chairs.
+]
+
+#align(center, text(size: 2em, fill: zahl)[Time is up.])
+#v(0.4em)
+#align(center, text(fill: leise)[Slips on the desk by the door.])

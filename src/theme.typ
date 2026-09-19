@@ -428,7 +428,8 @@
             // Gebaut wurden für das „Byte für Byte" alle 17 Beispiele; der
             // Umbau hier berührt davon zwei, weil nur sie überhaupt einen
             // Rückverweis tragen: `anziehen` mit 6 und `tour` mit 5, in
-            // beiden Ständen dieselben 11. Bei allen 17 ist das Markup ohne
+            // beiden Ständen dieselben 11 (gezählt vor den neuen Folien des
+            // Rundgangs; seitdem trägt er 6). Bei allen 17 ist das Markup ohne
             // die `<script>`- und `<style>`-Blöcke byteweise gleich; die 17
             // rohen HTML wachsen um denselben Betrag, und der steckt
             // vollständig in Laufzeit, Stilblatt und der einen Zeile

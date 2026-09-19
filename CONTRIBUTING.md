@@ -50,7 +50,7 @@ readers who are not in this repository.
 | `decklauf/flug-hoehe.js` | what lies on top of what during a flight |
 | `decklauf/sprung.js` | what a jump into a running transition leaves behind |
 | `pruefe-palette.py` | the contrast contract of the speaker palette |
-| `pruefe-rundgang.py` | every export is demonstrated in `tour.typ` |
+| `pruefe-rundgang.py` | every export is demonstrated in `tour.typ`, and so is every new key that has no export of its own (`room` and its entries, `section-back`, `ends-at`) |
 | `pruefe-inhalt.js` | `contents()` jumps to a section and back |
 | `pruefe-fussnoten.js` | a footnote's note is revealed with its marker, not before |
 | `pruefe-uhr-ziffern.js` | the digits set the class clock, and a `cue()` slide keeps them |
@@ -235,8 +235,16 @@ Firefox run over two states of this package differs in `pruefdeck.satz` and
 
 The runtime carries the surface the run reads, `window.typstage.pruef`, and it
 is always there rather than behind a build switch: a switch would mean checking
-a runtime that is not the one shipped. Measured over the six decks without an
-applet it costs between 0.47 and 0.84 percent of the compressed page. Two parts of it are what
+a runtime that is not the one shipped. What it costs, measured by building
+every example twice -- once as shipped and once with the whole `pruef` object
+cut down to `{}` -- and comparing the pages packed with gzip: the shipped page
+is larger than the same page without it, on the fifteen example decks without
+an applet by between 0.4 percent (`tour`) and 1.4 percent (`theme-plain`), and
+across all seventeen by up to 2.4 percent (`geogebra`, the smallest page of the
+set) -- rounded to one place, the same three numbers at gzip level 6 and at
+level 9. Above one percent are eleven of the seventeen at level 9 and ten at
+level 6: `anziehen` sits just above the line at one level and just below it at
+the other. The same numbers stand in the runtime's own comment over `pruef`. Two parts of it are what
 make the run repeatable. `ruhig()` resolves when no animation is running
 anymore and replaces every fixed wait, and `uhr(ms)` pins the wall clock a
 flipbook reads. Five runs at three animation speeds in two browsers produced an
@@ -273,10 +281,13 @@ number of ghosts a magic move produces, re entry through the hash, the speaker
 view, the ground colour of every slide and the runtime's own error list.
 
 The eighteenth deck, `.github/scripts/decklauf/pruefdeck.typ`, exists because
-the examples leave gaps. `invert`, `info()` and `fit` appear in none of the
-seventeen; `after: "dimmed"` in one and `stagger(dim: true)` in two, all of them
-added late. Counted in their sources. The dim lookup was once deliberately
-broken and nothing in the examples of the day moved. The check deck is not under
+the examples left gaps: when it was written, `invert`, `info()`, `fit`,
+`after: "dimmed"` and `stagger(dim: true)` appeared in none of them, and the dim
+lookup was once deliberately broken without anything in the examples of the
+day moving. Counted in their sources today: `after: "dimmed"` in one of the
+seventeen, `stagger(dim: true)` in five, `invert` and `fit` in one, `info()` in
+two. What `fit`, `info()` and `invert` do has no number in the browser, and
+the run takes its fingerprint of the typeset output from the check deck alone. The check deck is not under
 `examples/`, so it stays off the website and the published decks keep their
 pages unchanged. Beside it, `ueberlauf.typ` and `wanderung.typ` are decks that have to *fail* to
 compile, so that the overflow check and the drift check are caught when they

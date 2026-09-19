@@ -9,6 +9,12 @@
 //   typst compile tour.typ tour.pdf
 //   typst compile tour.typ handout.pdf          (with handout: 3 below)
 //
+// The HTML fetches two files at run time, both relative to where it lies:
+// `demo.mp4` beside it and `medien/airhorn.mp3` one folder down. Move the
+// HTML without them and it loses the video and the horn; the runtime notes
+// each missing file in its error list while the page loads, not when
+// somebody presses the key.
+//
 // `themes.default` with `palettes.textbook`: a theme is a dictionary and a
 // palette is colour on its own, so `+` is all it takes to put one on the
 // other. Red for the built shapes, a blue accent, cream card surfaces. The
@@ -48,7 +54,41 @@
   // typeset a second time, in a frame of its own, and that frame never sees a
   // `#set` rule written in the document, so shared typography has to go here.
   style: it => { set par(justify: false); it },
+  // What reaches the room, as against what only the speaker sees. Every entry
+  // is at work in this deck, and the section "In the room" shows each one: the
+  // clock reads in fives, `a` sounds the horn, the bell is what the video on
+  // the slide about `ends-at` ends on, and the dot is a little larger than its
+  // default for a hall where the back row sits far away.
+  room: (
+    clock: (step: 5),
+    sounds: (a: "medien/airhorn.mp3"),
+    bell: "08:15",
+    pointer: (size: 3%),
+  ),
+  // The link back to the contents at the foot of every section slide, in this
+  // deck's own words: the default word and the slide it leads to. In white,
+  // because the theme sets it in the accent and this deck's accent is blue on
+  // a red section ground; the slide about `section-back` prints both numbers.
+  section-back: back => text(fill: white)[#back.word · slide #back.contents.number],
 )
+
+== The route
+
+// An agenda before the first section. Nothing is running yet, so
+// `highlight: true` has nothing to mark and sets the list as it is -- it used
+// to come out pale throughout, every entry dimmed as still to come. It is
+// also where every link back at the foot of a section slide leads: to the
+// nearest contents before that slide.
+#speaker-note[
+  Name the six stops and move on. The list is the deck's own structure, so it
+  cannot fall out of step with the slides behind it.
+]
+
+#v(1fr)
+
+#contents(highlight: true)
+
+#v(1fr)
 
 = What this is
 
@@ -68,11 +108,12 @@
   split: (1fr, 1fr), align: top,
   card(title: [What goes in])[
     One `.typ` file. Headings cut it into slides: `=` opens a section, `==` a
-    slide, `==` a slide with no title bar.
+    slide, a bare `==` one with no title bar.
   ],
   callout(title: [What comes out])[
     An animated talk as a single HTML file, a slide deck as PDF (one page per
-    slide, not per step), and with `handout: 3` a handout with room to write.
+    slide, or with `pages: "step"` one per step), and with `handout: 3` a
+    handout with room to write.
   ],
 )
 
@@ -223,7 +264,8 @@
 // order was open.
 #speaker-note[
   Ask first, then press the digit. Whatever nobody names still arrives by
-  paging on.
+  paging on. On this slide the digits belong to the group; on a slide
+  without one they start the class clock instead.
 ]
 
 #v(1fr)
@@ -752,6 +794,40 @@ and the wrong two find each other), the piece gets a name instead.
 
 #v(1fr)
 
+==
+
+// A bare `==` is a slide without a title, and this is one. It draws no title
+// band, and no running header either: under `themes.lesson`, whose header
+// runs along the top, the slide number, the section and the hairline used to
+// stay on such a slide, their height still reserved; now they go with the
+// title. Footer and progress bar stay -- taking everything is what `bleed`
+// next door is for.
+//
+// Empty means drawing nothing, not carrying no text: a title that is only a
+// formula or a logo in a `box` is a title and draws its band.
+#v(1fr)
+
+#statement(size: 1.3em)[This slide has no title.]
+
+#v(0.5fr)
+
+#side-by-side(
+  split: (1fr, 1.25fr), align: top,
+  card(title: [The call])[
+    #text(size: 0.72em, raw(lang: "typ",
+      "==\nNo title, so no band.\n\n== $a^2 + b^2 = c^2$\nA formula is a title."))
+  ],
+  stagger[
+    - No title band. Where a theme runs a header, as `themes.lesson` does,
+      number, section and hairline go too, and the body takes their height.
+    - Footer and progress bar stay. `bleed` takes those too.
+    - A title is empty when it draws nothing. A formula or a logo in a `box`
+      draws, and is a title.
+  ],
+)
+
+#v(1fr)
+
 == Video and flipbook
 
 // Vertically centred: both boxes are shorter than the body, and pinned to the
@@ -1087,9 +1163,10 @@ and the wrong two find each other), the piece gets a name instead.
 )
 
 #speaker-note[
-  This is the slide to try it on. Press `m`, then drag across the wave. What
-  moves is the one in the hall; the frame in front of you is the same document
-  and follows the same gesture, so you can see what they see.
+  This is the slide to try it on. Press `m` and just hover: a dot follows your
+  mouse on the wall, on this slide and on any other. Then drag across the wave.
+  What moves is the one in the hall; the frame in front of you is the same
+  document and follows the same gesture, so you can see what they see.
 ]
 
 #v(1fr)
@@ -1111,10 +1188,274 @@ and the wrong two find each other), the piece gets a name instead.
         }),
   stagger[
     - No `bridge:` here and no jobs. This frame answers to a hand alone.
-    - In the speaker view `m` swaps the pen for the pointer. The gesture
-      travels as fractions of the stage, so both windows hit the same point.
+    - In the speaker view `m` swaps the pen for the pointer: hovering lights a
+      dot on the wall, a press reaches into the frame. Both travel as
+      fractions of the stage, so both windows hit the same point.
     - It reaches listeners, not native widgets. Build the control yourself.
   ],
+)
+
+#v(1fr)
+
+= In the room
+
+== m: a dot on the wall
+
+// What the class sees of the speaker's hand. `m` in the speaker view used to
+// reach into embedded frames and do nothing anywhere else; now hovering over
+// the slide copy lights a dot on the wall, at the same fraction of the stage
+// in both windows. The two dots below are the dot itself, drawn large: a core
+// in the deck's accent, a light ring and a dark ring, the proportions of the
+// runtime's own gradient. One ring cuts it out of a light slide, the other out
+// of a dark one, which is why its colour is free.
+#let punkt(d, grund) = box(width: d, height: d, fill: grund, radius: 4pt, {
+  place(center + horizon, circle(radius: d * 0.39, fill: rgb("#000000c4")))
+  place(center + horizon, circle(radius: d * 0.32, fill: rgb("#ffffffe8")))
+  place(center + horizon, circle(radius: d * 0.25, fill: live))
+})
+
+// The seam between slide and note in the speaker view is a handle, new in
+// this release as well. It gets a line under the card, and the note says it
+// again: in the speaker view the note stands right under that seam.
+#speaker-note[
+  Open the speaker view with `n`, press `m` there and move the mouse over the
+  slide: the dot on the wall follows. Page on and it goes; step on and it
+  stays. In the speaker view the seam above this note is a handle: drag it
+  down for more slide, up for more note. Tab to it and the arrow keys move it;
+  a double-click puts it back.
+]
+
+#v(1fr)
+
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  {
+    card(title: [The call])[
+      #text(size: 0.72em, raw(lang: "typ",
+        "#show: presentation.with(room: (\n  pointer: (size: 3%),\n))\n\n// pointer: (color: rgb(\"#00c853\"))\n// pointer: false  -- no dot at all"))
+
+      #align(center, {
+        punkt(58pt, t.paper)
+        h(14pt)
+        punkt(58pt, themes.night.paper)
+      })
+    ]
+    v(10pt)
+    text(size: 0.72em)[
+      In the speaker view the seam over the note is a handle: drag it for
+      more slide or more note.
+    ]
+  },
+  stagger[
+    - `n` opens the speaker view, `m` there picks the pointer. Hovering over
+      the slide is enough: no button, no key.
+    - It goes when the mouse leaves the slide, at the pen and at the next
+      slide. A step keeps it: the term you point at is still the term.
+    - Any colour will do. The light ring and the dark one carry the contrast,
+      whichever ground the dot lands on.
+  ],
+)
+
+#v(1fr)
+
+== 1 to 9: the class clock, from the keyboard
+
+// The digits start the pinned clock: `3` three minutes, `7` seven, `0` ends
+// it. No second window is needed -- one machine at a beamer is how most
+// lessons are given -- and the clock stands on the slide instead of over it,
+// so the task stays readable while it runs. `room: (clock: (step: 5))` above
+// makes it read in fives; the last five seconds still count singly, because a
+// clock that shows 00:00 while time is left sends the class home early.
+//
+// The dark box is a drawing of it, not the clock: on paper nothing runs. It
+// reads as the wall does: `02:55` in a monospaced face, which a three-minute
+// clock at a step of five shows for its first five seconds.
+//
+// The list stands on the left and the card on the right for the clock's
+// sake: pinned, it lands at the lower right of the stage, and there the
+// slide leaves room. With the list on the right the running clock sat on
+// its last line -- on the very slide that says the task stays readable.
+#speaker-note[
+  Press `3`: three minutes start on this slide and read in fives. Page on to
+  the horn and the video -- the clock stays with the class and leaves both
+  readable. Come back and press `0`.
+]
+
+#v(1fr)
+
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  stagger[
+    - `3` starts three minutes, `0` ends them. No second window needed.
+    - Pinned: the task stays readable, and paging on does not end it.
+    - `step: 5` reads in fives, the last five seconds singly. It has to
+      divide 60.
+    - On a `cue` slide the digits call its points. `b` in the speaker view
+      blacks out the hall and leaves the clock.
+  ],
+  card(title: [The call])[
+    #text(size: 0.72em, raw(lang: "typ",
+      "#show: presentation.with(room: (\n  clock: (step: 5),\n))\n\n// clock: (digits: false)  -- keys off"))
+
+    #align(center, box(fill: black.transparentize(20%), radius: 8pt,
+      inset: (x: 16pt, y: 9pt),
+      text(fill: white, size: 1.5em, weight: "bold", font: "DejaVu Sans Mono",
+           [02:55])))
+  ],
+)
+
+#v(1fr)
+
+== sounds: a signal the class knows
+
+// A key, a sound file, heard in the hall and only there: the speaker sits at
+// the machine, the speakers are in the room. The file travels beside the HTML
+// like the video does; the package ships none. This one is made for the deck
+// -- three sawtooth tones out of `ffmpeg`, nobody's recording -- and the
+// command that makes it stands in `medien/PROVENANCE.md`. The curve under the
+// listing is those three tones summed over the first twelve milliseconds,
+// before the filters round them off.
+#let horn = {
+  let w = 300pt
+  let h = 46pt
+  let n = 360
+  let saege(f, s) = 2 * calc.fract(f * s) - 1
+  let pkt = range(n + 1).map(i => {
+    let t = i / n * 0.012
+    // The shared time of the command, `ld(0)`: the rise from six percent
+    // flat and the vibrato, so the teeth stand where the file has them.
+    let s = (t - 0.003 * (1 - calc.exp(-t / 0.05))
+             + 0.00012 * calc.sin(2 * calc.pi * 5.5 * t))
+    let y = (0.34 * saege(311.13, s) + 0.30 * saege(369.99, s)
+             + 0.24 * saege(493.88, s))
+    (i / n * w, h / 2 - y / 0.88 * h / 2)
+  })
+  box(width: w, height: h, curve(stroke: 1.2pt + live,
+    curve.move(pkt.first()), ..pkt.slice(1).map(curve.line)))
+}
+
+#speaker-note[
+  Press `a`. With the speaker view open it sounds in the hall only, whichever
+  window has the keyboard.
+]
+
+#v(1fr)
+
+// List left, card right, as on the clock slide before: a clock pinned
+// there and carried over by paging on lands at the lower right.
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  stagger[
+    - `a` plays it, in either window, and it sounds in the hall only.
+    - #box(text(size: 0.85em, raw("a g h i j k p q s u v w y"))) are free. A
+      key the runtime already has stops the build and lists them.
+    - A missing file shows up in the runtime's error list as the page loads,
+      not when somebody presses the key.
+  ],
+  card(title: [The call])[
+    #text(size: 0.72em, raw(lang: "typ",
+      "#show: presentation.with(room: (\n  sounds: (a: \"medien/airhorn.mp3\"),\n))"))
+
+    #align(center, horn)
+    #align(center, text(size: 0.6em, fill: t.muted)[
+      the first twelve milliseconds: three sawtooth tones
+    ])
+  ],
+)
+
+#v(1fr)
+
+== ends-at: the music stops as the lesson starts
+
+// A video before the lesson that ends on the bell instead of starting on a
+// click. On entering the slide the runtime reads the video's length and
+// starts it far enough in that its last frame falls on that minute. The
+// drawing is that plan for a ten-minute video and a bell at 08:15, one room
+// per step: unlocked at 08:11, at 07:50, and a minute after the bell, where
+// "the next 08:15" would be twenty-three hours away and the plan is dropped.
+// `build`, so that paper shows all three rows at once.
+//
+// The clip under the listing is live and runs on this deck's bell: in the
+// hour before 08:15 it waits on its first frame to end on the minute, at any
+// other time it plays from the start.
+#let glocken = build(from => {
+  let w = 390pt
+  // The column on the left holds the time the room is unlocked.
+  let links = 50pt
+  let zeile = 46pt
+  let achse = 3 * zeile + 2pt
+  // Minutes since midnight onto the axis, 07:40 to 08:25.
+  let x(m) = links + (m - 460) / 45 * (w - links)
+  let zwei(n) = if n < 10 { "0" + str(n) } else { str(n) }
+  let uhr(m) = zwei(calc.quo(m, 60)) + ":" + zwei(calc.rem(m, 60))
+  let balken(von, bis, farbe) = place(dx: x(von), dy: 6pt,
+    rect(width: x(bis) - x(von), height: 11pt, fill: farbe, stroke: none))
+  let reihe(offen, satz) = box(width: w, height: zeile, {
+    place(dy: 4pt, text(size: 0.66em, weight: "bold", uhr(offen)))
+    if offen > 495 {
+      balken(offen, 505, live)
+    } else if offen < 485 {
+      place(dx: x(offen), dy: 11.5pt,
+            line(length: x(485) - x(offen),
+                 stroke: (paint: t.muted, thickness: 1.5pt, dash: "dashed")))
+      balken(485, 495, live)
+    } else {
+      balken(485, offen, t.border)
+      balken(offen, 495, live)
+    }
+    place(dx: x(offen) - 3.5pt, dy: 8pt, circle(radius: 3.5pt, fill: t.ink))
+    place(dx: links, dy: 22pt, text(size: 0.58em, fill: t.muted, satz))
+  })
+  box(width: w, height: achse + 20pt, {
+    place(line(start: (links, achse), end: (w, achse), stroke: 1pt + t.border))
+    for m in (465, 480, 495) {
+      place(dx: x(m), dy: achse - 3pt, line(length: 6pt, angle: 90deg,
+                                          stroke: 1pt + t.border))
+      place(dx: x(m) - 20pt, dy: achse + 5pt,
+            box(width: 40pt, align(center, text(size: 0.58em, fill: t.muted,
+                                                 uhr(m)))))
+    }
+    place(dx: x(495), dy: 0pt, line(length: achse, angle: 90deg,
+                                    stroke: 1.5pt + t.ink))
+    place(dx: x(495) + 5pt, dy: achse - 14pt, text(size: 0.58em)[bell])
+    for (k, offen, satz) in (
+      (1, 491, [starts six minutes in and plays the last four]),
+      (2, 470, [waits on its first frame, starts by itself at 08:05]),
+      (3, 496, [a minute late: no plan, it plays from the start]),
+    ) {
+      place(dy: (k - 1) * zeile, from(k, reihe(offen, satz)))
+    }
+  })
+}, steps: 3)
+
+#speaker-note[
+  Three rooms, one ten-minute video: page through them. The clip on the left
+  runs on this deck's bell.
+]
+
+#v(1fr)
+
+#side-by-side(
+  split: (1fr, 1.25fr), align: top,
+  {
+    card(title: [The call])[
+      #text(size: 0.72em, raw(lang: "typ",
+        "#show: presentation.with(\n  room: (bell: \"08:15\"),\n)\n#video(\"intro.mp4\", ends-at: auto)\n\n// without a bell: ends-at: \"08:15\""))
+    ]
+    // Under the card and not inside it: in the card the live video sat on
+    // the last line of the listing in the browser, while the PDF showed a gap.
+    v(12pt)
+    align(center, video("demo.mp4", width: 128pt, height: 72pt, muted: true,
+      ends-at: auto, radius: 4pt, poster: image("demo-poster.png")))
+    // Said on the slide and not only in the note: at any hour but the one
+    // before 08:15 the clip plays once and stops, and in that hour it stands
+    // on its first frame -- both look broken to a room that is not told.
+    align(center, text(size: 0.6em, fill: t.muted)[
+      this clip runs on the bell: in the hour before 08:15 it waits on its
+      first frame, at any other time it plays from the start
+    ])
+  },
+  glocken,
 )
 
 #v(1fr)
@@ -1246,12 +1587,13 @@ and the wrong two find each other), the piece gets a name instead.
 // `class-clock` is the third thing a slide records about itself, and the only
 // one that is not a number to print: how long the work on this slide is meant
 // to take. It starts nothing. `Shift+T` in the speaker view offers the number,
-// the speaker confirms or changes it, and only then does the clock run.
+// the speaker confirms or changes it, and only then does the clock run -- or
+// the speaker just presses the digit, in either window.
 #class-clock(2)
 
 #speaker-note[
-  Press `Shift+T` here. The two minutes are the deck's suggestion, not a
-  countdown that started behind your back.
+  Press `Shift+T` here, or simply `2`. The two minutes are the deck's
+  suggestion, not a countdown that started behind your back.
 ]
 
 #v(1fr)
@@ -1306,6 +1648,12 @@ and the wrong two find each other), the piece gets a name instead.
       #contents(from: 1, to: 3)
     ]
 
+    // Space by hand: `card` sets block spacing to zero for its head, and the
+    // rule reaches into the body. The list is a block, and without this line
+    // the sentence below sat on its last entry -- so since 0.1.1, measured on
+    // this slide and on a three-section deck of nothing else.
+    #v(0.7em)
+
     #text(size: 0.72em, fill: t.muted)[
       Numbers and titles take the palette of the deck. A deeper level
       steps in; `highlight: true` marks where the talk stands.
@@ -1314,7 +1662,71 @@ and the wrong two find each other), the piece gets a name instead.
 )
 
 #anim([`number:` and `title:` each take a function and replace the cell;
-       `number: none` drops the column.], at: 2, enter: "fade-up")
+       `number: none` drops the column. The route at the start of this deck
+       is one call, `contents(highlight: true)`.], at: 2, enter: "fade-up")
+
+#v(1fr)
+
+== section-back: the way back, in the deck's words
+
+// Every section slide carries a link back to the contents at its foot. The
+// theme keeps the place and the link; `section-back:` on `presentation` gives
+// the body, and this deck's own call stands in the listing -- the one at the
+// top of this file, so every section slide of the tour carries it. A `text`
+// of one's own inside the body beats the accent, which is the way to a
+// different colour on a ground where the accent reads too quietly.
+#v(1fr)
+
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  card(title: [The call])[
+    #text(size: 0.72em, raw(lang: "typ",
+      "#show: presentation.with(\n  section-back: back =>\n    text(fill: white)[#back.word\n      · slide #back.contents.number],\n)\n\n// section-back: [Back to the agenda]\n// section-back: none"))
+  ],
+  stagger[
+    - The theme sets it in the accent: on this deck's section ground
+      #calc.round(contrast(live, t.strong), digits: 2) to 1, white
+      #calc.round(contrast(white, t.strong), digits: 2). Your own `text` wins.
+    - `auto` is the word in the deck's language, `none` drops the link. A
+      function also gets the section's `number`, `title` and `depth`.
+    - It leads to the nearest contents before -- here the route at the
+      start -- and stands left in a deck that reads from the right.
+  ],
+)
+
+#v(1fr)
+
+== On paper: an outline, and a page per step
+
+// Two things the PDF of this deck does without a line of its own. It carries
+// an outline, a bookmark for every slide with a title, under its section --
+// a slide without one stays out -- so the reader's sidebar lists the talk.
+// And under `pages: "step"` every step gets a page; the outline still names
+// each slide once. This deck cannot show that one at work -- it has to come
+// out one page per slide -- so the listing quotes it.
+//
+// The list on the right is `stagger(dim: true)`: in the talk each point rests
+// dimmed when the next one comes. On paper `after` does nothing and a page
+// shows every step at once, so the page of this slide prints all three -- it
+// used to print the last one alone, without a word.
+#v(1fr)
+
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  card(title: [The call])[
+    #text(size: 0.72em, raw(lang: "sh", "typst compile tour.typ tour.pdf"))
+
+    #text(size: 0.72em, raw(lang: "typ",
+      "// a page per step:\n#show: presentation.with(\n  pages: \"step\",\n)"))
+  ],
+  stagger(dim: true)[
+    - The PDF carries an outline: a bookmark for every slide with a title,
+      under its section.
+    - `pages: "step"` gives every step a page of its own. The outline still
+      names each slide once.
+    - What rests dimmed has not gone. On paper this list stands whole.
+  ],
+)
 
 #v(1fr)
 
@@ -1402,9 +1814,9 @@ and the wrong two find each other), the piece gets a name instead.
 // in the talk window or in the speaker view.
 #anim(callout(title: [In the browser])[
   #text(size: 0.85em)[
-    `→` `←` one step · `Home` `End` first and last slide · `o` overview ·
-    `f` full screen · `n` speaker view · `1`--`9` a point of an adaptive
-    group · `?` key help
+    `→` `←` one step · `Home` `End` first, last · `o` overview · `f` full
+    screen · `n` speaker view · `1`--`9` class clock, or a `cue` point · `0`
+    clock off · `a` the horn · `?` key help
   ]
 ], at: 2, enter: "rise")
 

@@ -384,7 +384,8 @@ ihren Punkten und gibt jedem einen eigenen Schritt.
 ]
 ```]
 
-Jetzt hat die Folie vier Schritte: den Rumpf und drei Punkte.
+Jetzt hat die Folie drei Schritte: der erste Punkt steht mit dem Rumpf da, die
+beiden anderen kommen je einen Schritt später.
 
 == Ein Kasten, der hängen bleibt
 
@@ -2946,7 +2947,12 @@ derselben oder auf der nächsten Folie liegt.
   [`o`, `Esc`], [Übersicht aller Folien ein- und ausschalten],
   [`f`], [Vollbild],
   [`n`], [die Sprecheransicht in einem zweiten Fenster öffnen],
-  [`?`], [die Tastenbelegung einblenden],
+  [`1` bis `9`, `0`], [die Klassenuhr für so viele Minuten, `0` beendet sie;
+    auf einer Folie mit `cue`-Gruppe rufen die Ziffern deren Punkte],
+  [die Klangtasten des Decks], [spielen ihren Klang im Saal, siehe „Ein Klang
+    auf einer Taste"],
+  [`?`], [eine Zeile mit den wichtigsten Tasten einblenden; die Klangtasten
+    des Decks stehen in der Tastenleiste der Sprecheransicht],
 )
 
 Ein Klick in das linke Viertel des Fensters blättert zurück, jeder andere
@@ -2985,8 +2991,8 @@ beim Browser -- das eine ist Rollen, das andere Zoomen.
 `#speaker` an der Adresse: eines für den Beamer, eines für den Vortragenden.
 Beide reden miteinander, auch als lokale Dateien ohne Server.
 
-Oben stehen die beiden großen Kacheln -- links die laufende Folie, rechts die
-Notiz --, darunter eine Zeile aus vier kleinen und einer breiten:
+Oben steht die laufende Folie über die ganze Breite, darunter die Notiz und
+neben ihr der nächste Schritt, darunter eine Zeile aus vier kleinen Kacheln:
 
 #table(
   columns: (auto, 1fr),
@@ -3002,9 +3008,18 @@ Notiz --, darunter eine Zeile aus vier kleinen und einer breiten:
   [nächster Schritt], [die Vorschau: was der nächste Tastendruck tut],
 )
 
-Darunter die Werkzeugzeile: Stift oder Zeiger, die vier Farben, die
-Tastenbelegung. Der Zustand des Saals -- `schwarz`, `eingefroren`, `kein
-Vortragsfenster` -- steht oben rechts in der Folienkachel.
+Die Naht zwischen Folie und Notiz ist ein Griff: nach unten gezogen gibt er
+der Folie mehr Platz, nach oben der Notiz. Die Tabulatortaste erreicht ihn;
+dann schieben ihn die Pfeiltasten um 16 Pixel, mit Umschalt um 64, `Pos1` und
+`Ende` stellen ihn an die Anschläge, und ein Doppelklick oder `Eingabe` stellt
+ihn zurück. Ein Neuladen behält die Teilung. Ein Deck ohne Notizen hat nichts
+zu teilen und bekommt keinen Griff.
+
+Unter den Kacheln die Werkzeugzeile -- Stift, Zeiger und Radierer, die vier
+Farben, Zurücknehmen und Löschen, hell oder dunkel --, darunter die
+Tastenleiste mit allen Tasten der Ansicht, am Ende die Klangtasten des Decks.
+Der Zustand des Saals -- `schwarz`, `eingefroren`, `kein Vortragsfenster` --
+steht oben rechts in der Folienkachel.
 
 Die Tasten der Ansicht, die `?` dort auch selbst zeigt:
 
@@ -3113,7 +3128,7 @@ aussieht, nicht das Pult vor dem Vortragenden.
 === Eine Uhr, die die Klasse sieht
 
 `t` fragt nach einer Zahl in Minuten, und danach steht auf der Leinwand nichts
-als eine Uhr: weiße `m:ss`-Ziffern auf Schwarz, aus der letzten Reihe zu lesen.
+als eine Uhr: weiße `mm:ss`-Ziffern auf Schwarz, aus der letzten Reihe zu lesen.
 Sie ersetzt die Folie und ist für die Minuten gedacht, in denen die Klasse etwas
 tut und nicht zuhört.
 
@@ -3127,8 +3142,8 @@ tut und nicht zuhört.
   [`→` (oder jede andere Blättertaste)], [beendet sie und deckt die Folie auf],
 )
 
-Bei null hört sie nicht auf, sondern geht auf `+0:01` weiter; die Ziffern nehmen
-die Signalfarbe an, und über ihnen erscheint das Wort „Überzeit".
+Bei null hört sie nicht auf, sondern geht auf `+00:01` weiter; die Ziffern
+nehmen die Signalfarbe an, und über ihnen erscheint das Wort „Überzeit".
 
 #warning[
   `t`, wenn sonst nichts an der Wand steht. Keine Uhr, solange Sie reden -- eine
@@ -3390,9 +3405,9 @@ Aufgabe weg. `room` setzt den Schritt für das ganze Deck:
 )
 ```]
 
-Die letzte Stufe zählt trotzdem einzeln herunter -- 0:15, 0:10, 0:05, 0:04,
-0:03, 0:02, 0:01, 0:00. Eine Uhr, die volle fünf Sekunden lang 0:00 zeigt,
-während noch Zeit übrig ist, schickt die Klasse zu früh nach Hause.
+Die letzte Stufe zählt trotzdem einzeln herunter -- 00:15, 00:10, 00:05,
+00:04, 00:03, 00:02, 00:01, 00:00. Eine Uhr, die volle fünf Sekunden lang 00:00
+zeigt, während noch Zeit übrig ist, schickt die Klasse zu früh nach Hause.
 
 Der Schritt muss 60 teilen: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 oder 60
 Sekunden. Statt der Zahl geht auch `duration(seconds: 5)`. Was nicht aufgeht,
@@ -3404,7 +3419,7 @@ wird schon beim Übersetzen abgelehnt:
 ```]
 
 Sonst stimmte die Zahl schon im Augenblick des Starts nicht: eine
-`class-clock(1)` stünde bei sieben Sekunden Schritt sofort auf 0:56, und das
+`class-clock(1)` stünde bei sieben Sekunden Schritt sofort auf 00:56, und das
 liest sich wie ein Fehler der Uhr und nicht wie einer der Einstellung.
 
 Am Deck und nicht an der Folie, und das ist Absicht. Wie grob die Uhr liest,
@@ -3429,7 +3444,10 @@ Taste an eine Tondatei.
 ```]
 
 Die Datei reist neben der HTML-Datei, wie jede andere Mediendatei auch; das
-Paket bringt keinen Klang mit. Gehört wird er im Saal und nur dort: am Pult
+Paket bringt keinen Klang mit. Die Beispieldecks `tour` und `unterrichten`
+tragen ein Horn, das eigens für sie gerechnet ist, keine Aufnahme:
+`examples/medien/airhorn.mp3`, und daneben in `PROVENANCE.md` der Befehl, der
+es baut. Gehört wird der Klang im Saal und nur dort: am Pult
 sitzt die Lehrkraft vor dem Gerät, im Raum steht die Anlage, und zweimal ist
 der Ton nie zu hören. Gedrückt werden darf die Taste in beiden Fenstern.
 
@@ -4870,6 +4888,12 @@ Setze sie auf eine normale Folie, denn eine Abschnittsfolie hat keinen Rumpf:
 #contents(layout: "1x2-fill")
 ```]
 
+Sie nennt die Abschnitte, also die Überschriften oberhalb von `slide-level`
+zwischen den Folien oder, wo die Folien als Argumente übergeben werden, die
+Aufrufe von `section`. Ein Deck ohne solche -- in der Überschriftenschreibweise
+bei der Vorgabe `slide-level: 2` eines ohne `=` -- bekommt eine leere Liste,
+und keine Meldung weist darauf hin.
+
 `layout: "1x1"` ist die standardmäßige einspaltige Liste. `layout: "1x2"`
 verteilt gleichmäßig auf zwei Spalten, während `layout: "1x2-fill"` die erste
 Spalte nach verfügbarer Höhe füllt und danach in die zweite fließt. Für eine
@@ -5012,9 +5036,10 @@ einem Bildschirmleser lesbar; es gibt keine Textalternative und keine
 Lesereihenfolge.
 
 Was hingegen geht: Das Dokument trägt aus `text.lang` ein `lang`-Attribut. Die
-Navigation ist vollständig über die Tastatur bedienbar, und `?` zeigt die ganze
-Tastenliste. Farbe und Kontrast gehören dem Theme und damit dir; `themes.plain`
-ist das dunkelste der fünf Themes auf Weiß. Wer sein System auf weniger Bewegung
+Navigation ist vollständig über die Tastatur bedienbar, und `?` blendet die
+wichtigsten Tasten ein, in der Sprecheransicht die Tasten der Ansicht. Farbe
+und Kontrast gehören dem Theme und damit dir; `themes.plain` ist das dunkelste
+der fünf Themes auf Weiß. Wer sein System auf weniger Bewegung
 eingestellt hat, bekommt ein Deck, das darauf reagiert
 (`prefers-reduced-motion`); `transition: "none"` und `enter: "none"` setzen
 dasselbe für alle durch.

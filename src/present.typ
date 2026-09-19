@@ -854,7 +854,7 @@
       let sek = if type(s) == duration { s.seconds() } else { s }
       // Der Schritt muss 60 teilen. Sonst stimmt die Zahl schon im Augenblick
       // des Starts nicht: eine `class-clock(1)` staende bei einem Schritt von
-      // 7 Sekunden sofort auf 0:56, und das liest sich wie ein Fehler der Uhr
+      // 7 Sekunden sofort auf 00:56, und das liest sich wie ein Fehler der Uhr
       // und nicht wie einer der Einstellung.
       assert(type(sek) == int and sek >= 1 and sek <= 60 and calc.rem(60, sek) == 0,
         message: "typstage: room.clock.step has to divide 60 evenly -- 1, 2, "

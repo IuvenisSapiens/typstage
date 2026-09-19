@@ -143,11 +143,11 @@ All notable changes to this package are recorded here. The format follows
 
 - **`room: (clock: (step: 5))` -- how calmly the clock reads.** A clock that
   jumps every second pulls the eye off the task each time; at a step of five it
-  moves only every five seconds. The last step still counts down singly, 0:15,
-  0:10, 0:05, 0:04, 0:03, 0:02, 0:01, 0:00, because a clock showing 0:00 for a
-  full five seconds while time is left sends the class home early. The step has
-  to divide 60 evenly, checked at compile time: at seven seconds a
-  `class-clock(1)` would read 0:56 the moment it starts, which looks like a
+  moves only every five seconds. The last step still counts down singly, 00:15,
+  00:10, 00:05, 00:04, 00:03, 00:02, 00:01, 00:00, because a clock showing 00:00
+  for a full five seconds while time is left sends the class home early. The
+  step has to divide 60 evenly, checked at compile time: at seven seconds a
+  `class-clock(1)` would read 00:56 the moment it starts, which looks like a
   fault of the clock rather than one of the setting. It sits on the deck and not
   on the slide deliberately -- how coarsely a clock reads is a property of the
   eye, and a running clock that changed rhythm on paging would look broken;
@@ -195,6 +195,35 @@ All notable changes to this package are recorded here. The format follows
   at pages that did not show it. Reported as bookmarks that "deviate from that
   generated in normal Typst file".
 
+- **The tour shows what this release added, and two more decks use it.**
+  `examples/tour.typ` opens with a route -- `contents(highlight: true)` ahead of
+  the first section, where it no longer comes out pale -- and each of its
+  section slides carries `section-back` in white: the theme sets the link in
+  the accent, and the tour's blue on its red section ground measures 1.27 to 1,
+  white 5.51. A slide without a title says so about itself. A new section, "In
+  the room", gives a slide each to the pointer's dot, to the digits with
+  `room: (clock: (step: 5))`, to a horn on `a` and to `video(ends-at: auto)`
+  with `room: (bell: "08:15")`. The slide on the dot also names the handle
+  that divides the speaker view, in a line of its own and again in its note,
+  which the speaker view shows right under that handle. After `contents` two
+  more show `section-back` and what the PDF does -- its outline,
+  `pages: "step"`, and a
+  `stagger(dim: true)` that paper prints whole. The tour went from 39 to 48
+  slides, from 107 to 131 step pages and from 20 to 24 handout pages at two per
+  sheet, in as many layout runs as before: five for the HTML, four for each
+  PDF. `unterrichten` names the key for each burst in its notes, puts the horn
+  on `a` and ends on a slide without a title, where `themes.lesson` drops its
+  running header. `anziehen` sets its link back in its paper colour, 11.52 to 1
+  on the section ground where its accent measures 2.85, and shows both on a
+  slide of their own. The horn is `examples/medien/airhorn.mp3`, 1.3 seconds and
+  16 320 bytes synthesised with `ffmpeg` from three sawtooth tones -- nobody's
+  recording; `examples/medien/PROVENANCE.md` carries the command, which writes
+  the same bytes again. And `pruefe-rundgang.py` checks the new keys that have
+  no export of their own -- `room`, `clock`, `step`, `sounds`, `bell`,
+  `pointer`, `ends-at` and `section-back` -- where they act, and lists `digits`
+  and `pages` as quoted, each with its reason. It used to pass a tour that set
+  none of them.
+
 ### Changed
 
 - **The link back to the contents follows the reading direction.** It was
@@ -207,11 +236,13 @@ All notable changes to this package are recorded here. The format follows
   page image and page text of the seventeen examples came out the same, and so
   did every HTML file once the `<script>` and `<style>` blocks are cut out. The
   raw HTML is not the same, and not because of this: each of the seventeen grew
-  by exactly 15368 bytes, none of them on a slide -- 13217 of runtime, the
+  by exactly 16770 bytes, none of them on a slide -- 14619 of runtime, the
   pointer among them, which came in the same step, 2132 of style sheet and the
   19 of the one line `"pointer": true` that the dot adds to every deck's room
   configuration. Of the seventeen, two carry a link back at all -- `anziehen`
-  with six and `tour` with five, the same eleven before and after.
+  with six and `tour` with five, the same eleven before and after. All of this
+  was measured on the examples as they stood before the tour gained its slides
+  for this release (above); the tour carries six links since.
 
 - **A slide without a title has no running header.** A bare `==` or
   `slide(none)` used to drop only the title band: under `themes.lesson` slide
@@ -244,7 +275,7 @@ All notable changes to this package are recorded here. The format follows
   on an overflow there.
 
 - **The runtime files are now `typstage-0.1.2.css` and `typstage-0.1.2.js`.**
-  They carry the version, so a deck with `assets: "files"` writes and links the
+  They carry the version, so a deck with `assets: "split"` writes and links the
   new names; nothing changes for the default, which embeds them. The published
   0.1.1 stays exactly as it is on Universe -- its directory is frozen, and this
   is the version that follows it.

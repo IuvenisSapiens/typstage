@@ -30,6 +30,12 @@
 //   8. Ein Video, dem die Metadaten frisch weggenommen wurden, steht am Ende
 //      trotzdem richtig.
 //   9. Über Mitternacht hinweg zählt der Rest vorwärts und nicht rückwärts.
+//  10. Ein Plan, der das Video mitten hinein gestellt hat, gilt nach dem
+//      Verlassen der Folie nicht weiter: wer um 08:14 wegblättert und um
+//      08:16 zurückkommt, sieht es von vorn und nicht dort, wo es stand.
+//  11. Ohne Plan gilt dasselbe: wer um 09:00 mitten im Video wegblättert und
+//      um 09:01 zurückkommt, sieht es von vorn -- so, wie die Folie und das
+//      Handbuch es sagen („at any other time it plays from the start").
 //
 // NICHT geprüft, und zwar wissentlich -- zwei Stellen, die ein Browserlauf
 // nicht erreicht:
@@ -313,6 +319,50 @@ function bauen(paket, ordner) {
     klagen.push("9. von 23:50 bis zur Glocke um 08:15 kamen "
                 + Math.round(ueberMitternacht) + " s heraus statt "
                 + (8 * 3600 + 25 * 60) + " -- der Überlauf über Mitternacht fehlt");
+  }
+
+  // ── 10: Plan, weg, zurück ohne Plan ─────────────────────────────────────
+  //
+  // Um 08:14:50 stellt der Plan das Video auf Dauer minus zehn und lässt es
+  // laufen. Dann weg von der Folie -- `mediaOff` hält es an und spult nicht
+  // zurück -- und um 08:16 wieder hin: dreiundzwanzig Stunden bis zur
+  // nächsten Glocke sind kein Plan, das Video muss von vorn spielen. Punkt 3
+  // sah das nicht: vor ihm stellt Punkt 2 das Video auf sein erstes Bild,
+  // und ein Video, das dort steht, spielt ohnehin von vorn.
+  v = await stellen(ersterSchritt(1), um(8, 14, 50));
+  const mitten = v.length ? v[0].stand : null;
+  if (!v.length || v[0].lage !== "laeuft" || !nah(mitten, SEKUNDEN - 10)) {
+    klagen.push("10. der Plan stellte das Video nicht mitten hinein (Stand "
+                + mitten + ") -- der Rest dieses Punkts misst dann nichts");
+  } else {
+    v = await stellen(ersterSchritt(1), um(8, 16, 0));
+    if (v.length) {
+      if (v[0].lage !== "ohne-frist") klagen.push("10. Lage " + JSON.stringify(v[0].lage) + " statt \"ohne-frist\"");
+      if (!nah(v[0].stand, 0, 2)) {
+        klagen.push("10. um 08:14:50 bei " + mitten.toFixed(1) + " gestellt, weggeblättert,"
+                    + " um 08:16 zurück: Stand " + v[0].stand.toFixed(1) + " statt am Anfang"
+                    + " -- der verworfene Plan lief weiter");
+      }
+      if (v[0].pausiert) klagen.push("10. zurück ohne Plan stand das Video still, statt von vorn zu spielen");
+    }
+  }
+
+  // ── 11: ohne Plan, weg, zurück ohne Plan ────────────────────────────────
+  //
+  // Um 09:00 kein Plan: das Video spielt von vorn. Anderthalb Sekunden
+  // später weg und um 09:01 wieder hin. Gemessen nach dem Warten in
+  // `stellen`: die Laufzeit, die fortsetzte, stand bei 3,7 Sekunden, die
+  // behobene steht bei 0,7.
+  v = await stellen(ersterSchritt(1), um(9, 0, 0));
+  await schlaf(1500);
+  v = await stellen(ersterSchritt(1), um(9, 1, 0));
+  if (v.length) {
+    if (v[0].lage !== "ohne-frist") klagen.push("11. Lage " + JSON.stringify(v[0].lage) + " statt \"ohne-frist\"");
+    if (!nah(v[0].stand, 0, 1.5)) {
+      klagen.push("11. um 09:00 ohne Plan gespielt, weggeblättert, um 09:01 zurück: Stand "
+                  + v[0].stand.toFixed(1) + " statt am Anfang -- ohne Plan setzte es fort");
+    }
+    if (v[0].pausiert) klagen.push("11. zurück ohne Plan stand das Video still, statt von vorn zu spielen");
   }
 
   await b.ende();

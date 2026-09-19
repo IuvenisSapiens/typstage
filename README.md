@@ -252,7 +252,7 @@ three steps, and `→` goes to the next one wherever it is.
 | `f` | full screen |
 | `1`…`9` | that many minutes as a clock on the slide; `0` ends it |
 | `n` | open the speaker view in a second window |
-| `?` | the key map |
+| `?` | a line with the main keys |
 
 Clicking the left quarter of the window goes back, anywhere else forward. On a
 phone or tablet the same works with a finger, and so does swiping: right to
@@ -274,10 +274,12 @@ second window. Put that one on your laptop and the first one on the projector.
 The two talk to each other with `postMessage`, which works between two local
 files as well, so this needs no server either.
 
-It is a lectern made of tiles: the running slide and the note on top, below
-them elapsed time, slide and step, the planned length, the clock the class
-sees, and the next **step** — not the next slide, because a deck that counts in
-steps has to answer what the next keypress does.
+It is a lectern made of tiles: the running slide across the top, under it the
+note and beside the note the next **step** — not the next slide, because a deck
+that counts in steps has to answer what the next keypress does —, and under
+those elapsed time, slide and step, the planned length and the clock the class
+sees. The seam between slide and note is a handle: drag it to give either more
+room.
 
 You can draw on the running slide, and the strokes appear on the projected one;
 `m` swaps the pen for a pointer, and then a lit dot follows your mouse across
@@ -316,7 +318,9 @@ has the keyboard, so a single machine at a beamer needs no second window at all.
 
 `step` calms a clock that would otherwise jump every second while the class is
 working; the last five seconds still count down singly. A sound file travels
-beside the HTML like any other media, and the package ships none of its own. And
+beside the HTML like any other media, and the package ships none of its own;
+the example decks bring a horn synthesised for them, with the command in
+`examples/medien/PROVENANCE.md`. And
 `bell` is what a `video(ends-at: auto)` ends on: the runtime reads the video's
 length and starts it far enough in that its last frame falls on that minute, so
 the music before the lesson stops as the lesson starts.
@@ -403,9 +407,9 @@ runtime once for all of them. The manual has the numbers.
 - **The slides are SVG outlines, not text.** Glyphs go into the file as paths,
   so nothing in the browser is selectable, searchable or reflowable, screen
   readers see nothing, and the file grows with the deck. Measured: the little
-  deck above weighs 211 kB, the seventeen example decks between 0.59 and
-  4.28 MB, and `tour` holds 242 SVG trees with 9996 glyph references across
-  37 slides. In exchange no font has to load and the layout cannot drift.
+  deck above weighs 582 kB, the seventeen example decks between 0.70 and
+  6.22 MB, and `tour` holds 295 SVG trees with 13 985 glyph references across
+  48 slides. In exchange no font has to load and the layout cannot drift.
 - **`#pause` is read at the top level of a slide body only.** Inside a grid
   cell, a table or a figure it is not seen, so reach for `anim` there.
 - **GeoGebra and Desmos are not in the box.** A typeset applet is an empty frame

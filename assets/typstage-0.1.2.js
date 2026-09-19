@@ -1813,7 +1813,12 @@
     if (wann === "auto") wann = (CFG.room || {}).bell;
     var rest = fristSek(wann);
     if (rest == null || rest > FRIST_DECKEL) {
-      // Kein Plan: das Video spielt wie immer von vorn.
+      // Kein Plan: das Video spielt von vorn, bei jedem Stellen -- beim
+      // Eintritt wie nach dem Verdunkeln, so wie mit Plan jedes Stellen neu
+      // rechnet. Sonst liefe es um 08:16 da weiter, wo ein verworfener Plan
+      // es um 08:14 hingestellt hatte, und um 09:01 da, wo die Folie um 09:00
+      // verlassen wurde.
+      try { v.currentTime = 0; } catch (x) {}
       var p0 = v.play(); if (p0 && p0.catch) p0.catch(function () {});
       return;
     }
@@ -1976,7 +1981,7 @@
   // two runs of the same deck never agree on it.
   // ── Die Vollbilduhr ───────────────────────────────────────────────────────
   //
-  // Eine Uhr, die die Klasse sieht: schwarz von Rand zu Rand, `m:ss`. Sie legt
+  // Eine Uhr, die die Klasse sieht: schwarz von Rand zu Rand, `mm:ss`. Sie legt
   // sich nicht ueber die Folie, sie tritt an ihre Stelle -- der Zwilling von
   // `b schwarz`, nur mit etwas darauf.
   //
@@ -2022,7 +2027,7 @@
 
   function uhrZwei(z) { return (z < 10 ? "0" : "") + z; }
 
-  // `m:ss`, und die Vorzeichenspalte ist von Anfang an freigehalten: ein
+  // `mm:ss`, und die Vorzeichenspalte ist von Anfang an freigehalten: ein
   // Leerzeichen ist in einer Monospace so breit wie das `+`, also springen die
   // Ziffern beim Umschlag nicht seitwaerts. Erstes von drei Signalen der
   // Ueberzeit -- die anderen sind das Wort und die Farbe, und ein viertes gibt
@@ -2058,10 +2063,10 @@
   // sagt, aus wie zuvor.
   //
   // Die letzte Stufe zaehlt trotzdem einzeln herunter. Ein Raster bis zur Null
-  // hinunter zeigte volle fuenf Sekunden lang 0:00, waehrend noch Zeit uebrig
-  // ist -- die Klasse hoerte auf zu arbeiten, bevor sie muss. Also Ruhe in der
-  // Mitte und Genauigkeit am Schluss: ... 0:15, 0:10, 0:05, 0:04, 0:03, 0:02,
-  // 0:01, 0:00.
+  // hinunter zeigte volle fuenf Sekunden lang 00:00, waehrend noch Zeit
+  // uebrig ist -- die Klasse hoerte auf zu arbeiten, bevor sie muss. Also Ruhe
+  // in der Mitte und Genauigkeit am Schluss: ... 00:15, 00:10, 00:05, 00:04,
+  // 00:03, 00:02, 00:01, 00:00.
   //
   // In der Ueberzeit gilt die Ausnahme nicht: dort ist die Zahl ohnehin nur
   // noch ein Mass dafuer, wie weit man drueber ist, und sie soll ruhig sein.
@@ -6854,8 +6859,25 @@
     //
     // There is no build switch on this. A switch would mean checking a
     // runtime that is not the one shipped, which is the one thing a check may
-    // never do. Measured on the six example decks it costs under one percent
-    // of the compressed page.
+    // never do.
+    //
+    // Was sie kostet, selbst gemessen und mit dem Verfahren, das CONTRIBUTING
+    // nennt: jedes Beispiel zweimal gebaut -- einmal wie ausgeliefert, einmal
+    // mit dem ganzen `pruef`-Objekt auf `{}` gekuerzt --, die Seiten mit gzip
+    // gepackt und verglichen: die ausgelieferte Seite ist groesser als
+    // dieselbe ohne `pruef`, ueber die fuenfzehn Beispiele ohne Applet um
+    // 0,4 % (`tour`) bis 1,4 % (`theme-plain`), ueber alle siebzehn um bis
+    // zu 2,4 % (`geogebra`, die kleinste Seite des Satzes) -- auf eine Stelle
+    // gerundet mit gzip auf Stufe 6 wie auf Stufe 9 dieselben drei Zahlen.
+    // Ueber einem Prozent liegen mit Stufe 9 elf der siebzehn, mit Stufe 6
+    // zehn: `anziehen` liegt einmal knapp darueber und einmal knapp darunter.
+    // Dieselben Zahlen stehen in CONTRIBUTING.md.
+    //
+    // Hier stand bis hierher "Measured on the six example decks it costs
+    // under one percent of the compressed page" -- falsch in allen drei
+    // Stuecken: sechs Beispiele waren es nie, unter einem Prozent blieben
+    // damals nur sechs der siebzehn, und CONTRIBUTING im selben Baum nannte
+    // schon andere Zahlen.
     pruef: {
       // Zwei, seit `ziffer`, `punkt` und `adaptiv` dazugekommen sind. Ein Lauf,
       // der eine cue-Gruppe bedienen will, muss ein Deck von gestern daran
