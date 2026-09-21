@@ -6,7 +6,7 @@
 the handout as PDF from that same file.**
 
 [![Badge linking to the typstage manual](https://img.shields.io/badge/docs-manual-green)](https://loewe1000.github.io/typstage/)
-[![Badge linking to seventeen example decks](https://img.shields.io/badge/demo-seventeen%20decks-blue)](https://loewe1000.github.io/typstage/beispiele/en.html)
+[![Badge linking to example decks and handouts](https://img.shields.io/badge/demo-decks%20%26%20handouts-blue)](https://loewe1000.github.io/typstage/beispiele/en.html)
 [![Badge linking to the changelog for version 0.1.2](https://img.shields.io/badge/changelog-0.1.2-lightgrey)](CHANGELOG.md)
 ![Badge showing the license this package is released under](https://img.shields.io/github/license/Loewe1000/typstage)
 
@@ -18,7 +18,7 @@ typst watch   deck.typ deck.html --format html --features html   # live on :3000
 
 ![A slide of a typstage deck in the browser, halfway through its reveals](assets/slide.png)
 
-**Try it without installing anything:** [seventeen example decks](https://loewe1000.github.io/typstage/beispiele/en.html), running in your browser. They are written as talks somebody might actually give rather than as feature demos — a school lesson, a night of rolling deployments, John Snow's cholera map, a Fermi question worked through in four bursts. Each one links its source.
+**Try it without installing anything:** [example decks and handouts](https://loewe1000.github.io/typstage/beispiele/en.html), as browser presentations and printable PDFs. They are written as talks somebody might actually give rather than as feature demos — a school lesson, a night of rolling deployments, John Snow's cholera map, a Fermi question worked through in four bursts. Each one links its source.
 
 ## Typst sets, the browser moves
 
