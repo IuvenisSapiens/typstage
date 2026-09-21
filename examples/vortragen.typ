@@ -321,11 +321,8 @@
 
 // Three tiles, each on its point. They hold their place open even while nobody
 // has called them out, so nothing jumps whichever order the reveals come in.
-#let tile(head, note) = block(
-  // A fixed height, so the three tiles line up along one edge. Without it each
-  // is as tall as its own text, and which one gets called first would decide
-  // what the slide looks like.
-  width: 100%, height: 116pt, inset: (x: 12pt, y: 10pt), radius: 6pt,
+#let tile(head, note, height: auto) = block(
+  width: 100%, height: height, inset: (x: 12pt, y: 10pt), radius: 6pt,
   fill: t.surface, stroke: 1pt + t.border,
   {
     text(size: 1.25em, weight: 700, fill: dead, head)
@@ -335,22 +332,32 @@
   },
 )
 
-#grid(
-  columns: (1fr, 1fr, 1fr),
-  gutter: 14pt,
-  cue-layer("odd", 1, tile[70 men, 0 dead][
+#let cases = (
+  ([70 men, 0 dead], [
     Their own well in the yard, and a daily allowance of beer. Not one of them
     drank from the street.
   ]),
-  cue-layer("odd", 2, tile[535 inmates, 5 dead][
+  ([535 inmates, 5 dead], [
     Its own well and pump inside the walls. The poorest people on the map,
     and almost untouched.
   ]),
-  cue-layer("odd", 3, tile[3 miles off, 1 dead][
+  ([3 miles off, 1 dead], [
     A cart brought her a bottle of Broad Street water every week. She liked
     the taste of it.
   ]),
 )
+
+// Measure all three at their actual column width, including inset and wrapping.
+// Reserving the tallest card keeps both edges aligned in every reveal order,
+// and exposes the real height to the slide's overflow check.
+#layout(size => {
+  let column = (size.width - 28pt) / 3
+  let height = calc.max(..cases.map(c => measure(tile(..c), width: column).height))
+  grid(
+    columns: (1fr, 1fr, 1fr), gutter: 14pt,
+    ..cases.enumerate().map(((i, c)) => cue-layer("odd", i + 1, tile(..c, height: height))),
+  )
+})
 
 == What is left standing
 
@@ -521,7 +528,7 @@
 
 #v(0.6em)
 
-#anim(at: 5, callout(title: [Nobody chose their pipe])[
+#anim(at: 5, callout(title: [Nobody chose their pipe], inset: (x: 14pt, y: 5pt))[
   Same trade, same landlord, next door to each other. Everything is shared
   except the water, so everything except the water cancels.
 ], enter: "fade-up")

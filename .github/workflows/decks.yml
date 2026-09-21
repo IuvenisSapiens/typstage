@@ -298,6 +298,9 @@ jobs:
       - name: Audio and timer signals
         run: node .github/scripts/pruefe-audio-timer.js
 
+      - name: Vortragen cards with default and fallback fonts
+        run: node .github/scripts/pruefe-vortragen-karten.js
+
       - name: Audio, video and YouTube clips
         run: node .github/scripts/pruefe-medien-ausschnitt.js
 

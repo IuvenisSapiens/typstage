@@ -370,3 +370,12 @@ restart and silent presenter playback. It requires no external audio service.
 HTML media and a deterministic YouTube API fixture, including clip boundaries,
 replay, presenter seeking, source-duration clamping and Typst validation/PDF.
 It serves local fixtures with byte ranges and requires no external provider.
+
+### Vortragen card regression
+
+`node .github/scripts/pruefe-vortragen-karten.js` compiles both `vortragen` decks
+with the default theme font and DejaVu Sans, in HTML and PDF. It checks the
+painted SVG bounds against each card and the stage at two viewport sizes, as
+well as equal heights and stable positions across cue orders. This catches
+text escaping fixed-height boxes even when the slide overflow check passes.
+The fallback-font run requires DejaVu Sans to be installed.
