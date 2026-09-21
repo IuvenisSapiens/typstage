@@ -857,7 +857,7 @@ button.ts-sp-knopf:focus-visible{outline:2px solid var(--sp-marke);
 .ts-sp-werkzeugleiste .ts-sp-taten{
   grid-template-columns:auto repeat(2,minmax(0,5rem))}
 .ts-sp-werkzeugleiste .ts-sp-wzlicht{
-  grid-template-columns:auto minmax(0,5rem)}
+  grid-template-columns:auto minmax(0,5rem) 1.8rem}
 /* Equal swatches and reserved ring space keep selection inside the group. */
 .ts-sp-werkzeugleiste .ts-sp-farben{
   grid-template-columns:auto repeat(4,24px);align-items:center;
