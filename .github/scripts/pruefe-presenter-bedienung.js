@@ -114,7 +114,8 @@ const root = path.resolve(__dirname, '../..');
   assert(Math.abs(await b.ev(ratio)-r1)<.003,'column preference persists');
   await b.ev(`document.activeElement.blur()`); await b.taste('End'); await schlaf(800);
   assert.equal(await b.ev(`document.querySelector('.ts-sp-medien').hidden`),false,'media controls visible on presenter media slide');
-  assert(await b.ev(`document.querySelector('.ts-sp-fuss').getBoundingClientRect().height>0`),'media controls retain their own footer');
+  assert(await b.ev(footerGone),'media controls do not create a footer below hidden shortcuts');
+  assert(await b.ev(`!!document.querySelector('.ts-sp-werkzeugleiste .ts-sp-medien')`),'media controls belong to the toolbar');
   if(process.env.TYPSTAGE_TEST_SCREENSHOT) fs.writeFileSync(process.env.TYPSTAGE_TEST_SCREENSHOT,Buffer.from(await b.bild(),'base64'));
   console.log('Presenter regression: auto/explicit reveals, cue round-trip, clock scaling, media j/k/l, divider ratio and shortcuts passed.');
  } finally { if(b) await b.ende(); fs.rmSync(tmp,{recursive:true,force:true}); }

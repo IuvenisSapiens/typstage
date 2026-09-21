@@ -2021,14 +2021,14 @@
   function medienZeigen() {
     if (!MEDIEN_ZEILE) return;
     var items = medienHier(), key = items.map(function (m) { return m.id; }).join(",");
-    var sichtbar = items.length > 0, wechsel = MEDIEN_ZEILE.hidden === sichtbar;
+    var sichtbar = items.length > 0, wechsel = MEDIEN_ZEILE.hidden === sichtbar || key !== MEDIEN_KEY;
     MEDIEN_ZEILE.hidden = !sichtbar;
     if (key !== MEDIEN_KEY) {
       MEDIEN_KEY = key; MEDIEN_ZEILE.textContent = "";
       items.forEach(function (m) {
-        var row = bau("div", "ts-sp-medium", MEDIEN_ZEILE);
+        var row = bau("div", "ts-sp-wzgruppe ts-sp-medium", MEDIEN_ZEILE);
         row.dataset.mediaId = m.id;
-        bau("span", "", row).textContent = m.title;
+        bau("span", "ts-sp-wzgruppe-name", row).textContent = m.title;
         var button = bau("button", "ts-sp-tat", row);
         button.type = "button";
         button.addEventListener("click", function () {
@@ -2048,9 +2048,11 @@
       var row = MEDIEN_ZEILE.querySelector('[data-media-id="' + m.id + '"]');
       if (!row) return;
       var button = row.querySelector("button"), slider = row.querySelector("input");
+      row.dataset.status = m.status ? "1" : "0";
       button.disabled = !!m.failed;
       button.textContent = m.paused ? "▶" : "Ⅱ";
       button.setAttribute("aria-label", m.paused ? "Play" : "Pause");
+      slider.style.setProperty("--media-progress", (m.duration > 0 ? Math.min(100, Math.max(0, m.time / m.duration * 100)) : 0) + "%");
       slider.max = String(m.duration); slider.disabled = !(m.duration > 0);
       if (document.activeElement !== slider) slider.value = String(m.time);
       row.querySelector("output").textContent = m.status || (zeitText(m.time) + " / " + zeitText(m.duration));
@@ -4636,7 +4638,7 @@
 
   function fussZeigen() {
     if (!ELN.fuss) return;
-    var sichtbar = HILFE_AN || (MEDIEN_ZEILE && !MEDIEN_ZEILE.hidden);
+    var sichtbar = HILFE_AN;
     ELN.fuss.hidden = !sichtbar;
     SPRECHERBOX.dataset.fuss = sichtbar ? "an" : "aus";
   }
@@ -4986,7 +4988,7 @@
     ELN.hilfeKnopf.textContent = "?";
     ELN.hilfeKnopf.title = "Keyboard shortcuts (h)";
     ELN.hilfeKnopf.addEventListener("click", hilfeUm);
-    MEDIEN_ZEILE = bau("div", "ts-sp-medien", fuss);
+    MEDIEN_ZEILE = bau("div", "ts-sp-medien", wzk);
     MEDIEN_ZEILE.hidden = true;
     ELN.hilfe = bau("div", "ts-sp-hilfe", fuss);
     // Die ganze Tastenzeile, nicht die kurze Fassung: die Leiste ist breit

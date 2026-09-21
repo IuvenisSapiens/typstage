@@ -1000,10 +1000,32 @@ html[data-ts-schwarz="1"] #ts-clock:not([data-art="fest"]){opacity:0}
 .ts-sp-spaltenteiler{right:auto;cursor:col-resize}
 .ts-sp-spaltenteiler::before{width:3px;height:40px}
 .ts-sp-spaltenteiler:hover::before,.ts-sp-spaltenteiler[data-zieht]::before{width:3px;height:64px}
-.ts-sp-medien{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
-.ts-sp-medium{display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:100%}
-.ts-sp-medium output{overflow-wrap:anywhere;min-width:0}
-.ts-sp-medien input{width:130px}
+/* Media belongs to the toolbar. Groups wrap as units with the other tools. */
+.ts-sp-medien{display:contents}
+.ts-sp-werkzeugleiste .ts-sp-medium{
+  flex:1 1 320px;max-width:440px;min-width:0;
+  grid-template-columns:auto 1.8rem minmax(50px,1fr) auto}
+.ts-sp-medium output{font-size:11px;font-variant-numeric:tabular-nums;
+  color:var(--sp-leise);white-space:nowrap}
+.ts-sp-medium[data-status="1"] output{grid-column:1/-1;
+  white-space:normal;overflow-wrap:anywhere;max-width:100%}
+.ts-sp-medium input[type="range"]{appearance:none;-webkit-appearance:none;
+  width:100%;min-width:0;height:24px;margin:0;padding:0;cursor:pointer;
+  background:transparent;border:0;border-radius:3px;color:var(--sp-satz)}
+.ts-sp-medium input[type="range"]::-webkit-slider-runnable-track{
+  height:4px;border-radius:2px;background:linear-gradient(to right,
+  var(--sp-marke) var(--media-progress,0%),var(--sp-rand) var(--media-progress,0%))}
+.ts-sp-medium input[type="range"]::-webkit-slider-thumb{
+  appearance:none;-webkit-appearance:none;width:10px;height:10px;
+  margin-top:-3px;border-radius:50%;border:0;background:var(--sp-satz)}
+.ts-sp-medium input[type="range"]::-moz-range-track{
+  height:4px;border-radius:2px;background:var(--sp-rand)}
+.ts-sp-medium input[type="range"]::-moz-range-progress{
+  height:4px;border-radius:2px;background:var(--sp-marke)}
+.ts-sp-medium input[type="range"]::-moz-range-thumb{
+  width:10px;height:10px;border-radius:50%;border:0;background:var(--sp-satz)}
+.ts-sp-medium input:focus-visible{outline:2px solid var(--sp-marke);outline-offset:2px}
+.ts-sp-medium input:disabled,.ts-sp-medium button:disabled{opacity:.45;cursor:default}
 
 html[data-ts-schwarz="1"] #ts-stage{background:#000}
 html[data-ts-schwarz="1"] #ts-stage > :not(#ts-clock){opacity:0!important}
