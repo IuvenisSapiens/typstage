@@ -23,7 +23,7 @@ const inspect=`(()=>{let f=document.querySelector('iframe'),w=f.contentWindow;re
 let base;
 for(const [width,height,dpr] of [[836,472,1],[1905,1074,1],[1905,1074,2],[836,472,1]]){
  await b.ruf('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:dpr,mobile:false});await schlaf(1700);
- 
+
  let a=await b.ev(inspect);console.log('viewport',width,height,'DPR',dpr,'canvas',JSON.stringify(a.canvases));
  if(!base)base=a;else {assert.equal(a.view,base.view,'logical view unchanged');assert.equal(a.xml,base.xml,'construction and labels unchanged');}
  const c=a.canvases[0];assert(c&&Math.abs(c.w-c.cw*dpr)<1.1&&Math.abs(c.h-c.ch*dpr)<1.1,'backing pixels cover displayed pixels');
