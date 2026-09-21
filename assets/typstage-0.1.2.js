@@ -1892,11 +1892,20 @@
       } },
       duration: { get: function () { return y.ready ? y.player.getDuration() || 0 : 0; } },
       currentTime: { get: function () {
-        return y.time !== null ? y.time : y.ready ? y.player.getCurrentTime() || 0 : 0;
+        var actual = y.ready ? y.player.getCurrentTime() || 0 : 0;
+        // YouTube reports its old position until the asynchronous seek settles.
+        if (y.seek) {
+          if (Math.abs(actual - y.seek.time) < 1 || Date.now() - y.seek.at > 5000) y.seek = null;
+          else return y.seek.time;
+        }
+        return y.time !== null ? y.time : actual;
       }, set: function (t) {
         if (!isFinite(t)) return;
         t = Math.max(0, f.duration > 0 ? Math.min(f.duration, t) : t);
-        if (y.ready) y.player.seekTo(t, true); else y.time = t;
+        if (y.ready) {
+          y.seek = { time: t, at: Date.now() };
+          y.player.seekTo(t, true);
+        } else y.time = t;
       } },
       muted: { get: function () { return y.muted; }, set: function (m) {
         y.muted = !!m;
@@ -2038,10 +2047,39 @@
         var slider = bau("input", "", row);
         slider.type = "range"; slider.min = "0"; slider.step = "0.1";
         slider.setAttribute("aria-label", m.title + " position");
-        slider.addEventListener("input", function () {
-          medienBefehl({ id: m.id, action: "seek", time: +slider.value });
+        var output = bau("output", "", row), seekTimer = 0;
+        function preview() {
+          var t = +slider.value, duration = +slider.max;
+          slider.style.setProperty("--media-progress", (duration > 0 ? t / duration * 100 : 0) + "%");
+          output.textContent = zeitText(t) + " / " + zeitText(duration);
+        }
+        function commit() {
+          clearTimeout(seekTimer);
+          slider.tsDragging = false;
+          var pending = slider.tsSeek;
+          if (!pending || pending.sentAt !== null || !slider.isConnected) return;
+          pending.sentAt = Date.now();
+          medienBefehl({ id: m.id, action: "seek", time: pending.time });
+        }
+        slider.addEventListener("pointerdown", function (e) {
+          if (e.button !== 0) return;
+          clearTimeout(seekTimer); slider.tsDragging = true;
+          slider.setPointerCapture(e.pointerId);
         });
-        bau("output", "", row);
+        slider.addEventListener("input", function () {
+          slider.tsSeek = { time: +slider.value, sentAt: null };
+          preview(); clearTimeout(seekTimer);
+          // Pointer scrubbing previews locally and seeks once on release.
+          // Keyboard/assistive input also works without pointer events.
+          if (!slider.tsDragging) seekTimer = setTimeout(commit, 150);
+        });
+        slider.addEventListener("change", commit);
+        slider.addEventListener("pointerup", commit);
+        slider.addEventListener("blur", commit);
+        slider.addEventListener("pointercancel", function () {
+          clearTimeout(seekTimer); slider.tsDragging = false; slider.tsSeek = null;
+          medienZeigen();
+        });
       });
     }
     items.forEach(function (m) {
@@ -2052,10 +2090,16 @@
       button.disabled = !!m.failed;
       button.textContent = m.paused ? "▶" : "Ⅱ";
       button.setAttribute("aria-label", m.paused ? "Play" : "Pause");
-      slider.style.setProperty("--media-progress", (m.duration > 0 ? Math.min(100, Math.max(0, m.time / m.duration * 100)) : 0) + "%");
+      var pending = slider.tsSeek;
+      if (pending && pending.sentAt !== null && !slider.tsDragging
+          && (Math.abs(m.time - pending.time) < 1 || Date.now() - pending.sentAt > 5000)) {
+        slider.tsSeek = null; pending = null;
+      }
+      var shownTime = pending ? pending.time : m.time;
+      slider.style.setProperty("--media-progress", (m.duration > 0 ? Math.min(100, Math.max(0, shownTime / m.duration * 100)) : 0) + "%");
       slider.max = String(m.duration); slider.disabled = !(m.duration > 0);
-      if (document.activeElement !== slider) slider.value = String(m.time);
-      row.querySelector("output").textContent = m.status || (zeitText(m.time) + " / " + zeitText(m.duration));
+      if (!slider.tsDragging) slider.value = String(shownTime);
+      row.querySelector("output").textContent = m.status || (zeitText(shownTime) + " / " + zeitText(m.duration));
     });
     fussZeigen();
     if (wechsel) fit();
@@ -7091,7 +7135,10 @@
       if (!v || (v.tsYouTube && !youtubeVisible(v))) return;
       // A blocked preview must not retry autoplay on every state packet.
       if (v.tsYouTube && (v.tsYouTube.error || v.tsYouTube.notice)) return;
-      if (Math.abs(v.currentTime - m.time) > .5) medienAnwenden({ id: m.id, action: "seek", time: m.time });
+      var drift = Math.abs(v.currentTime - m.time);
+      var seeking = v.tsYouTube && (v.tsYouTube.seek
+        || (v.tsYouTube.ready && v.tsYouTube.player.getPlayerState() === 3));
+      if (!seeking && drift > (v.tsYouTube && !m.paused ? 1.5 : .5)) medienAnwenden({ id: m.id, action: "seek", time: m.time });
       if (v.paused !== m.paused) medienAnwenden({ id: m.id, action: m.paused ? "pause" : "play" });
     });
     medienZeigen();

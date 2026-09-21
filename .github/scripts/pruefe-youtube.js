@@ -20,7 +20,7 @@ HTMLHeadElement.prototype.appendChild=function(n){
    p.mute=()=>p.muted=true;p.unMute=()=>p.muted=false;
    p.playVideo=()=>{p.calls.push('play');p.state=1;opts.events.onStateChange({data:1});};
    p.pauseVideo=()=>{p.calls.push('pause');p.state=2;opts.events.onStateChange({data:2});};
-   p.seekTo=t=>{p.calls.push('seek');p.time=t;};
+   p.seekTo=t=>{p.calls.push('seek');if(p.seekDelay)setTimeout(()=>p.time=t,p.seekDelay);else p.time=t;};
    players.push(p);setTimeout(()=>opts.events.onReady({target:p}),400);
   }};window.onYouTubeIframeAPIReady();},30);return n;
  }return append.call(this,n);
@@ -93,6 +93,26 @@ HTMLHeadElement.prototype.appendChild=function(n){
    await key('j');assert.equal(await b.ev('players[0].time'),0,'j backwards');
    await b.ev(`let s=__p.document.querySelector('.ts-sp-medien input');s.value='37';s.dispatchEvent(new __p.Event('input',{bubbles:true}))`);await schlaf(600);
    assert.equal(await b.ev('players[0].time'),37,'presenter timeline');
+   // Real pointer drag, with delayed provider acknowledgements in both windows.
+   const presenter=await b.zweites();
+   try {
+    await b.ev(`players[0].seekDelay=900;players[0].calls=[];__p.players[0].seekDelay=900;__p.players[0].calls=[]`);
+    const rect=await presenter.ev(`(()=>{let r=document.querySelector('.ts-sp-medien input').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+    const move=async x=>presenter.ruf('Input.dispatchMouseEvent',{type:'mouseMoved',x,y:rect.y+rect.h/2,buttons:1});
+    await presenter.ruf('Input.dispatchMouseEvent',{type:'mousePressed',x:rect.x+rect.w*.3,y:rect.y+rect.h/2,button:'left',clickCount:1});
+    for(let i=0;i<20;i++)await move(rect.x+rect.w*(.3+i*.025));
+    const target=await presenter.ev(`+document.querySelector('.ts-sp-medien input').value`);
+    await schlaf(1100);
+    assert.equal(await b.ev(`players[0].calls.filter(c=>c==='seek').length`),0,'drag does not flood stage with seeks');
+    assert.equal(await presenter.ev(`+document.querySelector('.ts-sp-medien input').value`),target,'feedback cannot pull the thumb back while dragging');
+    await presenter.ruf('Input.dispatchMouseEvent',{type:'mouseReleased',x:rect.x+rect.w*.775,y:rect.y+rect.h/2,button:'left',clickCount:1});
+    await until(`Math.abs(players[0].time-${target})<1`,'final drag target reached');
+    await until(`Math.abs(__p.players[0].time-${target})<1`,'preview settles at final drag target');
+    assert.equal(await b.ev(`players[0].calls.filter(c=>c==='seek').length`),1,'one seek on release');
+    assert.equal(await b.ev(`__p.players[0].calls.filter(c=>c==='seek').length`),1,'delayed preview seek is not restarted');
+    await b.ev(`players[0].seekDelay=0;__p.players[0].seekDelay=0;players[0].time=42`);
+    await until(`Math.abs(+__p.document.querySelector('.ts-sp-medien input').value-42)<1`,'focused slider resumes following playback after drag');
+   } finally {await presenter.ende();}
    await b.ev(`__p.document.querySelector('.ts-sp-medien button').click()`);await schlaf(600);
    assert.equal(await b.ev('players[0].state'),1,'presenter play button');
    await key('b');assert.equal(await b.ev('players[0].state'),2,'black pauses');await key('b');assert.equal(await b.ev('players[0].state'),1,'unblack resumes');
