@@ -229,7 +229,16 @@
     html.elem("div", attrs: attrs, html.elem("video", attrs: a, []))
   } else if s.kind == "embed" {
     let a = (frameborder: "0", sandbox: "allow-scripts allow-same-origin")
-    if s.extra.url != none { a.insert("src", s.extra.url) }
+    if s.extra.url != none {
+      // Delay YouTube until this embed is visible. Other URLs stay ordinary embeds.
+      let youtube = s.extra.url.match(regex("^https://(www\\.)?(youtube\\.com|youtube-nocookie\\.com)/embed/[A-Za-z0-9_-]{11}([?#].*)?$")) != none and s.extra.doc == none
+      if youtube {
+        a.insert("data-ts-youtube", s.extra.url)
+        a.insert("allow", "autoplay; encrypted-media; fullscreen; picture-in-picture")
+        a.insert("referrerpolicy", "strict-origin-when-cross-origin")
+        a.insert("title", "YouTube")
+      } else { a.insert("src", s.extra.url) }
+    }
     if s.extra.doc != none { a.insert("srcdoc", s.extra.doc) }
     // `data-zoom` und `data-bridge` schreibt die Schleife oben laengst -- beide
     // stehen in `extra`. Hier stand beides ein zweites Mal, mit demselben

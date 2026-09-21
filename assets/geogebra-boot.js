@@ -160,7 +160,7 @@ function run(m){
  if(m.mass){
   if(m.w)pktBreit=m.w;
   if(m.h)pktHoch=m.h;
-  if(m.px)schriftSetzen(m.px);
+  schriftSetzen(1);
   passe(1);
   return;
  }
@@ -207,17 +207,10 @@ var pktBreit=0,pktHoch=0;
 // GeoGebras Vorgabe sind 50 Bildschirmpunkte je Einheit. Auf die Folie
 // bezogen ergibt das in jedem Fenster denselben Ausschnitt.
 var JE_EINHEIT=50;
-// Die Schrift des Applets in Punkten der Folie, und der zuletzt gemeldete
-// Maßstab auf den Bildschirm.
+// Fixed logical font size: the frame transform scales the whole construction,
+// including the axes. A window resize must not select a new GeoGebra font tier.
 var GRUNDSCHRIFT=__SCHRIFT__, massstab=0;
 
-// Achsenzahlen und Beschriftungen wachsen mit der Folie.
-//
-// Der Rahmen eines Applets wird nicht gezoomt (siehe `lib.typ`), also setzt
-// GeoGebra in echten Bildschirmpunkten -- und seine Schrift bliebe damit
-// physisch gleich groß, auf dem Beamer also im Verhältnis winzig. Sie wird
-// deshalb mit dem Maßstab mitgeführt: `font-size` zählt in Punkten der Folie,
-// so wie `width` und `height` es tun.
 function schriftSetzen(px){
  // Der Maßstab wird auch dann gemerkt, wenn er noch nicht anzuwenden ist:
  // die Meldung des Kerns kommt, bevor das Applet lebt. Wer ihn nur merkt und

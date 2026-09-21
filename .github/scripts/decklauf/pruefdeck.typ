@@ -235,9 +235,9 @@ Dritter Schritt.
 
 #anim[Ein Schritt nach der Zeichnung.]
 
-#context assert(info().step.total == 5, message:
+#context assert(info().step.total == 6, message:
   "Prüfdeck: die Folie mit build() zählt " + str(info().step.total)
-  + " Schritte statt 5. Der Schrittzeiger zählt build() falsch -- und diese "
+  + " Schritte statt 6 (einschließlich des leeren Anfangsschritts). Der Schrittzeiger zählt build() falsch -- und diese "
   + "Zahl muss in beiden Ausgaben dieselbe sein, sonst zeigt das Handout eine "
   + "andere Fußzeile als der Vortrag.")
 
@@ -325,9 +325,9 @@ Dritter Schritt.
 
 #anim[Ein Schritt nach der Szene.]
 
-#context assert(info().step.total == 5, message:
+#context assert(info().step.total == 6, message:
   "Prüfdeck: die Folie mit scene() zählt " + str(info().step.total)
-  + " Schritte statt 5. Eine Szene mit vier Halten verbraucht drei Schritte, "
+  + " Schritte statt 6 (einschließlich des leeren Anfangsschritts). Eine Szene mit vier Halten verbraucht drei Schritte, "
   + "der anim darunter den vierten -- und diese Zahl muss in beiden Ausgaben "
   + "dieselbe sein, sonst zeigt das Handout eine andere Fußzeile als der "
   + "Vortrag. Der Papierzweig von scene() ist ein anderer.")
@@ -396,9 +396,9 @@ Zweiter Schritt.
         rect(width: 20pt, height: 20pt, fill: blue))),
   stops: (0, 90, 180), tween: 2, width: 200pt, height: 40pt)
 
-#context assert(info().step.total == 3, message:
+#context assert(info().step.total == 4, message:
   "Prüfdeck: die Folie mit der alleinstehenden szene() zählt "
-  + str(info().step.total) + " Schritte statt 3. Eine Szene mit drei Halten "
+  + str(info().step.total) + " Schritte statt 4 (einschließlich des leeren Anfangsschritts). Eine Szene mit drei Halten "
   + "verbraucht zwei Schritte, und niemand sonst steht auf dieser Folie, der "
   + "das ausgleichen könnte.")
 
@@ -418,9 +418,9 @@ Zweiter Schritt.
        stops: (30, 150), tween: 4, width: 200pt, height: 40pt,
        steady: false)
 
-#context assert(info().step.total == 2, message:
+#context assert(info().step.total == 3, message:
   "Prüfdeck: die Folie mit der wachsenden Szene zählt "
-  + str(info().step.total) + " Schritte statt 2. Zwei Halte sind ein Schritt, "
+  + str(info().step.total) + " Schritte statt 3 (einschließlich des leeren Anfangsschritts). Zwei Halte sind ein Schritt, "
   + "und `steady:` darf daran nichts ändern -- es entscheidet allein, ob "
   + "gemessen wird.")
 

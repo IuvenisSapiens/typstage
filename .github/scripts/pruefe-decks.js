@@ -487,7 +487,7 @@ const SOLL_HINWEIS = [
 // Rahmen läuft, holt der Browser von `geogebra.org` und meldet sich in seinem
 // eigenen Fenster. Der Lauf ist deshalb nicht vom Netz abhängig: gemessen
 // ergeben beide Decks mit und ohne erreichbares GeoGebra dieselben Zahlen.
-const BEISPIELE = ["tour", "theme-default", "theme-editorial",
+const BEISPIELE = ["0.1.2-ho-unterrichten", "0.1.2-ho-vortragen", "tour", "theme-default", "theme-editorial",
                    "theme-lesson", "theme-night", "theme-plain", "ziehen",
                    "geogebra", "geogebra-sprecher", "anziehen", "zeichnen",
                    "vortragen", "mosaic-editorial", "mosaic-manifesto",
@@ -1307,7 +1307,7 @@ const HALTPROBE = `(async function () {
   var nr = folien.indexOf(folie);
   var stufen = alle.filter(function (e) { return e.closest(".ts-slide") === folie; });
   var erste = -1;
-  for (var i = 0; i < S.length; i++) if (S[i].slide === nr) { erste = i; break; }
+  for (var i = 0; i < S.length; i++) if (S[i].slide === nr && S[i].step >= parseInt(stufen[0].dataset.at || "1", 10)) { erste = i; break; }
   if (erste < 0) return JSON.stringify({ fehlt: -1 });
   typstage.goto(erste, true); await p.ruhig(4000);
   // Ein Schritt weiter, und sofort gefragt: zwischen goto und dieser Zeile
@@ -1481,7 +1481,7 @@ const SZENENPROBE = `(async function () {
   var folien = [].slice.call(document.querySelectorAll(".ts-slide"));
   var nr = folien.indexOf(el.closest(".ts-slide"));
   var erste = -1, wieviele = 0;
-  for (var i = 0; i < S.length; i++) if (S[i].slide === nr) {
+  for (var i = 0; i < S.length; i++) if (S[i].slide === nr && S[i].step >= (+el.dataset.from || 1)) {
     if (erste < 0) erste = i;
     wieviele++;
   }

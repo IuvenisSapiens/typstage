@@ -772,9 +772,9 @@
 ///
 /// Nur `auto` ist betroffen. Wer seinen Schritt ausschreibt, bekommt ihn.
 /// Ein Schritt weiter. `boden` ist die kleinste Nummer, die dabei
-/// herauskommen darf: 2 für ein `anim`, das erst *nach* dem Folienaufschlag
-/// kommt, 1 für eine Kette wie `stagger` oder `cue`, deren erstes Stück
-/// bewusst schon dasteht, wenn die Folie erscheint.
+/// herauskommen darf: 2 für alle automatischen Einblendungen und Ketten. Schritt 1 bleibt
+/// dem statischen Inhalt vorbehalten; ein explizites `at` oder `start`
+/// darf weiterhin auf Schritt 1 zeigen.
 /// `um` ist, wie weit gerückt wird: 1 für ein Element, das einen eigenen
 /// Schritt bekommt, 0 für eines, das auf dem *aktuellen* beginnt -- eine
 /// `scene` etwa fängt dort an, wo der Vortrag gerade steht.

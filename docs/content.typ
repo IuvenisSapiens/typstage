@@ -688,7 +688,7 @@ von selbst; meist steht in einer Folie überhaupt keine Zahl.
 #show-example(
   rendered: {
     import "../src/lib.typ": *
-    anim[Der Zeiger fängt bei eins an.]
+    anim[Der Zeiger fängt bei zwei an.]
     v(0.5em)
     stagger[
       - Die Liste zählt weiter,
@@ -697,21 +697,26 @@ von selbst; meist steht in einer Folie überhaupt keine Zahl.
     ]
   },
   source: ```typ
-  #anim[Der Zeiger fängt bei eins an.]   // Schritt 1
+  #anim[Der Zeiger fängt bei zwei an.]   // Schritt 2
   #stagger[
-    - Die Liste zählt weiter,            // Schritt 2
-    - wo die Folie stand,                // Schritt 3
-    - Punkt für Punkt.                   // Schritt 4
+    - Die Liste zählt weiter,            // Schritt 3
+    - wo die Folie stand,                // Schritt 4
+    - Punkt für Punkt.                   // Schritt 5
   ]
   ```,
   width: 12cm,
 )
 
+Automatische Einblendungen beginnen frühestens auf Schritt 2. Das gilt auch
+für die ersten Stücke von `stagger`, `cue`, `alternatives`, `tiles`, `build` und
+`scene`: Schritt 1 bleibt dem statischen Inhalt vorbehalten. Wer ein Element
+schon beim Folienwechsel sehen möchte, setzt ausdrücklich `at: 1` oder `start: 1`.
+
 Der Zeiger beginnt auf jeder Folie neu; Schrittnummern sind folienlokal. Eine
 ausgeschriebene Zahl setzt ihn neu, und von dort zählt er weiter:
 
 #show-code[```typ
-#anim[zuerst]           // 1
+#anim[zuerst]           // 2
 #anim(at: 4)[spät]      // 4
 #anim[danach]           // 5
 ```]
@@ -1996,6 +2001,13 @@ Handout ein graues Rechteck mit der Beschriftung aus `label`.
   bringt es auf demselben Schritt zurück. Ein Rahmen kann davon nichts.
 ]
 
+YouTube-Videos lassen sich mit `embed(url: "https://www.youtube.com/embed/VIDEO_ID")`
+oder der Domain `www.youtube-nocookie.com` einbinden. Play/Pause, Zeitleiste und
+`j`/`k`/`l` im Presenter steuern die Bühne; die Vorschau folgt stumm. Die externe
+YouTube-API lädt erst beim ersten sichtbaren YouTube-Embed. Internet und ein über
+HTTP(S) geöffnetes Deck sind erforderlich; `file://` kann Fehler 153 verursachen.
+Blockiert der Browser Autoplay, einmal Play auf der Bühne anklicken.
+
 `embed` setzt beliebige Web-Inhalte in einen abgeschotteten Rahmen: `url` lädt
 eine Seite, `html` bettet ein eigenes Dokument als Text ein. Der Rahmen wird in
 Folieneinheiten vermessen und zeigt so in jedem Fenster denselben Ausschnitt.
@@ -2934,7 +2946,7 @@ das zweite Fenster eingeschlossen.
 == Die Tasten
 
 Die Laufzeitumgebung zählt in *Schritten*, nicht in Folien: Eine Folie mit drei
-Einblendungen hat drei Schritte, und `→` geht zum nächsten -- gleich ob der auf
+automatischen Einblendungen hat vier Schritte, und `→` geht zum nächsten -- gleich ob der auf
 derselben oder auf der nächsten Folie liegt.
 
 #table(
@@ -3013,7 +3025,11 @@ Die Naht zwischen Folie und Notiz ist ein Griff: nach unten gezogen gibt er
 der Folie mehr Platz, nach oben der Notiz. Die Tabulatortaste erreicht ihn;
 dann schieben ihn die Pfeiltasten um 16 Pixel, mit Umschalt um 64, `Pos1` und
 `Ende` stellen ihn an die Anschläge, und ein Doppelklick oder `Eingabe` stellt
-ihn zurück. Ein Neuladen behält die Teilung. Ein Deck ohne Notizen hat nichts
+ihn zurück. Ein Neuladen behält die Teilung. Ein weiterer Griff zwischen Notiz und
+Vorschau regelt deren Breitenverhältnis; es bleibt beim Ändern der Folienhöhe
+und beim Vergrößern des Fensters erhalten. `h` oder der `?`-Knopf blendet die
+Tastenleiste aus und ein; `speaker-view: (shortcuts: false)` blendet sie beim
+Start aus. Video und Audio haben im Presenter Wiedergabeknöpfe und Zeitregler. Ein Deck ohne Notizen hat nichts
 zu teilen und bekommt keinen Griff.
 
 Unter den Kacheln die Werkzeugzeile -- Stift, Zeiger und Radierer, die vier
@@ -3044,7 +3060,10 @@ Die Tasten der Ansicht, die `?` dort auch selbst zeigt:
   [`c`], [die nächste Zeichenfarbe],
   [`z`], [den letzten Strich zurücknehmen],
   [`x`], [die Striche dieser Folie löschen],
-  [`l`], [hell oder dunkel, nur für die Ansicht],
+  [`⇧L`], [hell oder dunkel, nur für die Ansicht],
+  [`h`], [die Tastenleiste ein- oder ausblenden],
+  [`k`], [Video und Audio pausieren oder fortsetzen],
+  [`j` `l`], [zehn Sekunden zurück oder vor],
   [`+` `-`], [die Größe der Notiz],
   [`f`], [Vollbild],
   [`?`], [diese Tabelle, in der Ansicht],

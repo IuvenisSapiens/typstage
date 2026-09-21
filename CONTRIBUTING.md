@@ -334,3 +334,16 @@ chain stayed green while the published package would have failed to compile.
 Compile it in both outputs and check for `error:` as well as `did not
 converge`. A convergence warning is not an error and Typst still writes a file,
 so a run that only checks the exit status will miss it.
+
+### YouTube regression
+
+`node .github/scripts/pruefe-youtube.js` compiles a small deck and tests the
+real runtime with two Chrome windows and a deterministic IFrame API substitute.
+It covers lazy loading, host recognition, presenter controls, muted previews,
+seeking, slide/reveal/black transitions and provider/network failures without
+requiring YouTube access. Set `CHROME` to override the browser executable.
+
+`node .github/scripts/pruefe-youtube.js --live` additionally provides an opt-in
+smoke test against the external YouTube API over a local HTTP server. It requires
+internet access and an embeddable test video; provider/network restrictions can
+make this check fail independently of the offline regression.

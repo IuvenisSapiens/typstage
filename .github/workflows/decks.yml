@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   decks:
-    name: Siebzehn Beispiele und das Prüfdeck
+    name: Neunzehn Beispiele und das Prüfdeck
     runs-on: ubuntu-latest
 
     steps:
@@ -288,6 +288,12 @@ jobs:
       # und Fokus sind zu sehen. Beides in hell und dunkel.
       - name: Die Sprecheransicht in beiden Erscheinungsbildern
         run: node .github/scripts/decklauf/pult.js
+
+      - name: Presenter-Bedienung und automatische Aufdeckschritte
+        run: node .github/scripts/pruefe-presenter-bedienung.js
+
+      - name: YouTube im Presenter steuern
+        run: node .github/scripts/pruefe-youtube.js
 
       - name: Bericht aufheben
         if: always()

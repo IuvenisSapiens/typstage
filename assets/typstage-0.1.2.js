@@ -357,6 +357,7 @@
     PageDown: 1, PageUp: 1, " ": 1, Home: 1, End: 1, Escape: 1,
     o: 1, f: 1, n: 1, "?": 1,
     b: 1, e: 1, t: 1, r: 1, m: 1, c: 1, z: 1, x: 1,
+    j: 1, k: 1, l: 1, L: 1, h: 1,
     "+": 1, "=": 1, "-": 1, "_": 1
   };
   function tastenBruecke(frame) {
@@ -1808,7 +1809,7 @@
 
   function fristStellen(w) {
     var v = w.querySelector("video");
-    if (!v) return;
+    if (!v || w.tsMediaManual) return;
     var wann = w.dataset.endsAt;
     if (wann === "auto") wann = (CFG.room || {}).bell;
     var rest = fristSek(wann);
@@ -1851,7 +1852,219 @@
     }
   }
 
+  // YouTube uses its external IFrame API, loaded once and only on demand.
+  // The iframe remains the media node, keeping IDs stable across both windows.
+  var YOUTUBE = [].slice.call(document.querySelectorAll("iframe[data-ts-youtube]"));
+  var YOUTUBE_API = null;
+  function youtubeAPI() {
+    if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+    if (YOUTUBE_API) return YOUTUBE_API;
+    YOUTUBE_API = new Promise(function (resolve, reject) {
+      var old = window.onYouTubeIframeAPIReady;
+      var timer = setTimeout(function () { reject(new Error("timeout")); }, 15000);
+      window.onYouTubeIframeAPIReady = function () {
+        clearTimeout(timer);
+        resolve(window.YT);
+        if (typeof old === "function") old();
+      };
+      var script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      script.onerror = function () { clearTimeout(timer); reject(new Error("network")); };
+      document.head.appendChild(script);
+    });
+    return YOUTUBE_API;
+  }
+  function youtubeVisible(f) {
+    var st = STEPS[current], w = f.closest(".ts-el");
+    return !!(st && SLIDES[st.slide].contains(f) && (!w || w.dataset.on === "1"));
+  }
+  function youtubeCanPlay(f) {
+    return youtubeVisible(f) && (ROLLE === "speaker" || !document.documentElement.dataset.tsSchwarz);
+  }
+  YOUTUBE.forEach(function (f) {
+    var y = f.tsYouTube = { ready: false, started: false, error: "", notice: "",
+      player: null, wanted: false, time: null, muted: ROLLE === "speaker" };
+    Object.defineProperties(f, {
+      paused: { get: function () {
+        if (!y.ready) return !y.wanted;
+        var state = y.player.getPlayerState();
+        return state !== 1 && state !== 3;
+      } },
+      duration: { get: function () { return y.ready ? y.player.getDuration() || 0 : 0; } },
+      currentTime: { get: function () {
+        return y.time !== null ? y.time : y.ready ? y.player.getCurrentTime() || 0 : 0;
+      }, set: function (t) {
+        if (!isFinite(t)) return;
+        t = Math.max(0, f.duration > 0 ? Math.min(f.duration, t) : t);
+        if (y.ready) y.player.seekTo(t, true); else y.time = t;
+      } },
+      muted: { get: function () { return y.muted; }, set: function (m) {
+        y.muted = !!m;
+        if (y.ready) { if (m) y.player.mute(); else y.player.unMute(); }
+      } }
+    });
+    f.play = function () {
+      if (!youtubeCanPlay(f) || y.error) return;
+      y.wanted = true; y.notice = "";
+      if (y.ready) y.player.playVideo();
+    };
+    f.pause = function () { y.wanted = false; if (y.ready) y.player.pauseVideo(); };
+  });
+  function youtubeTick() {
+    YOUTUBE.forEach(function (f) {
+      var y = f.tsYouTube;
+      if (!youtubeVisible(f)) {
+        if (y.wanted || (y.ready && !f.paused)) f.pause();
+        return;
+      }
+      if (y.started) return;
+      y.started = true;
+      var url = new URL(f.dataset.tsYoutube);
+      if (ROLLE !== "speaker" && url.searchParams.get("autoplay") === "1" && youtubeCanPlay(f)) y.wanted = true;
+      url.searchParams.set("enablejsapi", "1");
+      url.searchParams.set("autoplay", "0");
+      if (/^https?:$/.test(location.protocol)) url.searchParams.set("origin", location.origin);
+      else url.searchParams.delete("origin");
+      if (ROLLE === "speaker") { url.searchParams.set("mute", "1"); url.searchParams.set("controls", "0"); }
+      youtubeAPI().then(function (YT) {
+        f.src = url.href;
+        var timeout = setTimeout(function () {
+          if (!y.ready) y.error = wort("youtubeLoad", "YouTube could not load (network / embedding permissions).");
+        }, 15000);
+        y.player = new YT.Player(f, { events: {
+          onReady: function (event) {
+            clearTimeout(timeout); y.player = event.target; y.ready = true; y.error = "";
+            if (y.muted) y.player.mute();
+            if (y.time !== null) { var t = y.time; y.time = null; f.currentTime = t; }
+            if (y.wanted && youtubeCanPlay(f)) f.play(); else f.pause();
+            f.dispatchEvent(new Event("loadedmetadata"));
+          },
+          onStateChange: function (event) {
+            if (!y.ready) return;
+            if (event.data === 1 && !youtubeCanPlay(f)) { f.pause(); return; }
+            if (event.data === 1) y.notice = "";
+            y.wanted = event.data === 1 || event.data === 3;
+            f.dispatchEvent(new Event(event.data === 1 ? "play" : "pause"));
+          },
+          onError: function (event) {
+            clearTimeout(timeout); y.wanted = false;
+            y.error = "YouTube " + event.data + ": " + (event.data === 153
+              ? wort("youtubeOrigin", "Open the deck over HTTP(S); YouTube requires a Referer.")
+              : wort("youtubeUnavailable", "Video unavailable or embedding not allowed."));
+          },
+          onAutoplayBlocked: function () {
+            y.wanted = false;
+            y.notice = wort("youtubeBlocked", "Click Play on the stage to allow playback.");
+          }
+        } });
+      }).catch(function () { y.error = wort("youtubeLoad", "YouTube could not load (network / embedding permissions)."); });
+    });
+  }
+
   // ── Media ─────────────────────────────────────────────────────────────────
+  // The stage owns playback; the presenter sends commands and displays its state.
+  var MEDIEN_FERN = null, MEDIEN_ZEILE = null, MEDIEN_KEY = "";
+  var MEDIEN = SLIDES.reduce(function (all, slide) {
+    return all.concat([].slice.call(slide.querySelectorAll("video,audio,iframe[data-ts-youtube]")));
+  }, []).concat([].slice.call(document.querySelectorAll("audio.ts-sound")));
+  function medienAlle() { return MEDIEN; }
+  function medienStand() {
+    var sec = STEPS[current] && SLIDES[STEPS[current].slide];
+    return medienAlle().map(function (v, id) {
+      var w = v.closest(".ts-el");
+      var auf = sec && sec.contains(v) && (!w || w.dataset.on === "1");
+      if (!auf && !(v.matches("audio.ts-sound") && (v.currentTime > 0 || !v.paused))) return null;
+      return { id: id, time: v.currentTime || 0,
+        duration: isFinite(v.duration) ? v.duration : 0, paused: v.paused,
+        status: v.tsYouTube ? v.tsYouTube.error || v.tsYouTube.notice || (!v.tsYouTube.ready ? wort("youtubeLoading", "Loading YouTube…") : "") : "",
+        failed: !!(v.tsYouTube && v.tsYouTube.error),
+        title: v.getAttribute("aria-label") || v.dataset.key || (v.tsYouTube ? "YouTube" : v.tagName.toLowerCase()) };
+    }).filter(Boolean);
+  }
+  function medienAnwenden(d) {
+    var v = medienAlle()[d.id];
+    if (!v) return;
+    var timed = v.closest(".ts-video[data-ends-at]");
+    if (timed) {
+      timed.tsMediaManual = true;
+      FRISTEN.forEach(function (f) { if (f.el === timed) clearTimeout(f.wecker); });
+    }
+    var action = d.action === "toggle" ? (v.paused ? "play" : "pause") : d.action;
+    if (action === "seek" && isFinite(d.time) && isFinite(v.duration)) {
+      try { v.currentTime = Math.max(0, Math.min(v.tsYouTube && !v.duration ? Infinity : v.duration, d.time)); } catch (x) {}
+    } else if (action === "pause") v.pause();
+    else if (action === "play") {
+      var p = v.play(); if (p && p.catch) p.catch(function () {});
+    }
+  }
+  function medienBefehl(d) {
+    if (ROLLE === "speaker" && partner()) sende("medien", d);
+    else medienAnwenden(d);
+  }
+  function medienHier() {
+    return ROLLE === "speaker" && partner() && MEDIEN_FERN !== null ? MEDIEN_FERN : medienStand();
+  }
+  function medienTaste(k) {
+    // Decide against live playback in the stage, not a delayed status packet.
+    if (ROLLE === "speaker" && partner()) {
+      sende("medientaste", { key: k }); return true;
+    }
+    var items = medienHier();
+    if (!items.length) return false;
+    var pause = items.some(function (m) { return !m.paused; });
+    items.forEach(function (m) {
+      medienBefehl(k === "k" ? { id: m.id, action: pause ? "pause" : "play" }
+        : { id: m.id, action: "seek", time: m.time + (k === "j" ? -10 : 10) });
+    });
+    return true;
+  }
+  function medienZeigen() {
+    if (!MEDIEN_ZEILE) return;
+    var items = medienHier(), key = items.map(function (m) { return m.id; }).join(",");
+    var sichtbar = items.length > 0, wechsel = MEDIEN_ZEILE.hidden === sichtbar;
+    MEDIEN_ZEILE.hidden = !sichtbar;
+    if (key !== MEDIEN_KEY) {
+      MEDIEN_KEY = key; MEDIEN_ZEILE.textContent = "";
+      items.forEach(function (m) {
+        var row = bau("div", "ts-sp-medium", MEDIEN_ZEILE);
+        row.dataset.mediaId = m.id;
+        bau("span", "", row).textContent = m.title;
+        var button = bau("button", "ts-sp-tat", row);
+        button.type = "button";
+        button.addEventListener("click", function () {
+          var state = medienHier().find(function (x) { return x.id === m.id; });
+          if (state) medienBefehl({ id: m.id, action: "toggle" });
+        });
+        var slider = bau("input", "", row);
+        slider.type = "range"; slider.min = "0"; slider.step = "0.1";
+        slider.setAttribute("aria-label", m.title + " position");
+        slider.addEventListener("input", function () {
+          medienBefehl({ id: m.id, action: "seek", time: +slider.value });
+        });
+        bau("output", "", row);
+      });
+    }
+    items.forEach(function (m) {
+      var row = MEDIEN_ZEILE.querySelector('[data-media-id="' + m.id + '"]');
+      if (!row) return;
+      var button = row.querySelector("button"), slider = row.querySelector("input");
+      button.disabled = !!m.failed;
+      button.textContent = m.paused ? "▶" : "Ⅱ";
+      button.setAttribute("aria-label", m.paused ? "Play" : "Pause");
+      slider.max = String(m.duration); slider.disabled = !(m.duration > 0);
+      if (document.activeElement !== slider) slider.value = String(m.time);
+      row.querySelector("output").textContent = m.status || (zeitText(m.time) + " / " + zeitText(m.duration));
+    });
+    fussZeigen();
+    if (wechsel) fit();
+  }
+  function zeitText(t) { return Math.floor(t / 60) + ":" + ("0" + Math.floor(t % 60)).slice(-2); }
+  setInterval(function () {
+    youtubeTick();
+    if (ROLLE !== "speaker") sende("medienstand", { items: medienStand() });
+    else medienZeigen();
+  }, 300);
+
   var ticking = [];
   function mediaOn(i) {
     SLIDES[i].querySelectorAll(".ts-video").forEach(function (w) {
@@ -1881,10 +2094,11 @@
     });
   }
   function mediaOff(i) {
-    SLIDES[i].querySelectorAll("video").forEach(function (v) { v.pause(); });
+    SLIDES[i].querySelectorAll("video,audio,iframe[data-ts-youtube]").forEach(function (v) { v.pause(); });
     FRISTEN = FRISTEN.filter(function (f) {
       if (!SLIDES[i].contains(f.el)) return true;
       if (f.wecker) clearTimeout(f.wecker);
+      delete f.el.tsMediaManual;
       return false;
     });
     ticking = ticking.filter(function (t) { return !SLIDES[i].contains(t.el); });
@@ -2022,6 +2236,7 @@
   var AD_FLAECHE = "#14161c", AD_SATZ = "#ffffff";
 
   var UHR_KNOTEN = document.getElementById("ts-clock");
+  var UHR_WIRT = UHR_KNOTEN && UHR_KNOTEN.parentNode;
   var UHR_WORT = UHR_KNOTEN && UHR_KNOTEN.querySelector(".ts-clock-word");
   var UHR_ZAHL = UHR_KNOTEN && UHR_KNOTEN.querySelector(".ts-clock-num");
 
@@ -2074,24 +2289,23 @@
   var UHR_TASTEN = (CFG.room || {}).clockKeys !== false;
   function uhrRaster(sek, drueber) {
     if (UHR_SCHRITT <= 1) return sek;
-    if (!drueber && sek < UHR_SCHRITT) return sek;
-    return Math.floor(sek / UHR_SCHRITT) * UHR_SCHRITT;
+    if (drueber) return Math.floor(sek / UHR_SCHRITT) * UHR_SCHRITT;
+    if (sek < UHR_SCHRITT) return Math.ceil(sek);
+    return Math.ceil(sek / UHR_SCHRITT) * UHR_SCHRITT;
   }
 
-  // Was die Uhr zeigt: erst gedeckelt, dann auf ganze Sekunden, dann auf das
-  // Raster. Beide Zeichner gehen durch diese eine Stelle.
-  //
-  // Sie taten es vorher nicht, und das war ein Fehler: `uhrTakt` rundete ab,
-  // `festZeigen` rundete, und dieselbe angeheftete Uhr steht in beiden Fenstern
-  // auf derselben Folie. Bei 124,6 Sekunden Rest stand an der Wand 2:04 und am
-  // Pult 2:05. Unter einem groben Raster waere aus der einen Sekunde
-  // Unterschied eine ganze Rasterstufe geworden.
+  // Both windows use the same display calculation. Coarse countdowns round
+  // the remaining time UP, keeping 5:00 until a full five seconds elapsed.
+  // Preserve fractions until after quantization: flooring 295.001 first
+  // would show 4:55 just before the five-second boundary. Overtime counts
+  // completed intervals; the final countdown interval counts whole seconds.
   function uhrZeig(rest, dauer) {
     var drueber = rest < 0;
-    var sek = drueber
-      ? Math.ceil(Math.min(-rest, Math.min(dauer, UHR_DECKEL)))
-      : Math.floor(rest);
-    return uhrRaster(Math.max(0, sek), drueber);
+    var sek = drueber ? Math.min(-rest, Math.min(dauer, UHR_DECKEL)) : rest;
+    // Keep the established one-second display when no coarse step is set.
+    if (UHR_SCHRITT <= 1) sek = drueber ? Math.ceil(sek) : Math.floor(sek);
+    var gerastert = uhrRaster(Math.max(0, sek), drueber);
+    return drueber ? gerastert : Math.min(dauer, gerastert);
   }
 
   // Ein Bild der Uhr, in Buehnenzeit. Steht unmittelbar hinter der Zeile, die
@@ -2147,6 +2361,7 @@
   function uhrStellen(sek, lauf, vor, eigen) {
     if (ROLLE === "speaker") return;
     var d = Math.max(1, Math.round(+sek || 0));
+    uhrOrt("voll");
     UHR = { dauer: d, vor: Math.max(0, +vor || 0), t0: null, rest: null,
             lauf: lauf == null ? ++UHR_LAUF : lauf, letztes: null,
             drueber: null, eigen: eigen ? 1 : 0 };
@@ -2158,9 +2373,11 @@
   // und die Uhr soll in beiden an derselben Stelle der Folie stehen.
   function uhrOrt(art, x, y, s) {
     if (!UHR_KNOTEN) return;
+    UHR_KNOTEN.tsOrt = { art: art, x: x, y: y, s: s };
     var fest = art === "fest";
     UHR_KNOTEN.dataset.art = fest ? "fest" : "voll";
     if (!fest) {
+      if (UHR_WIRT && UHR_KNOTEN.parentNode !== UHR_WIRT) UHR_WIRT.appendChild(UHR_KNOTEN);
       UHR_KNOTEN.style.left = UHR_KNOTEN.style.top = UHR_KNOTEN.style.width = "";
       if (UHR_ZAHL) UHR_ZAHL.style.fontSize = "";
       if (UHR_WORT) UHR_WORT.style.fontSize = "";
@@ -2168,8 +2385,12 @@
     }
     var b = B ? B.getBoundingClientRect() : null;
     if (!b || !b.width) return;
-    UHR_KNOTEN.style.left = Math.round(b.left + b.width * (+x || 0)) + "px";
-    UHR_KNOTEN.style.top = Math.round(b.top + b.height * (+y || 0)) + "px";
+    // Anchor inside the stage: background windows may defer resize events,
+    // while CSS has already moved the stage. Percentages follow immediately.
+    if (UHR_KNOTEN.parentNode !== B) B.appendChild(UHR_KNOTEN);
+    B.style.containerType = "inline-size";
+    UHR_KNOTEN.style.left = ((+x || 0) * 100) + "%";
+    UHR_KNOTEN.style.top = ((+y || 0) * 100) + "%";
     // Keine Breite von hier. Die Ziffern stehen in einer Schrift mit festen
     // Zeichenbreiten -- der Kasten weiss selbst, wie breit er sein muss, und
     // jede Zahl, die man ihm vorgibt, kann nur falsch sein. Vorgegeben war
@@ -2184,8 +2405,8 @@
     // bleibt die Uhr in beiden Fenstern gleich gross, gleich wie gross das
     // Fenster ist.
     var f = +s > 0 ? +s : 1;
-    if (UHR_ZAHL) UHR_ZAHL.style.fontSize = Math.round(b.width * 0.052 * f) + "px";
-    if (UHR_WORT) UHR_WORT.style.fontSize = Math.round(b.width * 0.014 * f) + "px";
+    if (UHR_ZAHL) UHR_ZAHL.style.fontSize = (5.2 * f) + "cqw";
+    if (UHR_WORT) UHR_WORT.style.fontSize = (1.4 * f) + "cqw";
   }
 
   function uhrAus() {
@@ -2195,7 +2416,7 @@
     delete document.documentElement.dataset.tsClockOver;
     if (UHR_ZAHL) UHR_ZAHL.textContent = "";
     if (UHR_WORT) UHR_WORT.textContent = "";
-    if (UHR_KNOTEN) delete UHR_KNOTEN.dataset.art;
+    if (UHR_KNOTEN) { uhrOrt("voll"); delete UHR_KNOTEN.dataset.art; }
     sichtMerken();
   }
   // Die Dauer nachziehen, waehrend sie laeuft: es waechst die Dauer, nicht der
@@ -3213,7 +3434,7 @@
     if (!st) return;
     if (an) {
       gehaltene = [];
-      SLIDES[st.slide].querySelectorAll("video").forEach(function (v) {
+      SLIDES[st.slide].querySelectorAll("video,iframe[data-ts-youtube]").forEach(function (v) {
         if (!v.paused) { gehaltene.push(v); v.pause(); }
       });
       return;
@@ -3604,7 +3825,8 @@
   // bei 1440x500 und 0,592 bei 900x600, denn er folgt dem Seitenmass der
   // Folie. Wer den heutigen Wert als Zahl wegschriebe, fror eine Groesse
   // ein, die keine ist.
-  var ANTEIL = 0;
+  var ANTEIL = 0, NOTIZ_ANTEIL = 0.65;
+  var HILFE_AN = SPV.shortcuts !== false;
   // Die Waehrung des letzten Laufs von `sprecherSpalten`, in Pixeln: der
   // Topf, die Folienhoehe darin und die beiden harten Grenzen. Der Zug
   // rechnet damit und misst nichts nach -- nachgemessen stimmt es hochkant
@@ -3631,7 +3853,7 @@
     if (ROLLE !== "speaker") return;
     try {
       sessionStorage.setItem("ts-pult:" + DECK,
-        UHR_START + "," + ZIEL_MIN + "," + ANTEIL.toFixed(4));
+        UHR_START + "," + ZIEL_MIN + "," + ANTEIL.toFixed(4) + "," + NOTIZ_ANTEIL.toFixed(4) + "," + (HILFE_AN ? 1 : 0));
     } catch (x) {}
   }
   function standErinnern() {
@@ -3646,6 +3868,8 @@
       // Vorgabe zurueck.
       var a = +t[2];
       if (a > 0 && a < 1) ANTEIL = a;
+      if (+t[3] > 0 && +t[3] < 1) NOTIZ_ANTEIL = +t[3];
+      if (t[4] === "0" || t[4] === "1") HILFE_AN = t[4] === "1";
     } catch (x) {}
   }
   // Die Vollbilduhr, von hier aus gesehen. `SAAL_SEK` ist die Dauer, die
@@ -4136,7 +4360,7 @@
     if (sp) sp.textContent = wo; else ELN.licht.textContent = wo;
     var alt = ELN.licht.querySelector("svg");
     if (alt) ELN.licht.replaceChild(wzBild(null, hell ? "mond" : "sonne"), alt);
-    ELN.licht.title = wo + "  (l)";
+    ELN.licht.title = wo + "  (⇧L)";
     ELN.licht.setAttribute("aria-label", wo);
   }
   function lichtUm() {
@@ -4366,6 +4590,67 @@
     g.setAttribute("aria-valuenow", String(Math.round(folieHoch / topf * 100)));
   }
 
+  function spaltenteilerBauen() {
+    var g = bau("div", "ts-sp-teiler ts-sp-spaltenteiler", LEIB);
+    g.setAttribute("role", "separator");
+    g.setAttribute("aria-label", wort("note", "note") + " / " + wort("nextSlide", "next slide"));
+    g.setAttribute("aria-orientation", "vertical");
+    g.tabIndex = 0;
+    var start = null;
+    function setzen(a) {
+      var r = LEIB.getBoundingClientRect();
+      var gap = parseFloat(getComputedStyle(LEIB).columnGap) || 10;
+      var min = Math.min(0.5, 120 / Math.max(1, r.width - gap));
+      NOTIZ_ANTEIL = Math.max(min, Math.min(1 - min, a));
+      fit(); standMerken();
+    }
+    g.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0 || start) return;
+      start = { x: e.clientX, a: NOTIZ_ANTEIL,
+        w: LEIB.clientWidth - (parseFloat(getComputedStyle(LEIB).columnGap) || 10) };
+      g.setPointerCapture(e.pointerId); g.dataset.zieht = "1";
+      e.preventDefault();
+    });
+    g.addEventListener("pointermove", function (e) {
+      if (start) setzen(start.a + (e.clientX - start.x) / start.w);
+    });
+    g.addEventListener("pointerup", function () { start = null; delete g.dataset.zieht; });
+    g.addEventListener("lostpointercapture", function () { start = null; delete g.dataset.zieht; });
+    g.addEventListener("pointercancel", function () {
+      if (start) setzen(start.a);
+      start = null; delete g.dataset.zieht;
+    });
+    g.addEventListener("keydown", function (e) {
+      var a = NOTIZ_ANTEIL;
+      if (e.key === "ArrowLeft") a -= e.shiftKey ? .1 : .02;
+      else if (e.key === "ArrowRight") a += e.shiftKey ? .1 : .02;
+      else if (e.key === "Home") a = 0;
+      else if (e.key === "End") a = 1;
+      else if (e.key === "Enter") a = .65;
+      else return;
+      setzen(a); e.preventDefault(); e.stopPropagation();
+    });
+    g.addEventListener("dblclick", function () { setzen(.65); });
+    return g;
+  }
+
+  function fussZeigen() {
+    if (!ELN.fuss) return;
+    var sichtbar = HILFE_AN || (MEDIEN_ZEILE && !MEDIEN_ZEILE.hidden);
+    ELN.fuss.hidden = !sichtbar;
+    SPRECHERBOX.dataset.fuss = sichtbar ? "an" : "aus";
+  }
+
+  function hilfeZeigen() {
+    if (!ELN.hilfe) return;
+    ELN.hilfe.hidden = !HILFE_AN;
+    fussZeigen();
+    if (ELN.hilfeKnopf) ELN.hilfeKnopf.setAttribute("aria-expanded", String(HILFE_AN));
+  }
+  function hilfeUm() {
+    HILFE_AN = !HILFE_AN; hilfeZeigen(); fit(); standMerken();
+  }
+
   function sprecherAufbau() {
     if (ROLLE !== "speaker" || !SPRECHERBOX) return;
 
@@ -4411,7 +4696,10 @@
     // findet `querySelector` genauso, und ohne Notizen traegt die zweite
     // Zeile nur noch die Vorschau. Dieselbe Entscheidung wie eine Zeile
     // darueber, aus derselben Zaehlung.
-    if (hatNotiz) ELN.teiler = teilerBauen();
+    if (hatNotiz) {
+      ELN.teiler = teilerBauen();
+      ELN.spaltenteiler = spaltenteilerBauen();
+    }
 
     // 3. Die Zahlkacheln.
     var uhren = bau("div", "ts-sp-uhren", LEIB);
@@ -4688,11 +4976,18 @@
     // Sache, derselbe Name, zwei Zeilen uebereinander.
     var lichtWohin = wzGruppe("ts-sp-wzlicht", wort("groupView", "view"));
     ELN.licht = wzKnopf(lichtWohin, "ts-sp-tat ts-sp-licht", "sonne",
-                        "light", "light", "l");
+                        "light", "light", "⇧L");
     ELN.licht.addEventListener("click", lichtUm);
     ELN.modus = ELN.werkzeug.stift;
 
     var fuss = bau("div", "ts-sp-fuss", SPRECHERBOX);
+    ELN.fuss = fuss;
+    ELN.hilfeKnopf = bau("button", "ts-sp-tat", lichtWohin);
+    ELN.hilfeKnopf.textContent = "?";
+    ELN.hilfeKnopf.title = "Keyboard shortcuts (h)";
+    ELN.hilfeKnopf.addEventListener("click", hilfeUm);
+    MEDIEN_ZEILE = bau("div", "ts-sp-medien", fuss);
+    MEDIEN_ZEILE.hidden = true;
     ELN.hilfe = bau("div", "ts-sp-hilfe", fuss);
     // Die ganze Tastenzeile, nicht die kurze Fassung: die Leiste ist breit
     // genug fuer alles, und eine Auswahl daraus zwingt nur dazu, sich den Rest
@@ -4733,6 +5028,7 @@
     // Was vor dem Neuladen dastand, steht danach wieder da -- nach dem
     // Aufbau, denn erst jetzt gibt es das Feld, in das die Zieldauer gehoert.
     standErinnern();
+    hilfeZeigen();
     if (ELN.ziel && ZIEL_MIN) ELN.ziel.value = String(ZIEL_MIN);
     gebaut = 1;
     document.documentElement.dataset.tsFertig = "1";
@@ -5025,7 +5321,8 @@
         UHR_START = 0; sprecherUhr(); standMerken();
         hint(wort("resetDone", "elapsed reset"));
       }
-      else if (k === "l") { lichtUm(); }
+      else if (k === "L") { lichtUm(); }
+      else if (k === "h") { hilfeUm(); }
       else if (k === "m" && SPV.tools !== false) { modusUm(); }
       else if (k === "c" && SPV.tools !== false) { farbeSetzen(FARBE + 1); }
       else if (k === "z" && SPV.tools !== false) {
@@ -5482,6 +5779,7 @@
     kameraStellen(dst.slide, dst.step, instant || changed);
 
     mediaOn(dst.slide);
+    youtubeTick();
     drive(dst.slide, dst.step, back || changed);
     // The running step belongs in the hash, but only in the talk window.
     // In the speaker window `#speaker` sits there, and that has to stay:
@@ -6116,33 +6414,22 @@
     // nicht in einer Spalte.
     teilerStellen(folieHoch, uebrig, beweglich);
 
-    // Die Vorschauspalte ist so breit, wie ihr Bild bei dieser Zeilenhoehe
-    // sein darf -- dann fuellt es die Kachel ganz, statt oben zu haengen und
-    // darunter Luft zu lassen. Die Notiz bekommt den Rest. Gerechnet nach
-    // dem Setzen der Zeilen, denn erst jetzt steht die Hoehe fest.
-    var vk = ELN.vorBild ? ELN.vorBild.parentNode : null;
-    if (vk) {
-      var vs = getComputedStyle(vk);
-      var vpX = parseFloat(vs.paddingLeft) + parseFloat(vs.paddingRight)
-              + parseFloat(vs.borderLeftWidth) + parseFloat(vs.borderRightWidth);
-      var vpY = parseFloat(vs.paddingTop) + parseFloat(vs.paddingBottom)
-              + parseFloat(vs.borderTopWidth) + parseFloat(vs.borderBottomWidth);
-      var vm = ELN.vorMarke ? ELN.vorMarke.getBoundingClientRect().height : 0;
-      // Hoechstens so hoch wie die laufende Folie. Die Vorschau zeigt den
-      // *naechsten* Schritt; sie ist die kleinere Schwester und darf nicht
-      // die groessere werden. Ohne diese Schranke waechst sie mit der
-      // Notizzeile mit, und wer den Griff nach oben zieht, um mehr Notiz zu
-      // bekommen, bekommt eine zweite Buehne: gemessen bei 1400x900 am
-      // oberen Anschlag eine Vorschau von 662x372 gegen eine Buehne von
-      // 171x96 -- rund fuenfzehnmal so gross --, und die Notizspalte fiel
-      // dabei von 1072 auf 676 px. Kein Ueberlauf, nur das Verhaeltnis auf
-      // dem Kopf.
-      var bildH = Math.min(Math.max(0, notizHoch - vpY - vm - 4), folieHoch);
-      // Hoechstens die halbe Breite: eine Vorschau, die breiter ist als die
-      // Notiz daneben, dreht das Verhaeltnis der beiden um.
-      var spalte = Math.min(bildH * v + vpX, r.width * 0.5);
-      LEIB.style.gridTemplateColumns =
-        "minmax(0,1fr) " + Math.round(Math.max(120, spalte)) + "px";
+    // Keep the chosen column ratio independent of the row height.
+    var gap = parseFloat(getComputedStyle(LEIB).columnGap) || 10;
+    var topf = Math.max(0, r.width - gap);
+    var min = Math.min(120, topf / 2);
+    var links = Math.max(min, Math.min(topf - min, topf * NOTIZ_ANTEIL));
+    LEIB.style.gridTemplateColumns = links + "px minmax(0,1fr)";
+    var griff = ELN.spaltenteiler;
+    if (griff) {
+      griff.hidden = LEIB.dataset.form === "hochkant";
+      griff.style.left = (links - 4) + "px";
+      griff.style.top = (Math.round(folieHoch) + (parseFloat(getComputedStyle(LEIB).rowGap) || 10)) + "px";
+      griff.style.width = (gap + 8) + "px";
+      griff.style.height = Math.round(notizHoch) + "px";
+      griff.setAttribute("aria-valuemin", String(Math.round(min / topf * 100)));
+      griff.setAttribute("aria-valuemax", String(Math.round((topf - min) / topf * 100)));
+      griff.setAttribute("aria-valuenow", String(Math.round(links / topf * 100)));
     }
 
     vorschauBreite(v);
@@ -6203,6 +6490,12 @@
     // Bild fuellte ein Drittel ihrer Hoehe.
   }
 
+  function uhrNachmessen() {
+    if (!UHR_KNOTEN || UHR_KNOTEN.dataset.art !== "fest") return;
+    var ort = UHR_KNOTEN.tsOrt;
+    if (ort) uhrOrt(ort.art, ort.x, ort.y, ort.s);
+  }
+
   function fit() {
     var v = CFG.width / CFG.height;
     // Thumbnails and printed pages hold their shape with padding, which needs
@@ -6234,9 +6527,7 @@
     // Fenster selbst fuehrt, wurde bisher genau einmal gesetzt -- ein Druck auf
     // `f`, ein gezogenes Fenster oder der Beamer schoben sie danach von der
     // Folie. Also hier, wo ohnehin alles neu vermessen wird.
-    if (UHR && UHR.eigen && UHR_KNOTEN && UHR_KNOTEN.dataset.art === "fest") {
-      uhrOrt("fest", SAAL_X, SAAL_Y, SAAL_S);
-    }
+    uhrNachmessen();
   }
   addEventListener("resize", fit);
 
@@ -6278,6 +6569,7 @@
   if (window.ResizeObserver) {
     try {
       new ResizeObserver(function () {
+        uhrNachmessen();
         if (current >= 0 && STEPS[current]) stelle(STEPS[current].slide);
       }).observe(B);
     } catch (x) {}
@@ -6513,7 +6805,7 @@
       }
       if (g.folge.length > erlaubt) {
         g.folge.length = erlaubt;
-        adStellen(name, false);
+        adStellen(schluessel, false);
       }
     });
   }
@@ -6547,7 +6839,7 @@
     // zu sehen, weil dort der erste Punkt zufaellig der naechste Halt ist.
     var platz = parseInt(g.plaetze[g.folge.length], 10);
     var hier = STEPS[current].step;
-    if (platz <= hier || platz > hier + 1) return false;
+    if ((platz <= hier && !(platz === 1 && hier === 1 && !g.folge.length)) || platz > hier + 1) return false;
     return adTaste(offen[0]);
   }
 
@@ -6623,6 +6915,10 @@
       if (cue) {
         if (e.key !== "0" && adTaste(+e.key)) { e.preventDefault(); return; }
       } else if (uhrZiffer(+e.key)) { e.preventDefault(); return; }
+    }
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && /^[jkl]$/.test(e.key)) {
+      if (e.key !== "k" || !e.repeat) medienTaste(e.key);
+      e.preventDefault(); return;
     }
     // Und die Klangtasten des Decks. Eine gehaltene Taste gongt nicht im Takt
     // der Tastaturwiederholung.
@@ -6766,6 +7062,38 @@
   // `klangSpielen`: `horch` ist zwar hochgezogen, `HOERER` aber nicht, und
   // eine Anmeldung oberhalb von dessen Zuweisung lief gegen `undefined` und
   // riss die ganze Laufzeit mit -- gemessen, `typstage` gab es danach nicht.
+  MEDIEN.forEach(function (v) {
+    ["play", "pause", "ended", "seeked", "loadedmetadata"].forEach(function (name) {
+      v.addEventListener(name, function () {
+        if (ROLLE !== "speaker") sende("medienstand", { items: medienStand() });
+      });
+    });
+  });
+  horch("medientaste", function (d) {
+    if (ROLLE === "speaker" || !/^[jkl]$/.test(d.key)) return;
+    medienTaste(d.key);
+    sende("medienstand", { items: medienStand() });
+  });
+  horch("medien", function (d) {
+    if (ROLLE !== "speaker") {
+      if (medienStand().some(function (m) { return m.id === d.id; })) medienAnwenden(d);
+      sende("medienstand", { items: medienStand() });
+    }
+  });
+  horch("medienstand", function (d) {
+    if (ROLLE !== "speaker" || !Array.isArray(d.items)) return;
+    MEDIEN_FERN = d.items;
+    // Keep the muted preview at the same position and playback state.
+    d.items.forEach(function (m) {
+      var v = medienAlle()[m.id];
+      if (!v || (v.tsYouTube && !youtubeVisible(v))) return;
+      // A blocked preview must not retry autoplay on every state packet.
+      if (v.tsYouTube && (v.tsYouTube.error || v.tsYouTube.notice)) return;
+      if (Math.abs(v.currentTime - m.time) > .5) medienAnwenden({ id: m.id, action: "seek", time: m.time });
+      if (v.paused !== m.paused) medienAnwenden({ id: m.id, action: m.paused ? "pause" : "play" });
+    });
+    medienZeigen();
+  });
   if (ROLLE !== "speaker") horch("klang", function (d) {
     if (d && d.klang) klangSpielen(String(d.klang));
   });

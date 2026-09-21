@@ -45,7 +45,8 @@
   title: [A Tour of typstage],
   subtitle: [Every function once, and what it is for],
   author: [typstage #runtime-version],
-  date: [23 August 2026],
+  date: [21 September 2026],
+  speaker-view: (shortcuts: false),
   transition: "slide",
   // Both in milliseconds: the slide change, and the reveal of one element.
   transition-duration: 420,
@@ -117,7 +118,7 @@
   ],
 )
 
-#anim([No server, no loading: the HTML file carries everything with it.],
+#anim([The HTML carries the slides; linked videos and web embeds load separately.],
       at: 2, enter: "fade-up")
 
 #v(1fr)
@@ -182,9 +183,10 @@
 #v(1fr)
 
 #stagger(
-  card(title: [at: auto])[The next free step. Consecutive reveals number
+  card(title: [at: auto])[The next free step, starting at 2 even for the first
+    element. Use explicit `at: 1` to show it immediately. Consecutive reveals number
     themselves, so nothing has to be renumbered when one is inserted.],
-  card(title: [at: 3, the same as at: 2-])[A bare number means "from here
+  card(title: [at: 3, the same as at: 3-])[A bare number means "from here
     on". Both are one selection, written two ways.],
 )
 
@@ -264,7 +266,7 @@
 // order was open.
 #speaker-note[
   Ask first, then press the digit. Whatever nobody names still arrives by
-  paging on. On this slide the digits belong to the group; on a slide
+  pressing the right arrow, one unrevealed point at a time. On this slide the digits belong to the group; on a slide
   without one they start the class clock instead.
 ]
 
@@ -919,6 +921,31 @@ and the wrong two find each other), the piece gets a name instead.
 
 #v(1fr)
 
+== YouTube: control the video from the presenter
+
+#speaker-note[
+  This example needs internet and HTTP(S), as on the gallery website.
+  Open the presenter with `n`. Its media button and timeline control the stage;
+  the preview follows muted. Try `k`, then `l` and `j`. If the browser blocks
+  playback, click Play once on the stage. Page away: the video pauses.
+]
+
+#v(1fr)
+#side-by-side(
+  split: (1.4fr, 1fr), align: horizon,
+  embed(url: "https://www.youtube.com/embed/M7lc1UVf-VE",
+    width: 100%, height: 250pt,
+    fallback: [YouTube IFrame API demonstration]),
+  [
+    *One set of controls for the room.*
+
+    `k` plays or pauses. `j` / `l` seek ten seconds back or forward.
+
+    The presenter preview stays muted. The external API loads on demand.
+  ],
+)
+#v(1fr)
+
 == Embedding a foreign document
 
 // `embed` puts arbitrary HTML into a sandboxed frame. `bridge:` gives that frame
@@ -1258,6 +1285,36 @@ and the wrong two find each other), the piece gets a name instead.
 
 #v(1fr)
 
+== The presenter: make room for your notes
+
+#speaker-note[
+  Open with `n`. Drag the horizontal divider above these notes, then the
+  vertical divider between notes and the next preview. Resize the window:
+  the chosen notes/preview ratio stays until space requires a constraint.
+  Press `h` to show or hide the shortcuts. Hidden help leaves no empty strip.
+  Try the colour swatches and `Shift+L` for light/dark.
+]
+
+#v(1fr)
+#side-by-side(
+  split: (1fr, 1fr), align: top,
+  card(title: [Two dividers])[
+    Above the notes: current slide height.
+
+    Beside the notes: notes versus next preview.
+
+    Your chosen proportions survive resizing.
+  ],
+  card(title: [Only the controls you need])[
+    `h` toggles the shortcut bar without reserving space when hidden.
+
+    This deck starts with `speaker-view: (shortcuts: false)`.
+
+    `Shift+L` switches light/dark; `j` / `k` / `l` control media.
+  ],
+)
+#v(1fr)
+
 == 1 to 9: the class clock, from the keyboard
 
 // The digits start the pinned clock: `3` three minutes, `7` seven, `0` ends
@@ -1268,8 +1325,7 @@ and the wrong two find each other), the piece gets a name instead.
 // clock that shows 00:00 while time is left sends the class home early.
 //
 // The dark box is a drawing of it, not the clock: on paper nothing runs. It
-// reads as the wall does: `02:55` in a monospaced face, which a three-minute
-// clock at a step of five shows for its first five seconds.
+// reads 03:00 for the first five seconds, then 02:55.
 //
 // The list stands on the left and the card on the right for the clock's
 // sake: pinned, it lands at the lower right of the stage, and there the
@@ -1287,9 +1343,9 @@ and the wrong two find each other), the piece gets a name instead.
   split: (1fr, 1fr), align: top,
   stagger[
     - `3` starts three minutes, `0` ends them. No second window needed.
-    - Pinned: the task stays readable, and paging on does not end it.
-    - `step: 5` reads in fives, the last five seconds singly. It has to
-      divide 60.
+    - Pinned: resize the stage; the clock follows its position and scale.
+    - `step: 5`: first 03:00, then 02:55 after five seconds.
+      The last five seconds count singly.
     - On a `cue` slide the digits call its points. `b` in the speaker view
       blacks out the hall and leaves the clock.
   ],
@@ -1300,7 +1356,7 @@ and the wrong two find each other), the piece gets a name instead.
     #align(center, box(fill: black.transparentize(20%), radius: 8pt,
       inset: (x: 16pt, y: 9pt),
       text(fill: white, size: 1.5em, weight: "bold", font: "DejaVu Sans Mono",
-           [02:55])))
+           [03:00])))
   ],
 )
 

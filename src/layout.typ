@@ -394,7 +394,7 @@
     ..kacheln.enumerate().map(((i, k)) => anim-kern(
       k,
       at: if auto-kette { auto } else { at + i * stride },
-      boden: 1,
+      boden: 2,
       vorruecken: if i == 0 { 1 } else { stride },
       enter: enter,
       duration: duration,

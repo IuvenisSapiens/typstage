@@ -61,7 +61,7 @@
     // dann ist er verbraucht". Vorher stand hier ein `step-cursor.step()`,
     // das dem Docstring darueber widersprach.
     let sel = if at == auto {
-      str(step-cursor.get().first() + 1) + "-"
+      str(calc.max(2, step-cursor.get().first() + 1)) + "-"
     } else { selector(at) }
     bridge-jobs.update(a => a + ((t: name-of(target), at: sel) + payload,))
   }

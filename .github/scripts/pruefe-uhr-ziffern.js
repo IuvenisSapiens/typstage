@@ -267,18 +267,30 @@ function bauen(quelle, name, paket) {
   await b.navigiere("file://" + gerastert);
   await schlaf(2000);
   await b.ev("typstage.goto(0, true); typstage.pruef.uhr(0)"); await b.ev(bild);
-  await b.taste("3"); await b.ev(bild);
+  await b.taste("5"); await b.ev(bild);
   const rasterfaelle = [
-    [1000,   "02:55", "eine Sekunde später steht schon die nächste Stufe"],
-    [4900,   "02:55", "innerhalb der Stufe bleibt die Zahl stehen"],
-    [5000,   "02:55", "an der Stufengrenze"],
-    [7000,   "02:50", "die zweite Stufe"],
-    [165000, "00:15", "kurz vor Schluss, noch gerastert"],
-    [172000, "00:05", "acht Sekunden Rest lesen sich als die Fünfer-Stufe"],
-    [176500, "00:03", "unter der Stufe zählt sie einzeln"],
-    [177000, "00:03", "und weiter einzeln"],
-    [178000, "00:02", "jede Sekunde einzeln"],
-    [180000, "00:00", "null"],
+    [0,      "05:00", "Startwert"],
+    [1,      "05:00", "der erste Tick darf keine Stufe verbrauchen"],
+    [1000,   "05:00", "nach einer Sekunde bleibt der Startwert"],
+    [4999,   "05:00", "unmittelbar vor der ersten Grenze"],
+    [5000,   "04:55", "erst nach vollen fünf Sekunden"],
+    [5001,   "04:55", "unmittelbar nach der Grenze"],
+    [9999,   "04:55", "unmittelbar vor der zweiten Grenze"],
+    [10000,  "04:50", "nach zehn Sekunden"],
+    [285000, "00:15", "kurz vor Schluss, noch gerastert"],
+    [292000, "00:10", "acht Sekunden Rest gehören zur Zehneranzeige"],
+    [294999, "00:10", "kurz vor dem letzten Intervall"],
+    [295000, "00:05", "Beginn des letzten Intervalls"],
+    [295999, "00:05", "erst nach einer ganzen Sekunde herunterzählen"],
+    [296000, "00:04", "letzte Sekunden einzeln"],
+    [296500, "00:04", "keine vorzeitige Sekundenanzeige"],
+    [297000, "00:03", "und weiter einzeln"],
+    [298000, "00:02", "jede Sekunde einzeln"],
+    [299999, "00:01", "bis zum tatsächlichen Ablauf bleibt Restzeit"],
+    [300000, "00:00", "null"],
+    [300001, "+00:00", "Überzeit startet ohne vorgezogene Stufe"],
+    [304999, "+00:00", "noch keine fünf Sekunden Überzeit"],
+    [305000, "+00:05", "fünf volle Sekunden Überzeit"],
   ];
   for (const [ms, soll, warum] of rasterfaelle) {
     await uhrAuf(ms);

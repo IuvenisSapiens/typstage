@@ -142,10 +142,12 @@ html[data-ts-clock] #ts-clock{display:flex}
    am Pult sieht man schon einmal nach, was danach kommt. Ort und Breite
    rechnet `uhrOrt` in Bruchteilen der Buehne aus -- in beiden Fenstern ist
    die Buehne verschieden gross, die Stelle auf der Folie aber dieselbe. */
-#ts-clock[data-art="fest"]{position:fixed;inset:auto;background:#000c;
-  border-radius:12px;padding:10px 12px;align-items:center;justify-content:center;
-  box-shadow:0 6px 24px #0000006b}
+#ts-clock[data-art="fest"]{position:absolute;inset:auto;background:#000c;
+  border-radius:1.2cqw;padding:1cqw 1.2cqw;align-items:center;justify-content:center;
+  box-shadow:0 .6cqw 2.4cqw #0000006b}
 #ts-clock[data-art="fest"] .ts-clock-num{letter-spacing:-.01em}
+/* An empty overtime label must not push the digits below the center. */
+#ts-clock[data-art="fest"] .ts-clock-word:empty{display:none}
 #ts-clock[data-art="fest"] .ts-clock-word{letter-spacing:.14em;
   margin-bottom:.25em;min-height:0}
 /* Am Pult ist sie das, was man anfasst: sie liegt ueber der Folie und
@@ -856,22 +858,18 @@ button.ts-sp-knopf:focus-visible{outline:2px solid var(--sp-marke);
   grid-template-columns:auto repeat(2,minmax(0,5rem))}
 .ts-sp-werkzeugleiste .ts-sp-wzlicht{
   grid-template-columns:auto minmax(0,5rem)}
-/* Die Farben behalten ihre Grundlinie: der gewaehlte Tupfen steht hoeher
-   als die anderen, und dafuer muessen alle unten haengen. Oben und unten
-   Luft fuer den Halo, der 5 px ueber den Tupfen hinausreicht. */
+/* Equal swatches and reserved ring space keep selection inside the group. */
 .ts-sp-werkzeugleiste .ts-sp-farben{
-  grid-template-columns:auto repeat(4,24px);align-items:end;
-  padding:6px 0 2px}
+  grid-template-columns:auto repeat(4,24px);align-items:center;
+  column-gap:10px;padding:8px 10px}
+.ts-sp-werkzeugleiste .ts-sp-tupf{height:22px;align-self:center}
 /* Die Kaesten tragen keine eigene Flaeche, nur eine Kante: alles darin
    liegt damit auf der Kachel. Das ist keine Kosmetik -- `--sp-ruhig`, die
    Flaeche des gewaehlten Werkzeugs, steht im hellen Bild mit 1,09 auf
    `--sp-grund` und waere dort so gut wie unsichtbar; auf der Kachel misst
    sie 1,33. Gemessen, nicht geschaetzt. */
-.ts-sp-werkzeugleiste .ts-sp-tupf[data-an]{
-  box-shadow:0 0 0 1px color-mix(in srgb, var(--tupf) var(--sp-tupf-kante),
-                                 var(--sp-satz)),
-             0 0 0 3px var(--sp-kachel),
-             0 0 0 5px var(--sp-satz)}
+.ts-sp-werkzeugleiste .ts-sp-tupf[data-an]{height:22px;
+  box-shadow:0 0 0 2px var(--sp-kachel),0 0 0 4px var(--sp-satz)}
 /* Vier Spalten: die Werkzeuge haben ihr eigenes Band, die Zeile traegt nur
    noch Zahlen. */
 .ts-sp-uhren{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -955,7 +953,7 @@ html[data-ts-rolle="speaker"][data-ts-modus="radier"] #ts-stage{cursor:cell}
    arrives that the talk then does not show. Without the attribute this
    block costs nothing. */
 html[data-ts-schwarz="1"],html[data-ts-schwarz="1"] body{background:#000}
-html[data-ts-schwarz="1"] #ts-stage,html[data-ts-schwarz="1"] #ts-chrome,
+html[data-ts-schwarz="1"] #ts-stage > :not(#ts-clock),html[data-ts-schwarz="1"] #ts-chrome,
 html[data-ts-schwarz="1"] #ts-fly,html[data-ts-schwarz="1"] #ts-ink,
 html[data-ts-schwarz="1"] #ts-punkt,
 /* Und die Vollbilduhr dazu. Ohne diese Nennung blieb sie bei `b` voll
@@ -996,3 +994,21 @@ html[data-ts-schwarz="1"] #ts-clock:not([data-art="fest"]){opacity:0}
     height:auto!important;opacity:1;z-index:auto;box-shadow:none}
   .ts-chromep{display:block;position:absolute;inset:0}
 }
+
+/* User-controlled presenter layout. */
+.ts-sp-hilfe[hidden],.ts-sp-teiler[hidden],.ts-sp-medien[hidden]{display:none}
+.ts-sp-spaltenteiler{right:auto;cursor:col-resize}
+.ts-sp-spaltenteiler::before{width:3px;height:40px}
+.ts-sp-spaltenteiler:hover::before,.ts-sp-spaltenteiler[data-zieht]::before{width:3px;height:64px}
+.ts-sp-medien{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
+.ts-sp-medium{display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:100%}
+.ts-sp-medium output{overflow-wrap:anywhere;min-width:0}
+.ts-sp-medien input{width:130px}
+
+html[data-ts-schwarz="1"] #ts-stage{background:#000}
+html[data-ts-schwarz="1"] #ts-stage > :not(#ts-clock){opacity:0!important}
+
+/* A hidden shortcut bar must not leave a footer track or grid gap behind. */
+.ts-sp-fuss[hidden]{display:none}
+html[data-ts-rolle="speaker"] #ts-speaker[data-fuss="aus"]{
+  grid-template-rows:minmax(0,1fr);row-gap:0}

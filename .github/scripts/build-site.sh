@@ -123,6 +123,10 @@ for bsp in "$WURZEL/examples"/*.typ; do
     echo "FEHLER: Beispiel $name ließ sich nicht bauen" >&2
     exit 1
   }
+  if [[ "$name" == *-ho-* ]]; then
+    typst compile --package-path "$PAKETPFAD" --root "$WURZEL" \
+      "$bsp" "$ZIEL/beispiele/$name.pdf"
+  fi
   namen+=("$name")
 done
 
@@ -154,5 +158,6 @@ for sprache in de en; do
     BSP_SPRACHE="$sprache" \
     python3 "$AGGREGAT/.github/scripts/beispiele-index.py" "$ausgabe"
 done
+python3 "$WURZEL/.github/scripts/link-handouts.py" "$ZIEL/beispiele"
 echo "  → Beispiele: ${#namen[@]} Präsentationen (${namen[*]}), Übersicht de und en"
 echo "=== fertig in $ZIEL ==="

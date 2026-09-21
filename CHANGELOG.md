@@ -6,7 +6,36 @@ All notable changes to this package are recorded here. The format follows
 
 ## [0.1.2] — unreleased
 
+### Presenter controls and automatic reveals (breaking)
+
+- Automatic reveal chains start at step 2, including a chain at the start of
+  a slide. Explicit `at: 1` and `start: 1` remain available.
+- Cue arrows reveal the next unselected item; reversing also resets its range.
+- Pinned clocks follow stage resizing in both windows immediately.
+- GeoGebra uses a fixed logical viewport, so automatic axis labels remain
+  identical when resizing the stage or changing browser zoom.
+- Presenter media buttons and timelines control stage video/audio. `k` toggles
+  play/pause and `j`/`l` seek ten seconds; manual controls override an active
+  scheduled video until the slide is re-entered.
+- A second draggable divider sets the notes/next-slide width ratio independently
+  of slide height. The chosen ratio is retained across resizing and reloads.
+- `speaker-view: (shortcuts: false)` hides shortcut help initially; `h` and the
+  `?` button toggle it during the presentation and remember the session choice.
+- Light/dark moves from `l` to `Shift+L`. `h`, `j`, and `k` are no longer
+  available as custom sound keys.
+
+
 ### Added
+
+- The tour demonstrates YouTube controls, the presenter dividers, hidden
+  shortcut help and reveals starting at step 2. The two `0.1.2-ho-*` examples
+  are published in both galleries as handout PDFs.
+
+- YouTube embed URLs (including youtube-nocookie.com) load the external IFrame
+  API on first display. Presenter play/pause, timeline and `j`/`k`/`l` control
+  the stage; the presenter preview follows muted. Leaving or hiding the video
+  pauses it. Loading failures, provider errors and autoplay blocks are shown
+  alongside the media controls. Serve the deck over HTTP(S) for YouTube.
 
 - **The pointer points.** Reported as "the pointer in presenter view does not
   work", tried in Chrome and Firefox. Measured, it was not a fault but a gap:

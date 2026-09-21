@@ -634,11 +634,14 @@ things that fly between two slides.
 
 Every slide carries a step cursor. `at` defaults to `auto`, the next free step, so
 consecutive reveals number themselves and most slides hold no number at all.
+Automatic reveals start no earlier than step 2, including the first items of
+`stagger`, `cue`, `alternatives`, `tiles`, `build` and `scene`. Step 1 contains
+static content. Use an explicit `at: 1` or `start: 1` to show an item on entry.
 
 #show-code[```typ
 == Three things
-#anim[first]            // step 1
-#anim[second]           // step 2
+#anim[first]            // step 2
+#anim[second]           // step 3
 #anim(at: 4)[late]      // 4
 #anim[after that]       // 5
 ```]
@@ -1585,6 +1588,13 @@ the most involved to the simplest.
   frame can do none of that.
 ]
 
+YouTube videos can use `embed(url: "https://www.youtube.com/embed/VIDEO_ID")`
+or the `www.youtube-nocookie.com` domain. Presenter play/pause, timeline and
+`j`/`k`/`l` control the stage; the preview follows muted. The external YouTube API
+loads only when a YouTube embed becomes visible. Internet and a deck served over
+HTTP(S) are required; `file://` can cause error 153. If autoplay is blocked,
+click Play on the stage once.
+
 `embed` puts arbitrary HTML into a sandboxed frame:
 
 #show-code[```typ
@@ -2462,7 +2472,10 @@ those a row of four small tiles:
 The seam between the slide and the note is a handle: drag it down for more
 slide, up for more note. Tab reaches it; the arrow keys then move it by 16
 pixels, by 64 with Shift, `Home` and `End` take it to the stops, and a
-double-click or `Enter` puts it back. A reload keeps the split. A deck without
+double-click or `Enter` puts it back. A reload keeps the split. A second divider sets the notes/next-slide width
+ratio independently of slide height. `h` or the `?` button toggles the shortcut
+bar; `speaker-view: (shortcuts: false)` hides it initially. Presenter media
+controls provide playback buttons and timelines for video and audio. A deck without
 notes has nothing to divide and gets no handle.
 
 Under the tiles the tool row -- pen, pointer and eraser, the four colours, undo
@@ -2492,7 +2505,10 @@ The keys of the view, which `?` also shows inside it:
   [`c`], [the next drawing colour],
   [`z`], [take back the last stroke],
   [`x`], [clear the strokes on this slide],
-  [`l`], [light or dark, for the view alone],
+  [`⇧L`], [light or dark, for the view alone],
+  [`h`], [toggle the shortcut bar],
+  [`k`], [pause or resume video and audio],
+  [`j` `l`], [seek ten seconds backward or forward],
   [`+` `-`], [the size of the note],
   [`f`], [full screen],
   [`?`], [this table, in the view],

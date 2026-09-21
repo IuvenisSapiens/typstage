@@ -548,6 +548,10 @@
 /// `t` and `⇧t` do nothing and no longer stand in the key bar. A view that
 /// advertises a key which does nothing is worse than one that is missing it.
 /// `tools: false` removes the drawing bar the same way.
+/// `shortcuts: false` starts with the keyboard bar hidden. `h` or its `?`
+/// button toggles it during a talk; the choice is remembered for this session.
+/// Media controls show play/pause and a timeline. `k` toggles playback,
+/// `j`/`l` seek ten seconds; `Shift+L` switches the presenter's light theme.
 ///
 /// `room` is the counterpart: what reaches the hall, as opposed to what only
 /// the speaker sees. It knows `clock` (how coarsely the class clock reads,
@@ -758,12 +762,12 @@
   // fehlt. Vorgabe ist ueberall `true`: wer nichts sagt, bekommt alles.
   assert(type(speaker-view) == dictionary, message:
     "typstage: speaker-view takes a dictionary, not " + str(type(speaker-view))
-    + ". It knows clock, target, tools and pen.")
+    + ". It knows clock, target, tools, shortcuts and pen.")
   for k in speaker-view.keys() {
-    assert(k in ("clock", "target", "tools", "pen"), message:
+    assert(k in ("clock", "target", "tools", "shortcuts", "pen"), message:
       "typstage: speaker-view has no entry \"" + k + "\". It takes clock "
       + "(the class clock), target (the planned length), tools (the drawing "
-      + "bar) and pen.")
+      + "bar), shortcuts (the keyboard help) and pen.")
     if k != "pen" {
       assert(type(speaker-view.at(k)) == bool, message:
         "typstage: speaker-view." + k + " is true or false, not "
@@ -873,7 +877,7 @@
     // Die Liste steht hier und wird nicht aus der Laufzeit abgeschrieben: die
     // Tastentabelle der Bruecke kennt `d` und `l` nicht, obwohl beide belegt
     // sind, und wer von dort abschreibt, gibt Zieldauer und hell/dunkel weg.
-    let frei = ("a", "g", "h", "i", "j", "k", "p", "q", "s", "u", "v", "w", "y")
+    let frei = ("a", "g", "i", "p", "q", "s", "u", "v", "w", "y")
     for (taste, datei) in toene.pairs() {
       assert(taste in frei, message:
         "typstage: room.sounds cannot use \"" + taste + "\" -- the runtime "

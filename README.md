@@ -301,6 +301,21 @@ A deck can order less of it:
 A tile that is switched off takes its keys with it, and they leave the key bar
 with them.
 
+Set `speaker-view: (shortcuts: false)` to start with the shortcut bar hidden;
+`h` or the `?` button toggles it during the talk. Drag the divider between notes
+and the next slide to set their widths. This ratio stays fixed when the stage
+height changes and survives a reload.
+
+The presenter shows playback buttons and a timeline for video and audio.
+`k` plays/pauses; `j` and `l` seek ten seconds backward/forward. Light/dark now
+uses `Shift+L`. The media keys and `h` are reserved and cannot be sound keys.
+
+Automatic reveals (`anim`, `stagger`, `cue`, `alternatives`, `tiles`, `build`
+and `scene`) now start no earlier than step 2. Step 1 shows only static content.
+Use an explicit `at: 1` or `start: 1` when a reveal should already be visible on
+entry. Existing automatic chains may gain an initial step; check numbered cues
+and step references when updating a deck.
+
 ## What reaches the room
 
 `speaker-view` says what only the speaker sees; `room` says what reaches the
@@ -547,3 +562,24 @@ site with the others.
 
 MIT, for this package. A GeoGebra applet loaded at run time is GeoGebra's and
 carries GeoGebra's terms.
+
+### YouTube im Presenter steuern
+
+```typst
+#embed(
+  url: "https://www.youtube.com/embed/M7lc1UVf-VE",
+  width: 480pt, height: 270pt,
+)
+```
+
+Auch `https://www.youtube-nocookie.com/embed/VIDEO_ID` wird unterstützt.
+Play/Pause und Zeitleiste im Presenter sowie `k` und `j`/`l` (−/+ 10 Sekunden)
+steuern das Bühnenvideo. Die Presenter-Vorschau folgt stumm. Beim Verlassen der
+Folie oder Ausblenden des Elements pausiert das Video.
+
+Die YouTube IFrame API wird extern und erst beim ersten sichtbaren YouTube-Embed
+geladen; sie wird nicht ins Paket eingebaut. Internetzugang ist erforderlich.
+Das HTML über HTTP(S) öffnen (z. B. mit `python3 -m http.server` im Exportordner),
+da YouTube bei `file://` wegen des fehlenden Referers Fehler 153 melden kann.
+Wenn der Browser Autoplay blockiert, einmal Play im Bühnenplayer anklicken.
+Andere Embed-Anbieter erhalten dadurch keine automatische Mediensteuerung.

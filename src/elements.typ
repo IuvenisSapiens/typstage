@@ -311,7 +311,7 @@
             place(align, anim-kern(
               v,
               at: fassung-at(i),
-              boden: 1, offen: i == letzt, ersetzt: i != letzt,
+              boden: 2, offen: i == letzt, ersetzt: i != letzt,
               enter: enter, duration: duration,
               easing: kurve(easing, "anim")))
           }
@@ -331,7 +331,7 @@
     // null. Was man sieht, ist die Umordnung der Zeichen an Ort und Stelle --
     // fuer eine Formel, die sich umformt, genau das Richtige.
     // Nur für einen Morph mit `start: auto` im Browser (siehe dort).
-    let first = step-cursor.get().first() + 1
+    let first = calc.max(2, step-cursor.get().first() + 1)
     let mname = if morph == true {
       "ts-alternatives-" + str(auto-morph-nr.get().first())
     } else if morph != false { name-of(morph) }
@@ -348,7 +348,7 @@
         }
         place(align, if morph == false {
           anim-kern(v, at: fassung-at(i),
-                    boden: 1, offen: i == letzt,
+                    boden: 2, offen: i == letzt,
                     enter: enter, duration: duration,
                     easing: kurve(easing, "anim"))
         } else if start == auto {
@@ -399,7 +399,7 @@
           // zwei solchen Aufrufen und je einem `anim` dahinter im HTML. Beides
           // bleibt darum aus.
           let at = if i == letzt { str(first + i) + "-" } else { str(first + i) }
-          step-cursor.update(c => calc.max(c + 1, 1))
+          step-cursor.update(c => calc.max(c + 1, 2))
           track("morph", v, at: at, inline: inline, zaehlt: false,
                 extra: (name: mname, match: "auto",
                         fly: if duration == auto { none } else { duration }))
@@ -414,7 +414,7 @@
           // Schrittseiten gegen drei Schritte. Mit `start: 2` jetzt 2, 3, 4-
           // und D auf 5-.
           track("morph", v, at: fassung-at(i),
-                inline: inline, boden: 1, offen: i == letzt,
+                inline: inline, boden: 2, offen: i == letzt,
                 extra: (name: mname, match: "auto",
                         fly: if duration == auto { none } else { duration }))
         })
@@ -721,7 +721,7 @@
   // n-1, und Typst gibt die Kette nach fünf Layoutläufen auf.
   let ab = if start != auto { start } else if stand != none {
     stand.ab + erste - 1
-  } else { step-cursor.get().first() + 1 }
+  } else { calc.max(2, step-cursor.get().first() + 1) }
   // Die Schritte selbst reservieren, wie `stagger` und `alternatives` es tun.
   // Ohne das schrieb `cue` den Schrittzeiger nie: er rückte erst weiter, wenn
   // `anim-kern` ihn aus seinem `at` nachzog, und der nächste Aufruf las einen
@@ -791,7 +791,7 @@
     block(anim-kern(
       if punkte.len() > 0 { list(b) } else { b },
       at: if start == auto { auto } else { str(ab + i) + "-" },
-      boden: 1, ad: name,
+      boden: 2, ad: name,
       // Die Nummer des Punktes. Ein ausgeschriebenes `nr:` gibt sie aus dem
       // Argument; sonst hängt sie am Stand der Gruppe, und dann als Funktion,
       // die `track` in seinem eigenen `context` aufruft, nicht als Zahl aus
@@ -1054,7 +1054,7 @@
   // `at: auto`; ein ausgeschriebenes `start` rechnet wie bisher.
   //
   // Der Morph ruft `track` selbst, mit demselben `extra` wie `morph`: nur so
-  // bekommt er `boden: 1` und `vorruecken`. Über `morph` mit ausgeschriebenem
+  // bekommt er `boden: 2` und `vorruecken`. Über `morph` mit ausgeschriebenem
   // `at` reservierte er seine Schritte nie, denn `track` zog den Zeiger damals
   // nur für `anim` nach. Gemessen an `anim[Davor]`, einem dreiteiligen
   // `stagger(morph: true)` und `anim[Danach]`: „Danach" bekam im Browser den
@@ -1066,7 +1066,7 @@
   // `stagger-layer`. Bei `at: auto` ist das die einzige Lesung, die bleibt, und
   // sie steht in einem eigenen kleinen `context` vor dem Stück: der Zeiger
   // davor, und dazu dieselbe Rechnung, die `track` gleich anstellt
-  // (`schritt-vorruecken` mit `boden: 1`). Die Lesung fließt in keine
+  // (`schritt-vorruecken` mit `boden: 2`). Die Lesung fließt in keine
   // Schrittzahl zurück -- eine Schicht liest das Buch erst im `context` von
   // `track` und rückt den Zeiger nicht vor. `cue` merkt sich seine Schritte
   // auf dieselbe Weise.
@@ -1090,13 +1090,13 @@
                        schritte: bisher + ((str(i + 1)): schritt)))
       })
       if auto-kette {
-        context eintragen(calc.max(step-cursor.get().first() + vor, 1))
+        context eintragen(calc.max(step-cursor.get().first() + vor, 2))
       } else { eintragen(start + i * stride) }
     }
     if morph == false {
       anim-kern(koerper, at: at, vorruecken: vor, ..rest)
     } else {
-      track("morph", koerper, at: at, inline: false, boden: 1,
+      track("morph", koerper, at: at, inline: false, boden: 2,
             vorruecken: vor, extra: (name: mname, match: "auto",
               fly: if duration == auto { none } else { duration }))
     }
@@ -1110,7 +1110,7 @@
   if punkte.len() == 0 {
     // No list: the pieces in order, each as its own block.
     for (i, b) in gegeben.enumerate() {
-      block(stueck(b, i, boden: 1, after: ruhe, offen: not dim,
+      block(stueck(b, i, boden: 2, after: ruhe, offen: not dim,
                    dim-freiwillig: dim, enter: enter, duration: duration,
                    easing: takt, delay: i * stagger))
     }
@@ -1145,7 +1145,7 @@
         marks.at(i), p.body,
       ),
       i,
-      boden: 1, after: ruhe, offen: not dim, dim-freiwillig: dim,
+      boden: 2, after: ruhe, offen: not dim, dim-freiwillig: dim,
       enter: enter, duration: duration, easing: takt, delay: i * stagger,
     )
   }
@@ -1446,7 +1446,7 @@
     }
     let hoehe = calc.max(..frei.map(m => m.height), ..gedeckelt.map(m => m.height))
     let erster = if at != auto { at.first() }
-                 else if start == auto { step-cursor.get().first() + 1 }
+                 else if start == auto { calc.max(2, step-cursor.get().first() + 1) }
                  else { start }
     if not html-output.get() {
       // Nur die letzte Stufe, und der Zähler läuft trotzdem. Genau wie
@@ -1477,7 +1477,7 @@
             place(top + std.start, anim-kern(
               st,
               at: if at == auto and start == auto { auto } else { bereich },
-              boden: 1, offen: i == letzt, ersetzt: i != letzt,
+              boden: 2, offen: i == letzt, ersetzt: i != letzt,
               enter: enter, exit: "hold", duration: duration, easing: takt))
           }
         })
@@ -1503,7 +1503,7 @@
         } else if i == letzte { str(erster + i) + "-" } else { str(erster + i) }
         place(top + std.start, anim-kern(
           s, at: if auto-kette { auto } else { bereich },
-          boden: 1, offen: i == letzte,
+          boden: 2, offen: i == letzte,
           enter: enter, exit: "hold", duration: duration, easing: takt))
       }
     })
@@ -1745,17 +1745,17 @@
   context {
     // Der erste Halt steht da, sobald die Szene erscheint -- er kostet keinen
     // eigenen Schritt, wie bei `morph` und anders als bei `anim`. Steht die
-    // Szene am Kopf ihrer Folie, ist das Schritt 1. Erst die weiteren Halte
+    // Szene am Kopf ihrer Folie, ist das frühestens Schritt 2. Erst die weiteren Halte
     // kosten je einen.
     let erster = if start == auto {
-      calc.max(1, step-cursor.get().first())
+      calc.max(2, step-cursor.get().first())
     } else { start }
     // Halt k steht auf Schritt `erster + k`. Der erste kostet nichts -- er
     // steht schon da --, jeder weitere einen Tastendruck; zusammen sind das
     // `stops.len() - 1` Schritte.
     let letzter = erster + stops.len() - 1
     // Der Vorschub rein, nicht aus dem Gelesenen: `erster` ist
-    // `calc.max(1, c)`, also ist `letzter` eine Funktion von `c` allein. Ein
+    // `calc.max(2, c)`, also ist `letzter` eine Funktion von `c` allein. Ein
     // Update, das an einem gelesenen Zählerstand hängt, kostet das Dokument
     // seine Konvergenz, sobald die Zeichnung etwas außerhalb des Flusses
     // trägt -- gemessen zehn Meldungen bei drei Szenen, null mit dieser
@@ -1763,7 +1763,7 @@
     // nicht am Zähler; dort bleibt es, wie es war.
     if im-deck() and (html-output.get() or start != auto) {
       if start == auto {
-        step-cursor.update(c => calc.max(c, calc.max(1, c) + stops.len() - 1))
+        step-cursor.update(c => calc.max(c, calc.max(2, c) + stops.len() - 1))
       } else {
         step-cursor.update(c => calc.max(c, letzter))
       }
@@ -1827,7 +1827,7 @@
               },
               // Die Szene beginnt auf dem *aktuellen* Schritt, nicht auf dem
               // nächsten -- deshalb rückt der erste Halt nicht vor.
-              boden: 1, vorruecken: if i == 0 { 0 } else { 1 },
+              boden: 2, vorruecken: if i == 0 { 0 } else { 1 },
               offen: i == stops.len() - 1, ersetzt: i != stops.len() - 1,
               enter: enter))
           }
@@ -1944,7 +1944,7 @@
     // Ein Ort, wenn die Szene ihren ersten Halt aus dem Zeiger nimmt: dann
     // hier dieselbe Rechnung wie in `scene`, am Ort der Szene gelesen.
     let anfang = if type(e.start) == location {
-      calc.max(1, step-cursor.at(e.start).first())
+      calc.max(2, step-cursor.at(e.start).first())
     } else { e.start }
     str(anfang + nr - 1) + "-"
   })

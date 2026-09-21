@@ -132,19 +132,9 @@
                           seamless, bg, animation-button, codebase,
                           start, height.pt(), pan, font-size),
     bridge: id,
-    // Kein `zoom` für ein Applet. Der Kern spannt einen Rahmen sonst in
-    // Punkten der Folie auf und vergrößert ihn danach, und GeoGebra rechnet
-    // diese Vergrößerung in Safari doppelt ein: gemessen ein Leinwandpuffer
-    // von 1400 Punkten bei 253 Punkten Breite, also Zoom mal Zoom mal
-    // Bildschirmdichte. Das Applet zeichnete zu klein, und eine Korrektur der
-    // Größe verschob dafür den Trefferpunkt. Ohne Zoom gibt es nichts, was
-    // doppelt gerechnet werden könnte: der Rahmen steht in echten
-    // Bildschirmpunkten, und das Applet setzt darin ganz gewöhnlich.
-    //
-    // Dass in allen Fenstern derselbe Ausschnitt zu sehen ist, hängt danach
-    // nicht mehr an der Pixelzahl, sondern am Bereich -- den setzt das
-    // Bootskript aus den Punktmaßen, die der Kern mitschickt.
-    zoom: false,
+    // A fixed logical viewport keeps GeoGebra's automatic ticks and labels
+    // identical across stage sizes. The runtime scales with CSS transform.
+    zoom: true,
     width: width, height: height, at: at,
     fallback: fallback, link: link,
     label: [GeoGebra applet],
