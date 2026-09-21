@@ -379,3 +379,11 @@ painted SVG bounds against each card and the stage at two viewport sizes, as
 well as equal heights and stable positions across cue orders. This catches
 text escaping fixed-height boxes even when the slide overflow check passes.
 The fallback-font run requires DejaVu Sans to be installed.
+
+### GeoGebra caption regression
+
+`node .github/scripts/pruefe-geogebra-schritte.js` compiles `geogebra-sprecher`
+in HTML and PDF and checks captions against the commands actually sent through
+the bridge at every step, forwards, backwards and on direct entry. Only the
+external applet is replaced by a message receiver; no GeoGebra network access
+is required. The test covers the semicircle, sides, angle, trace and roots.

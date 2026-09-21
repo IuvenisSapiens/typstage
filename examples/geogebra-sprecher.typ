@@ -90,7 +90,7 @@
                    ))
                  })
                }),
-      stagger[
+      stagger(start: 2)[
         - The half circle over #math.italic[AB]
         - #math.italic[C] on it, and the two sides
         - the angle at #math.italic[C], with its value
@@ -98,40 +98,42 @@
       ],
     )
 
+    // Step 1 is the empty applet. Each construction stage starts together
+    // with its caption at steps 2–5 (the stagger start is explicit above).
     // The construction. `Point(k)` is a point on a path: it can be dragged,
     // but only along the half circle, which is exactly the freedom the
     // statement is about.
-    ggb-run(at: "1-", "A=(-3,0)", "B=(3,0)", "k=Semicircle(A,B)")
+    ggb-run(at: "2-", "A=(-3,0)", "B=(3,0)", "k=Semicircle(A,B)")
     // The grid is switched off twice on purpose: once for the applet as it is
     // built, and once here, because the perspective brings its own settings
     // along and would put it back.
     ggb-view(at: "1-", x: (-4.2, 4.2), y: (-1.0, 4.2), grid: false)
-    ggb-style("k", at: "1-", color: luma(45%), thickness: 3)
+    ggb-style("k", at: "2-", color: luma(45%), thickness: 3)
     // Festgehalten, und das ist keine Kosmetik. A und B spannen den Durchmesser
     // auf; wer sie mitzieht, verschiebt den ganzen Halbkreis, und das ist genau
     // das, was hier nicht gezeigt werden soll. Frei bleibt allein C, und damit
     // greift eine Hand auf dieser Folie immer das Richtige.
-    ggb-style("A", "B", at: "1-", color: luma(35%), point-size: 4, fixed: true)
+    ggb-style("A", "B", at: "2-", color: luma(35%), point-size: 4, fixed: true)
 
     // `Point(k)` and not `Point(k, 0.3)`. The second form pins the point to
     // that parameter and makes it dependent: it draws in the same place and
     // `isMoveable` then answers false, so no hand can take it. Where it
     // starts is said afterwards with `position:`, which for a point on a path
     // means the nearest place on the path.
-    ggb-run(at: 2, "C=Point(k)", "u=Segment(A,C)", "v=Segment(C,B)")
-    ggb-style("C", at: 2, color: accent, point-size: 7,
+    ggb-run(at: 3, "C=Point(k)", "u=Segment(A,C)", "v=Segment(C,B)")
+    ggb-style("C", at: 3, color: accent, point-size: 7,
               position: (1.72, 2.46))
-    ggb-style("u", "v", at: 2, color: accent, thickness: 4)
+    ggb-style("u", "v", at: 3, color: accent, thickness: 4)
 
-    ggb-run(at: 3, "w=Angle(A,C,B)")
+    ggb-run(at: 4, "w=Angle(A,C,B)")
     // Label mode 2 is the value alone: the room is meant to read 90°, not "w".
-    ggb-style("w", at: 3, color: dark, filling: 0.25, label: true,
+    ggb-style("w", at: 4, color: dark, filling: 0.25, label: true,
               label-mode: 2)
 
-    ggb-style("C", at: 4, trace: true)
+    ggb-style("C", at: 5, trace: true)
     v(1fr)
   }, note: [
-    Step 4 is the one to hold. Press `m`, take C and walk it slowly from one
+    Step 5 is the one to hold. Press `m`, take C and walk it slowly from one
     end to the other. The number stays at 90 the whole way, and the trace
     draws the half circle back as you go. Say the sentence while you are
     moving, not after.
@@ -163,7 +165,7 @@
                                ..punkte.slice(1).map(curve.line)))
                  })
                }),
-      stagger[
+      stagger(start: 2)[
         - Two sliders, one parabola
         - $a$ turns it over and stretches it
         - $b$ lifts the whole thing
@@ -171,27 +173,29 @@
       ],
     )
 
+    // The first caption and the sliders appear together on step 2;
+    // the roots belong to the fourth caption, on step 5.
     // The fifth argument of `Slider` is its width in pixels. Left out, the
     // bar reaches across a third of the plane and lies over the curve.
-    ggb-run(at: "1-", "a=Slider(-2,2,0.1,1,130)", "b=Slider(-3,3,0.1,1,130)",
+    ggb-run(at: "2-", "a=Slider(-2,2,0.1,1,130)", "b=Slider(-3,3,0.1,1,130)",
             "f(x)=a*x^2+b")
     ggb-view(at: "1-", x: (-4.2, 4.2), y: (-2.6, 2.6), grid: false)
-    ggb-set((a: 1, b: -1), at: "1-")
+    ggb-set((a: 1, b: -1), at: "2-")
     // A slider made by the `Slider` command sits at an absolute position on
     // the screen, so `position:` counts in pixels of the applet and not in
     // coordinates of the plane. Measured: written as (-3.9, 2.2) both landed
     // in the same corner on top of one another.
-    ggb-style("a", at: "1-", position: (16, 206), label: true, label-mode: 1,
+    ggb-style("a", at: "2-", position: (16, 206), label: true, label-mode: 1,
               color: dark)
-    ggb-style("b", at: "1-", position: (16, 236), label: true, label-mode: 1,
+    ggb-style("b", at: "2-", position: (16, 236), label: true, label-mode: 1,
               color: dark)
-    ggb-style("f", at: "1-", color: accent, thickness: 4)
+    ggb-style("f", at: "2-", color: accent, thickness: 4)
 
     // `Root` gives every root there is, and an empty list where there is
     // none. That is the whole lesson of the fourth bullet: push `b` up and
     // the two points meet, touch and are gone.
-    ggb-run(at: 4, "N=Root(f)")
-    ggb-style("N", at: 4, color: dark, point-size: 6)
+    ggb-run(at: 5, "N=Root(f)")
+    ggb-style("N", at: 5, color: dark, point-size: 6)
     v(1fr)
   }, note: [
     Push `a` down through zero first and let them watch it turn over. Then `b`,
