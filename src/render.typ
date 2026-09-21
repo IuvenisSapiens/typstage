@@ -221,12 +221,12 @@
         if type(v) == bool { if v { "1" } else { "0" } } else { str(v) })
     }
   }
-  if s.kind == "video" {
+  if s.kind in ("video", "audio") {
     let a = (src: s.extra.src, preload: "auto", playsinline: "")
     if s.extra.muted { a.insert("muted", "") }
     if s.extra.loop { a.insert("loop", "") }
     if s.extra.controls { a.insert("controls", "") }
-    html.elem("div", attrs: attrs, html.elem("video", attrs: a, []))
+    html.elem("div", attrs: attrs, html.elem(s.kind, attrs: a, []))
   } else if s.kind == "embed" {
     let a = (frameborder: "0", sandbox: "allow-scripts allow-same-origin")
     if s.extra.url != none {

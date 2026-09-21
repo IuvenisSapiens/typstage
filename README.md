@@ -346,6 +346,34 @@ with the slide, because a light ring and a dark one around the core do that on
 any ground. `pointer: false` takes the dot away and leaves embedded frames
 operable, which is the pointer mode's other half.
 
+### Audio and timer signals
+
+`audio` accepts a file path relative to the exported HTML or a direct HTTP(S)
+audio URL (not a streaming service's webpage):
+
+```typ
+#audio("medien/music.mp3")
+#audio("https://example.org/music.mp3", loop: true)
+```
+
+It defaults to manual playback with stage controls. The presenter also controls
+it through the media toolbar and `j`/`k`/`l`. Options include `autoplay: true`,
+`controls: false`, `muted`, `loop`, `width`, `height` and `at`. Revealed audio
+starts only when visible and pauses when hidden; PDF output shows a placeholder.
+
+An optional signal plays once on the stage when the class timer reaches zero:
+
+```typ
+#show: presentation.with(room: (
+  clock: (step: 5, sound: "medien/gong.mp3"),
+))
+```
+
+`sound` also accepts a direct audio URL; omit it or use `none` for silence.
+Cancelling a timer or restoring one that has already expired does not ring it.
+Browser playback permissions still apply: allow audio on the stage before the
+talk. Files must accompany the HTML; URLs require network access.
+
 ## On paper
 
 The PDF has one page per slide in the size of the canvas. Everything that moves

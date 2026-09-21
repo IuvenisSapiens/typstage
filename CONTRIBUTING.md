@@ -356,3 +356,10 @@ at small/large window sizes and DPR 1/2, unchanged construction XML and view bou
 and a real presenter pointer drag synchronized to the stage. Typst and Node 21+
 are required; set `CHROME` to override the browser executable. Internet/provider
 failures can fail this check independently of the local implementation.
+
+### Audio and timer regression
+
+`node .github/scripts/pruefe-audio-timer.js` uses real Chrome audio with a local
+HTTP server. It checks local and absolute URL sources, reveal playback, pause,
+PDF compilation and the optional timer signal at zero, including cancellation,
+restart and silent presenter playback. It requires no external audio service.

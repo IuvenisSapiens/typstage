@@ -35,7 +35,7 @@
                          morph, pause, pin, scene, scene-layer, stagger,
                          stagger-layer)
 #import "layout.typ": card, callout, fit, side-by-side, statement, tiles
-#import "media.typ": video, embed, flipbook
+#import "media.typ": video, audio, embed, flipbook
 #import "bridge.typ": bridge-job, bridge-targets
 // GeoGebra, once a companion package of its own. It goes over the same bridge
 // as any other, and a deck that never calls `geogebra` carries nothing of it.

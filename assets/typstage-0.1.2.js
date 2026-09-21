@@ -2105,7 +2105,19 @@
     if (wechsel) fit();
   }
   function zeitText(t) { return Math.floor(t / 60) + ":" + ("0" + Math.floor(t % 60)).slice(-2); }
+  function audioTick() {
+    document.querySelectorAll(".ts-audio audio").forEach(function (a) {
+      var visible = youtubeVisible(a);
+      if (!visible || ROLLE === "speaker") a.pause();
+      else if (!a.tsVisible && a.parentNode.dataset.autoplay === "1"
+               && !document.documentElement.dataset.tsSchwarz) {
+        var p = a.play(); if (p && p.catch) p.catch(function () {});
+      }
+      a.tsVisible = visible;
+    });
+  }
   setInterval(function () {
+    audioTick();
     youtubeTick();
     if (ROLLE !== "speaker") sende("medienstand", { items: medienStand() });
     else medienZeigen();
@@ -2363,6 +2375,20 @@
     // frisch 0, nach einem Neuladen die Strecke aus der Wanduhr-Frist.
     if (UHR.t0 === null) UHR.t0 = current;
     var rest = UHR.dauer - (UHR.vor + (current - UHR.t0) / 1000);
+    // Only a live crossing rings. Restoring an already expired timer is silent.
+    if (!UHR.geklingelt && UHR.rest !== null && UHR.rest > 0 && rest <= 0) {
+      UHR.geklingelt = true;
+      var signal = document.getElementById("ts-clock-sound");
+      if (signal && ROLLE !== "speaker") {
+        try {
+          signal.currentTime = 0;
+          var ton = signal.play();
+          if (ton && ton.catch) ton.catch(function () {
+            merke("Ton", "Timer sound blocked or unavailable: " + signal.getAttribute("src"));
+          });
+        } catch (e) { merke("Ton", "Timer sound unavailable."); }
+      }
+    }
     UHR.rest = rest;
     var drueber = rest < 0;
     // Gedeckelt bei der Dauer, hoechstens eine halbe Stunde. Danach steht sie
@@ -2406,11 +2432,12 @@
   // nicht ab, `sichtLoesen` laesst sie stehen, und `0` beendet nur sie.
   function uhrStellen(sek, lauf, vor, eigen) {
     if (ROLLE === "speaker") return;
+    uhrTonAus();
     var d = Math.max(1, Math.round(+sek || 0));
     uhrOrt("voll");
     UHR = { dauer: d, vor: Math.max(0, +vor || 0), t0: null, rest: null,
             lauf: lauf == null ? ++UHR_LAUF : lauf, letztes: null,
-            drueber: null, eigen: eigen ? 1 : 0 };
+            geklingelt: (+vor || 0) >= d, drueber: null, eigen: eigen ? 1 : 0 };
     document.documentElement.dataset.tsClock = "1";
     sichtMerken();
   }
@@ -2455,7 +2482,12 @@
     if (UHR_WORT) UHR_WORT.style.fontSize = (1.4 * f) + "cqw";
   }
 
+  function uhrTonAus() {
+    var a = document.getElementById("ts-clock-sound");
+    if (a) { a.pause(); try { a.currentTime = 0; } catch (e) {} }
+  }
   function uhrAus() {
+    uhrTonAus();
     if (!UHR) return;
     UHR = null;
     delete document.documentElement.dataset.tsClock;
@@ -3480,7 +3512,7 @@
     if (!st) return;
     if (an) {
       gehaltene = [];
-      SLIDES[st.slide].querySelectorAll("video,iframe[data-ts-youtube]").forEach(function (v) {
+      SLIDES[st.slide].querySelectorAll("video,audio,iframe[data-ts-youtube]").forEach(function (v) {
         if (!v.paused) { gehaltene.push(v); v.pause(); }
       });
       return;

@@ -295,6 +295,9 @@ jobs:
       - name: YouTube im Presenter steuern
         run: node .github/scripts/pruefe-youtube.js
 
+      - name: Audio and timer signals
+        run: node .github/scripts/pruefe-audio-timer.js
+
       - name: Bericht aufheben
         if: always()
         uses: actions/upload-artifact@v4

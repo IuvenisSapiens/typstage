@@ -94,6 +94,29 @@
   )
 }
 
+/// HTML audio from a local file beside the HTML or a direct HTTP(S) media URL.
+/// Playback is controlled on stage or through the presenter; PDF shows a label.
+#let audio(
+  src,
+  width: 240pt,
+  height: 32pt,
+  autoplay: false,
+  loop: false,
+  muted: false,
+  controls: true,
+  at: "1-",
+  enter: "fade",
+) = {
+  assert(type(src) == str and src != "", message:
+    "typstage: audio() wants a file path or direct audio URL.")
+  track("audio",
+    fallback-box(none, none, width, height, [Audio]),
+    at: at,
+    extra: (src: src, autoplay: autoplay, loop: loop, muted: muted,
+            controls: controls, enter: enter),
+  )
+}
+
 // What gets prepended to every embedded document so it behaves like a
 // part of the slide instead of a web page in a hole.
 //

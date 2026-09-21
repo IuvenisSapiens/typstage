@@ -843,12 +843,18 @@
   if "clock" in room {
     let uhr = room.clock
     assert(type(uhr) == dictionary, message:
-      "typstage: room.clock takes a dictionary with step and digits, not "
+      "typstage: room.clock takes a dictionary with step, digits and sound, not "
       + repr(uhr) + ". To hide the clock entirely, speaker-view: (clock: false).")
     for k in uhr.keys() {
-      assert(k in ("step", "digits"), message:
+      assert(k in ("step", "digits", "sound"), message:
         "typstage: room.clock has no entry \"" + k + "\". It takes step (how "
-        + "coarsely the clock reads) and digits (whether 1 to 9 start it).")
+        + "coarsely the clock reads), digits (whether 1 to 9 start it), "
+        + "and sound (a file path or direct audio URL, or none).")
+    }
+    if "sound" in uhr {
+      assert(uhr.sound == none or (type(uhr.sound) == str and uhr.sound != ""
+             and not uhr.sound.contains("<")), message:
+        "typstage: room.clock.sound is a file path, direct audio URL, or none.")
     }
     if "step" in uhr {
       let s = uhr.step
@@ -1835,6 +1841,11 @@
     //
     // `preload="auto"`: wer die Taste drückt, will den Ton jetzt und nicht
     // nach dem Laden. Eine Airhorn-Datei ist klein.
+    if room.at("clock", default: (:)).at("sound", default: none) != none {
+      html.elem("audio", attrs: (
+        id: "ts-clock-sound", src: room.clock.sound, preload: "auto",
+      ), [])
+    }
     if "sounds" in room {
       for (taste, datei) in room.sounds.pairs() {
         html.elem("audio", attrs: (

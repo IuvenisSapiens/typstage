@@ -2400,7 +2400,7 @@
   // nachholt (siehe `papier-kette`).
   assert(type(at) != function or not zaehlt, message:
     "typstage (intern): ein `at` als Funktion braucht `zaehlt: false`.")
-  let erscheint = kind in ("video", "embed", "flipbook", "morph")
+  let erscheint = kind in ("video", "audio", "embed", "flipbook", "morph")
   let zaehlen = if zaehlt {
     if at == auto { schritt-vorruecken(boden: boden, um: vorruecken) }
     else if kind == "anim" or (erscheint and max-step(selector(at)) > 1) {
