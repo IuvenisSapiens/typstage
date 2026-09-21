@@ -132,9 +132,9 @@
                           seamless, bg, animation-button, codebase,
                           start, height.pt(), pan, font-size),
     bridge: id,
-    // A fixed logical viewport keeps GeoGebra's automatic ticks and labels
-    // identical across stage sizes. The runtime scales with CSS transform.
-    zoom: true,
+    // GeoGebra scales its fixed logical canvas inside a screen-sized frame,
+    // so its own renderer can account for the scale and device pixel ratio.
+    zoom: false,
     width: width, height: height, at: at,
     fallback: fallback, link: link,
     label: [GeoGebra applet],

@@ -347,3 +347,12 @@ requiring YouTube access. Set `CHROME` to override the browser executable.
 smoke test against the external YouTube API over a local HTTP server. It requires
 internet access and an embeddable test video; provider/network restrictions can
 make this check fail independently of the offline regression.
+
+### GeoGebra rendering regression
+
+`node .github/scripts/pruefe-geogebra-schaerfe.js` is an opt-in live check using
+Chrome and the external GeoGebra applet. It verifies the canvas backing resolution
+at small/large window sizes and DPR 1/2, unchanged construction XML and view bounds,
+and a real presenter pointer drag synchronized to the stage. Typst and Node 21+
+are required; set `CHROME` to override the browser executable. Internet/provider
+failures can fail this check independently of the local implementation.

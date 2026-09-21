@@ -160,8 +160,9 @@ function run(m){
  if(m.mass){
   if(m.w)pktBreit=m.w;
   if(m.h)pktHoch=m.h;
+  if(m.px>0)bildSkala=m.px;
   schriftSetzen(1);
-  passe(1);
+  passe(1);pixelPruefen();
   return;
  }
  if(!live){q=[m];return;}
@@ -193,21 +194,19 @@ addEventListener("message",function(e){run(e.data);});
 
 // ── The applet's size ─────────────────────────────────────────────────────
 //
-// The frame is spanned in points of the slide and then zoomed onto the
-// stage, so the inner viewport is the box's size in the slide's own units:
-// the same number in the talk and in the speaker view, whatever size the two
-// windows have. That is the only figure that is right here. A number written
-// in at compile time cannot be, because `width: 100%` is only settled once
-// the slide has been laid out, and the applet then drew a third the width of
-// the box it sat in.
+// Keep the applet's logical size in slide points, but scale INSIDE the iframe.
+// GeoGebra includes ancestor transforms in its canvas pixel ratio; an outer
+// iframe transform is invisible to its renderer and merely stretches pixels.
+// The iframe itself fills the screen-sized box. Neither its viewport nor the
+// physical pixel density may change the construction's logical dimensions.
 var breit=0,hoch=0;
 // Der Kasten in Punkten der Folie, vom Kern gemeldet. In jedem Fenster
 // dieselbe Zahl, gleich wie groß der Bildschirm ist.
-var pktBreit=0,pktHoch=0;
+var pktBreit=0,pktHoch=0,bildSkala=1;
 // GeoGebras Vorgabe sind 50 Bildschirmpunkte je Einheit. Auf die Folie
 // bezogen ergibt das in jedem Fenster denselben Ausschnitt.
 var JE_EINHEIT=50;
-// Fixed logical font size: the frame transform scales the whole construction,
+// Fixed logical font size: the inner transform scales the whole construction,
 // including the axes. A window resize must not select a new GeoGebra font tier.
 var GRUNDSCHRIFT=__SCHRIFT__, massstab=0;
 
@@ -231,14 +230,17 @@ function leinwand(){
 }
 
 function passe(erzwinge){
+ var host=document.getElementById("ts-ggb");
+ var w=Math.round(pktBreit||innerWidth/bildSkala),h=Math.round(pktHoch||innerHeight/bildSkala);
+ host.style.width=w+"px";host.style.height=h+"px";
+ host.style.transformOrigin="0 0";host.style.transform="scale("+bildSkala+")";
  if(!api)return;
- var w=Math.round(innerWidth),h=Math.round(innerHeight);
  if(w<40||h<40)return;
  // Auch bei gleicher Größe neu setzen, wenn die Zeichenfläche nicht passt:
  // ein Fenster, das nur den Zoom ändert, lässt das innere Fenster in Ruhe,
  // und dann gäbe es sonst nichts, was den Sitz wieder herstellt.
  var c0=leinwand();
- var sitzt=c0&&Math.abs(c0.width-w)<=2&&Math.abs(c0.height-h)<=2;
+ var sitzt=c0&&Math.abs(c0.width-w*bildSkala)<=2&&Math.abs(c0.height-h*bildSkala)<=2;
  if(!erzwinge&&w===breit&&h===hoch&&sitzt)return;
  // Der sichtbare Bereich soll die Größenänderung überstehen. `setSize` lässt
  // den Maßstab stehen, also zeigte ein gewachsener Kasten mehr Ebene als
@@ -266,13 +268,24 @@ function passe(erzwinge){
 // The applet starts before its frame has a size — when it grows it has to
 // take the new one, otherwise it stays small inside a large area.
 addEventListener("resize",passe);
+// An iframe may receive neither resize nor a resolution-query change when
+// only DPR changes (also reproduced with Chromium device emulation).
+// Check the density cheaply; redraw only when the effective ratio changes.
+var letzteDichte=0;
+function pixelPruefen(){
+ var d=(devicePixelRatio||1)*bildSkala;
+ if(!api||Math.abs(d-letzteDichte)<0.0001)return;
+ letzteDichte=d;
+ dispatchEvent(new Event("resize"));
+}
+setInterval(pixelPruefen,500);
 var p=__PARAMS__;
 p.appletOnLoad=function(a){
  api=a;
  __BOOTVIEW__
  // Before the base is taken, so a reset restores the applet at the size it
  // actually has on the slide.
- passe();
+ passe();pixelPruefen();
  // Jetzt gibt es ein `api`, also nachholen, was vor dem Laden gemeldet wurde.
  schriftSetzen(0);
  beruehrung();
