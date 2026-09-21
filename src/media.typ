@@ -32,6 +32,17 @@
   },
 ) <ts-media-fallback>]
 
+// Media offsets are seconds in the original source, not step numbers.
+#let media-range(start, end, loop) = {
+  assert(start == none or ((type(start) == int or type(start) == float)
+    and start >= 0 and start < calc.inf), message:
+    "typstage: start must be a finite, non-negative number of seconds.")
+  assert(end == none or ((type(end) == int or type(end) == float)
+    and end > (if start == none { 0 } else { start }) and end < calc.inf), message:
+    "typstage: end must be a finite number of seconds greater than start, or none.")
+  assert(loop == none or type(loop) == bool, message: "typstage: loop must be true or false.")
+}
+
 /// A real HTML5 video over the slide.
 ///
 /// Without a `poster:` the placeholder on paper is labelled
@@ -60,6 +71,8 @@
   poster: none,
   autoplay: true,
   loop: false,
+  start: 0,
+  end: none,
   muted: true,
   controls: false,
   radius: 0pt,
@@ -67,6 +80,7 @@
   enter: "fade",
   ends-at: none,
 ) = {
+  media-range(start, end, loop)
   assert(ends-at == none or ends-at == auto
          or (type(ends-at) == str and ends-at.match(regex("^[0-9]{1,2}:[0-5][0-9]$")) != none
              and int(ends-at.split(":").first()) <= 23),
@@ -83,7 +97,7 @@
           { set image(width: 100%, height: 100%, fit: "cover"); poster }
         }),
     at: at,
-    extra: (src: src, autoplay: autoplay, loop: loop, muted: muted,
+    extra: (src: src, autoplay: autoplay, loop: loop, start: start, end: end, muted: muted,
             controls: controls, radius: radius.pt(), enter: enter,
             // `auto` reist als das WORT "auto" und nicht als der Wert: der
             // Wert fiele in `sprite-markup` still aus `extra` heraus, das
@@ -102,17 +116,20 @@
   height: 32pt,
   autoplay: false,
   loop: false,
+  start: 0,
+  end: none,
   muted: false,
   controls: true,
   at: "1-",
   enter: "fade",
 ) = {
+  media-range(start, end, loop)
   assert(type(src) == str and src != "", message:
     "typstage: audio() wants a file path or direct audio URL.")
   track("audio",
     fallback-box(none, none, width, height, [Audio]),
     at: at,
-    extra: (src: src, autoplay: autoplay, loop: loop, muted: muted,
+    extra: (src: src, autoplay: autoplay, loop: loop, start: start, end: end, muted: muted,
             controls: controls, enter: enter),
   )
 }
@@ -177,7 +194,16 @@
   fallback: none,
   link: none,
   label: auto,
+  start: none,
+  end: none,
+  loop: none,
 ) = {
+  media-range(start, end, loop)
+  if start != none or end != none or loop != none {
+    assert(html == none and type(url) == str and url.match(regex(
+      "^https://(www\\.)?(youtube\\.com|youtube-nocookie\\.com)/embed/[A-Za-z0-9_-]{11}([?#].*)?$")) != none,
+      message: "typstage: embed start/end/loop are supported for YouTube embed URLs only.")
+  }
   // Announced for the whole document, not just for what comes after it: a
   // companion package resolving `target: auto` has to find an applet that is
   // written *below* its own commands as well.
@@ -217,7 +243,7 @@
     box(width: width, height: height, fill: luma(92%)),
     at: at,
     extra: (url: url, doc: grundstil(html, zoom, style), enter: enter,
-            bridge: bridge, zoom: zoom),
+            bridge: bridge, zoom: zoom, start: start, end: end, loop: loop),
   )
 }
 }

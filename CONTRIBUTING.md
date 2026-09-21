@@ -363,3 +363,10 @@ failures can fail this check independently of the local implementation.
 HTTP server. It checks local and absolute URL sources, reveal playback, pause,
 PDF compilation and the optional timer signal at zero, including cancellation,
 restart and silent presenter playback. It requires no external audio service.
+
+### Media clip regression
+
+`node .github/scripts/pruefe-medien-ausschnitt.js` checks start/end/loop on real
+HTML media and a deterministic YouTube API fixture, including clip boundaries,
+replay, presenter seeking, source-duration clamping and Typst validation/PDF.
+It serves local fixtures with byte ranges and requires no external provider.

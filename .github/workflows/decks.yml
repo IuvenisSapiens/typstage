@@ -298,6 +298,9 @@ jobs:
       - name: Audio and timer signals
         run: node .github/scripts/pruefe-audio-timer.js
 
+      - name: Audio, video and YouTube clips
+        run: node .github/scripts/pruefe-medien-ausschnitt.js
+
       - name: Bericht aufheben
         if: always()
         uses: actions/upload-artifact@v4

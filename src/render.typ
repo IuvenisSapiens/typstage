@@ -224,7 +224,7 @@
   if s.kind in ("video", "audio") {
     let a = (src: s.extra.src, preload: "auto", playsinline: "")
     if s.extra.muted { a.insert("muted", "") }
-    if s.extra.loop { a.insert("loop", "") }
+    if s.extra.loop and s.extra.start == 0 and s.extra.end == none { a.insert("loop", "") }
     if s.extra.controls { a.insert("controls", "") }
     html.elem("div", attrs: attrs, html.elem(s.kind, attrs: a, []))
   } else if s.kind == "embed" {

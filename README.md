@@ -361,6 +361,24 @@ it through the media toolbar and `j`/`k`/`l`. Options include `autoplay: true`,
 `controls: false`, `muted`, `loop`, `width`, `height` and `at`. Revealed audio
 starts only when visible and pauses when hidden; PDF output shows a placeholder.
 
+Audio, video and YouTube accept the same clip parameters, in seconds:
+
+```typ
+#audio("music.mp3", start: 30, end: 75, loop: true)
+#video("film.mp4", start: 30, end: 75, loop: true)
+#embed(url: "https://www.youtube.com/embed/M7lc1UVf-VE",
+       start: 30, end: 75, loop: true)
+```
+
+`start` defaults to zero and `end: none` uses the source's duration. `end` must
+be greater than `start`; fractional seconds are supported. An end beyond the
+source duration is clamped to it. With `loop: true`, only the selected segment
+repeats; otherwise it pauses at its end. Playing again restarts that segment.
+The presenter timeline and `j`/`l` stay within the segment and display original
+source timestamps. Existing YouTube URL parameters remain supported; explicit
+Typst parameters take precedence. Other embed providers do not support these
+options. For `video(ends-at: ...)`, scheduling uses the segment's duration.
+
 An optional signal plays once on the stage when the class timer reaches zero:
 
 ```typ

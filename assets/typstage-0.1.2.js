@@ -1812,14 +1812,14 @@
     if (!v || w.tsMediaManual) return;
     var wann = w.dataset.endsAt;
     if (wann === "auto") wann = (CFG.room || {}).bell;
-    var rest = fristSek(wann);
+    var rest = fristSek(wann), clip = medienBereich(v);
     if (rest == null || rest > FRIST_DECKEL) {
       // Kein Plan: das Video spielt von vorn, bei jedem Stellen -- beim
       // Eintritt wie nach dem Verdunkeln, so wie mit Plan jedes Stellen neu
       // rechnet. Sonst liefe es um 08:16 da weiter, wo ein verworfener Plan
       // es um 08:14 hingestellt hatte, und um 09:01 da, wo die Folie um 09:00
       // verlassen wurde.
-      try { v.currentTime = 0; } catch (x) {}
+      try { v.currentTime = clip.start; } catch (x) {}
       var p0 = v.play(); if (p0 && p0.catch) p0.catch(function () {});
       return;
     }
@@ -1831,14 +1831,14 @@
                          { once: true });
       return;
     }
-    if (rest >= v.duration) {
+    if (rest >= clip.end - clip.start) {
       // Noch zu frueh: auf dem ersten Bild stehen und rechtzeitig wecken.
-      try { v.currentTime = 0; } catch (x) {}
+      try { v.currentTime = clip.start; } catch (x) {}
       v.pause();
-      fristWecker(w, (rest - v.duration) * 1000);
+      fristWecker(w, (rest - (clip.end - clip.start)) * 1000);
       return;
     }
-    try { v.currentTime = Math.max(0, v.duration - rest); } catch (x) {}
+    try { v.currentTime = Math.max(clip.start, clip.end - rest); } catch (x) {}
     var p = v.play(); if (p && p.catch) p.catch(function () {});
   }
 
@@ -1932,6 +1932,11 @@
       if (ROLLE !== "speaker" && url.searchParams.get("autoplay") === "1" && youtubeCanPlay(f)) y.wanted = true;
       url.searchParams.set("enablejsapi", "1");
       url.searchParams.set("autoplay", "0");
+      url.searchParams.set("loop", "0");
+      // The runtime owns the end boundary. A provider URL end would otherwise
+      // stop early when an explicit Typst end overrides it.
+      url.searchParams.delete("end");
+      url.searchParams.set("start", String(medienBereich(f).start));
       if (/^https?:$/.test(location.protocol)) url.searchParams.set("origin", location.origin);
       else url.searchParams.delete("origin");
       if (ROLLE === "speaker") { url.searchParams.set("mute", "1"); url.searchParams.set("controls", "0"); }
@@ -1953,6 +1958,7 @@
             if (event.data === 1 && !youtubeCanPlay(f)) { f.pause(); return; }
             if (event.data === 1) y.notice = "";
             y.wanted = event.data === 1 || event.data === 3;
+            if (event.data === 0) f.dispatchEvent(new Event("ended"));
             f.dispatchEvent(new Event(event.data === 1 ? "play" : "pause"));
           },
           onError: function (event) {
@@ -1977,16 +1983,63 @@
     return all.concat([].slice.call(slide.querySelectorAll("video,audio,iframe[data-ts-youtube]")));
   }, []).concat([].slice.call(document.querySelectorAll("audio.ts-sound")));
   function medienAlle() { return MEDIEN; }
+  // Clip bounds stay in source seconds, so stage and presenter share one timeline.
+  function medienBereich(v) {
+    var w = v.closest(".ts-el"), d = w ? w.dataset : {};
+    var url = v.tsYouTube ? new URL(v.dataset.tsYoutube) : null;
+    var start = +(d.start != null ? d.start : url && url.searchParams.get("start")) || 0;
+    var end = d.end != null ? +d.end : url && url.searchParams.has("end") ? +url.searchParams.get("end") : Infinity;
+    var duration = isFinite(v.duration) && v.duration > 0 ? v.duration : Infinity;
+    var loop = d.loop != null ? d.loop === "1" : !!(url && url.searchParams.get("loop") === "1");
+    return { start: Math.min(Math.max(0, start), duration),
+      end: Math.min(end, duration), loop: loop,
+      active: start > 0 || isFinite(end) || !!(v.tsYouTube && loop) };
+  }
+  function medienClip(v, ended) {
+    if (v.tsYouTube ? !v.tsYouTube.ready : v.readyState < 1) return;
+    var c = medienBereich(v);
+    if (!c.active) return;
+    if (c.end <= c.start) { v.pause(); return; }
+    if (!v.tsClipReady) {
+      v.tsClipReady = true;
+      if (v.currentTime < c.start) v.currentTime = c.start;
+    }
+    // Do not issue another seek while the provider is still acknowledging one.
+    if (v.seeking || (v.tsYouTube && v.tsYouTube.seek)) return;
+    if (v.currentTime < c.start - 0.01) { v.currentTime = c.start; return; }
+    if (v.currentTime >= c.end || ended) {
+      if (c.loop && (ended || !v.paused) && youtubeCanPlay(v)) {
+        v.currentTime = c.start;
+        var p = v.play(); if (p && p.catch) p.catch(function () {});
+      } else {
+        v.pause();
+        if (isFinite(c.end) && Math.abs(v.currentTime - c.end) > 0.01) v.currentTime = c.end;
+      }
+    }
+  }
+  MEDIEN.forEach(function (v) {
+    v.addEventListener("loadedmetadata", function () { medienClip(v); });
+    v.addEventListener("durationchange", function () { medienClip(v); });
+    v.addEventListener("timeupdate", function () { medienClip(v); });
+    v.addEventListener("seeked", function () { medienClip(v); });
+    v.addEventListener("ended", function () { medienClip(v, true); });
+    v.addEventListener("play", function () {
+      var c = medienBereich(v);
+      if (c.active && c.end > c.start && (v.currentTime >= c.end || v.currentTime < c.start)) v.currentTime = c.start;
+    });
+  });
+  setInterval(function () { MEDIEN.forEach(function (v) { medienClip(v); }); }, 50);
   function medienStand() {
     var sec = STEPS[current] && SLIDES[STEPS[current].slide];
     return medienAlle().map(function (v, id) {
       var w = v.closest(".ts-el");
       var auf = sec && sec.contains(v) && (!w || w.dataset.on === "1");
       if (!auf && !(v.matches("audio.ts-sound") && (v.currentTime > 0 || !v.paused))) return null;
-      return { id: id, time: v.currentTime || 0,
-        duration: isFinite(v.duration) ? v.duration : 0, paused: v.paused,
-        status: v.tsYouTube ? v.tsYouTube.error || v.tsYouTube.notice || (!v.tsYouTube.ready ? wort("youtubeLoading", "Loading YouTube…") : "") : "",
-        failed: !!(v.tsYouTube && v.tsYouTube.error),
+      var clip = medienBereich(v), empty = clip.end <= clip.start;
+      return { id: id, time: v.currentTime || clip.start, start: clip.start,
+        duration: isFinite(clip.end) ? clip.end : 0, paused: v.paused,
+        status: empty ? "Empty media clip: start is at or beyond the end." : v.tsYouTube ? v.tsYouTube.error || v.tsYouTube.notice || (!v.tsYouTube.ready ? wort("youtubeLoading", "Loading YouTube…") : "") : "",
+        failed: empty || !!(v.tsYouTube && v.tsYouTube.error),
         title: v.getAttribute("aria-label") || v.dataset.key || (v.tsYouTube ? "YouTube" : v.tagName.toLowerCase()) };
     }).filter(Boolean);
   }
@@ -2000,9 +2053,12 @@
     }
     var action = d.action === "toggle" ? (v.paused ? "play" : "pause") : d.action;
     if (action === "seek" && isFinite(d.time) && isFinite(v.duration)) {
-      try { v.currentTime = Math.max(0, Math.min(v.tsYouTube && !v.duration ? Infinity : v.duration, d.time)); } catch (x) {}
+      try { var c = medienBereich(v); v.currentTime = Math.max(c.start, Math.min(c.end, d.time)); } catch (x) {}
     } else if (action === "pause") v.pause();
     else if (action === "play") {
+      var c = medienBereich(v);
+      if (c.end <= c.start) return;
+      if (v.currentTime >= c.end || v.currentTime < c.start) v.currentTime = c.start;
       var p = v.play(); if (p && p.catch) p.catch(function () {});
     }
   }
@@ -2049,8 +2105,8 @@
         slider.setAttribute("aria-label", m.title + " position");
         var output = bau("output", "", row), seekTimer = 0;
         function preview() {
-          var t = +slider.value, duration = +slider.max;
-          slider.style.setProperty("--media-progress", (duration > 0 ? t / duration * 100 : 0) + "%");
+          var t = +slider.value, duration = +slider.max, start = +slider.min;
+          slider.style.setProperty("--media-progress", (duration > start ? (t - start) / (duration - start) * 100 : 0) + "%");
           output.textContent = zeitText(t) + " / " + zeitText(duration);
         }
         function commit() {
@@ -2096,8 +2152,8 @@
         slider.tsSeek = null; pending = null;
       }
       var shownTime = pending ? pending.time : m.time;
-      slider.style.setProperty("--media-progress", (m.duration > 0 ? Math.min(100, Math.max(0, shownTime / m.duration * 100)) : 0) + "%");
-      slider.max = String(m.duration); slider.disabled = !(m.duration > 0);
+      slider.style.setProperty("--media-progress", (m.duration > (m.start || 0) ? Math.min(100, Math.max(0, (shownTime - (m.start || 0)) / (m.duration - (m.start || 0)) * 100)) : 0) + "%");
+      slider.min = String(m.start || 0); slider.max = String(m.duration); slider.disabled = !(m.duration > (m.start || 0));
       if (!slider.tsDragging) slider.value = String(shownTime);
       row.querySelector("output").textContent = m.status || (zeitText(shownTime) + " / " + zeitText(m.duration));
     });

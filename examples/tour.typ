@@ -844,6 +844,7 @@ and the wrong two find each other), the piece gets a name instead.
   // the PDF fill the box and crop for it, so any other ratio would cut something
   // off the sides.
   video("demo.mp4", width: 340pt, height: 191pt, muted: true, loop: true,
+        start: 0.5, end: 2.5,
         controls: false, radius: 6pt, poster: image("demo-poster.png")),
   flipbook(
     wave,
@@ -928,12 +929,15 @@ and the wrong two find each other), the piece gets a name instead.
   Open the presenter with `n`. Its media button and timeline control the stage;
   the preview follows muted. Try `k`, then `l` and `j`. If the browser blocks
   playback, click Play once on the stage. Page away: the video pauses.
+  This clip repeats seconds 30–75. Audio and video use the same
+  `start`, `end` and `loop` parameters. The timeline stays inside the clip.
 ]
 
 #v(1fr)
 #side-by-side(
   split: (1.4fr, 1fr), align: horizon,
   embed(url: "https://www.youtube.com/embed/M7lc1UVf-VE",
+    start: 30, end: 75, loop: true,
     width: 100%, height: 250pt,
     fallback: [YouTube IFrame API demonstration]),
   [
@@ -941,7 +945,9 @@ and the wrong two find each other), the piece gets a name instead.
 
     `k` plays or pauses. `j` / `l` seek ten seconds back or forward.
 
-    The presenter preview stays muted. The external API loads on demand.
+    `start: 30, end: 75, loop: true` repeats just this segment.
+
+    The presenter preview stays muted.
   ],
 )
 #v(1fr)
