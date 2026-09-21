@@ -340,7 +340,9 @@ so a run that only checks the exit status will miss it.
 `node .github/scripts/pruefe-youtube.js` compiles a small deck and tests the
 real runtime with two Chrome windows and a deterministic IFrame API substitute.
 It covers lazy loading, host recognition, presenter controls, muted previews,
-seeking, slide/reveal/black transitions and provider/network failures without
+mouse/touch dragging (including cancellation and delayed seek feedback),
+actual iframe dimensions at DPR 1/2, control visibility, seeking,
+slide/reveal/black transitions and provider/network failures without
 requiring YouTube access. Set `CHROME` to override the browser executable.
 
 `node .github/scripts/pruefe-youtube.js --live` additionally provides an opt-in

@@ -379,6 +379,14 @@ source timestamps. Existing YouTube URL parameters remain supported; explicit
 Typst parameters take precedence. Other embed providers do not support these
 options. For `video(ends-at: ...)`, scheduling uses the segment's duration.
 
+YouTube frames use their actual displayed size (including the browser's native
+pixel density), rather than magnifying a smaller player. The stage's YouTube
+controls are hidden by default; add `?controls=1` to the embed URL to restore
+them. Presenter controls remain available. YouTube still controls titles,
+branding, recommendations and adaptive stream quality; hiding every overlay
+or forcing a particular HD/Retina stream is not supported by the public API.
+
+
 An optional signal plays once on the stage when the class timer reaches zero:
 
 ```typ

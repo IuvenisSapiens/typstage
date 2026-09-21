@@ -14,8 +14,8 @@ HTMLHeadElement.prototype.appendChild=function(n){
   window.apiLoads++;
   if(location.search.includes('fail')){setTimeout(()=>n.onerror(),20);return n;}
   setTimeout(()=>{window.YT={Player:function(f,opts){
-   f.removeAttribute('src');
-   let p=this;p.frame=f;p.time=0;p.state=2;p.muted=false;p.calls=[];p.events=opts.events;
+   let loadedURL=f.src;f.removeAttribute('src');
+   let p=this;p.url=loadedURL;p.frame=f;p.time=0;p.state=2;p.muted=false;p.calls=[];p.events=opts.events;
    p.getPlayerState=()=>p.state;p.getDuration=()=>120;p.getCurrentTime=()=>p.time;
    p.mute=()=>p.muted=true;p.unMute=()=>p.muted=false;
    p.playVideo=()=>{p.calls.push('play');p.state=1;opts.events.onStateChange({data:1});};
@@ -35,7 +35,7 @@ HTMLHeadElement.prototype.appendChild=function(n){
 == Video
 #embed(url: "https://www.youtube.com/embed/M7lc1UVf-VE", width: 480pt, height: 270pt)
 == Privacy
-#embed(url: "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE", width: 480pt, height: 270pt, at: "2")
+#embed(url: "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE?controls=1", width: 480pt, height: 270pt, at: "2")
 == Other
 #embed(url: "https://youtube.com.example.org/embed/M7lc1UVf-VE")
 `);
@@ -82,6 +82,11 @@ HTMLHeadElement.prototype.appendChild=function(n){
   }else{
    assert.equal(await b.ev('apiLoads'),1,'one external API load');
    assert.equal(await b.ev('players.length'),1,'only visible video constructed');
+   assert(await b.ev(`new URL(players[0].url).searchParams.get('controls')==='0'`),'stage controls hidden by default');
+   for(const [width,height,dpr] of [[900,600,1],[1905,1074,2],[1600,900,1]]){
+    await b.ruf('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:dpr,mobile:false});await schlaf(300);
+    assert(await b.ev(`(()=>{let f=document.querySelector('iframe[data-ts-youtube]'),r=f.getBoundingClientRect();return !f.style.transform&&Math.abs(f.contentWindow.innerWidth-r.width)<1.1&&Math.abs(f.contentWindow.innerHeight-r.height)<1.1&&f.contentWindow.devicePixelRatio===${dpr}})()`),'YouTube viewport uses display pixels and native DPR');
+   }
    await b.ev(`window.__p=window.open(location.href.split('#')[0]+'#speaker')`);await schlaf(2100);
    assert(await b.ev('__p.typstage.kanal.verbunden()'),'presenter connected');
    assert(await b.ev('__p.players[0].muted'),'preview muted');
@@ -102,6 +107,7 @@ HTMLHeadElement.prototype.appendChild=function(n){
     await presenter.ruf('Input.dispatchMouseEvent',{type:'mousePressed',x:rect.x+rect.w*.3,y:rect.y+rect.h/2,button:'left',clickCount:1});
     for(let i=0;i<20;i++)await move(rect.x+rect.w*(.3+i*.025));
     const target=await presenter.ev(`+document.querySelector('.ts-sp-medien input').value`);
+    assert(target>85&&target<105,'drag moves the thumb to the pointer, not just the initial click: '+target);
     await schlaf(1100);
     assert.equal(await b.ev(`players[0].calls.filter(c=>c==='seek').length`),0,'drag does not flood stage with seeks');
     assert.equal(await presenter.ev(`+document.querySelector('.ts-sp-medien input').value`),target,'feedback cannot pull the thumb back while dragging');
@@ -112,13 +118,25 @@ HTMLHeadElement.prototype.appendChild=function(n){
     assert.equal(await b.ev(`__p.players[0].calls.filter(c=>c==='seek').length`),1,'delayed preview seek is not restarted');
     await b.ev(`players[0].seekDelay=0;__p.players[0].seekDelay=0;players[0].time=42`);
     await until(`Math.abs(+__p.document.querySelector('.ts-sp-medien input').value-42)<1`,'focused slider resumes following playback after drag');
+    // Touch uses the same owned gesture; cancellation must not seek.
+    await b.ev('players[0].calls=[]');
+    await presenter.ruf('Emulation.setTouchEmulationEnabled',{enabled:true});
+    const touch=async(type,fraction)=>presenter.ruf('Input.dispatchTouchEvent',{type,touchPoints:fraction==null?[]:[{x:rect.x+rect.w*fraction,y:rect.y+rect.h/2}]});
+    await touch('touchStart',.2);await touch('touchMove',.6);
+    assert(await presenter.ev(`+document.querySelector('.ts-sp-medien input').value>65`),'touch drag follows finger');
+    await touch('touchCancel');await schlaf(250);
+    assert.equal(await b.ev(`players[0].calls.filter(c=>c==='seek').length`),0,'cancelled touch does not seek');
+    await touch('touchStart',.3);await touch('touchMove',.7);await touch('touchEnd');
+    await until('players[0].time>78&&players[0].time<90','touch release commits dragged position');
+    assert.equal(await b.ev(`players[0].calls.filter(c=>c==='seek').length`),1,'touch release sends one seek');
+    await presenter.ruf('Emulation.setTouchEmulationEnabled',{enabled:false});
    } finally {await presenter.ende();}
    await b.ev(`__p.document.querySelector('.ts-sp-medien button').click()`);await schlaf(600);
    assert.equal(await b.ev('players[0].state'),1,'presenter play button');
    await key('b');assert.equal(await b.ev('players[0].state'),2,'black pauses');await key('b');assert.equal(await b.ev('players[0].state'),1,'unblack resumes');
    await b.ev('typstage.goto(2)');await schlaf(600);assert.equal(await b.ev('players[0].state'),2,'slide exit pauses');
    assert.equal(await b.ev('players.length'),1,'unrevealed player remains unloaded');
-   await b.taste('ArrowRight');await schlaf(1000);assert.equal(await b.ev('players.length'),2,'reveal loads privacy player');assert.equal(await b.ev('apiLoads'),1,'reuse API');
+   await b.taste('ArrowRight');await schlaf(1000);assert.equal(await b.ev('players.length'),2,'reveal loads privacy player');assert(await b.ev(`new URL(players[1].url).searchParams.get('controls')==='1'`),'explicit stage controls remain available');assert.equal(await b.ev('apiLoads'),1,'reuse API');
    await key('k');assert.equal(await b.ev('players[1].state'),1,'second stable media ID');
    await b.ev('typstage.goto(2)');await schlaf(900);assert.equal(await b.ev('players[1].state'),2,'hiding reveal pauses');
    await b.ev('typstage.goto(1)');await schlaf(500);

@@ -505,7 +505,9 @@
             // let the content reflow itself. That is the point of opting
             // out. Otherwise an embedded document would always show the same
             // crop, just rasterised larger.
-            var ohneZoom = el.dataset.zoom === "0";
+            // A video provider needs its real viewport to choose a stream size.
+            // Scaling a small iframe also magnifies its mobile controls.
+            var ohneZoom = el.dataset.zoom === "0" || !!frame.dataset.tsYoutube;
             frame.style.width = (ohneZoom ? w * skala : w) + "px";
             frame.style.height = (ohneZoom ? h * skala : h) + "px";
             frame.style.zoom = "";
@@ -1930,6 +1932,9 @@
       y.started = true;
       var url = new URL(f.dataset.tsYoutube);
       if (ROLLE !== "speaker" && url.searchParams.get("autoplay") === "1" && youtubeCanPlay(f)) y.wanted = true;
+      if (!url.searchParams.has("controls")) url.searchParams.set("controls", "0");
+      if (!url.searchParams.has("rel")) url.searchParams.set("rel", "0");
+      url.searchParams.set("playsinline", "1");
       url.searchParams.set("enablejsapi", "1");
       url.searchParams.set("autoplay", "0");
       url.searchParams.set("loop", "0");
@@ -2112,15 +2117,42 @@
         function commit() {
           clearTimeout(seekTimer);
           slider.tsDragging = false;
+          var pointer = slider.tsPointerId; slider.tsPointerId = null;
+          if (pointer != null && slider.hasPointerCapture(pointer)) slider.releasePointerCapture(pointer);
           var pending = slider.tsSeek;
           if (!pending || pending.sentAt !== null || !slider.isConnected) return;
           pending.sentAt = Date.now();
           medienBefehl({ id: m.id, action: "seek", time: pending.time });
         }
+        function pointerGeometry() {
+          var r = slider.getBoundingClientRect();
+          // The native thumb is 10 CSS px wide; its centre travels inside the track.
+          var half = 5 * (slider.clientWidth ? r.width / slider.clientWidth : 1);
+          return { left: r.left + half, width: Math.max(1, r.width - 2 * half),
+            half: half, rtl: getComputedStyle(slider).direction === "rtl" };
+        }
+        function pointerValue(e) {
+          var g = pointerGeometry(), min = +slider.min, max = +slider.max;
+          var ratio = (e.clientX - (slider.tsGrab || 0) - g.left) / g.width;
+          if (g.rtl) ratio = 1 - ratio;
+          slider.value = String(min + Math.max(0, Math.min(1, ratio)) * (max - min));
+          slider.tsSeek = { time: +slider.value, sentAt: null };
+          preview();
+        }
         slider.addEventListener("pointerdown", function (e) {
-          if (e.button !== 0) return;
-          clearTimeout(seekTimer); slider.tsDragging = true;
+          if (e.button !== 0 || slider.disabled || slider.tsDragging) return;
+          // Explicit capture steals Chromium's native thumb drag. Own the whole
+          // gesture instead: pointer positions preview, release sends one seek.
+          e.preventDefault(); slider.focus({ preventScroll: true });
+          clearTimeout(seekTimer); slider.tsDragging = true; slider.tsPointerId = e.pointerId;
+          var g = pointerGeometry(), ratio = (+slider.value - +slider.min) / (+slider.max - +slider.min);
+          var centre = g.left + (g.rtl ? 1 - ratio : ratio) * g.width;
+          slider.tsGrab = Math.abs(e.clientX - centre) <= g.half + 3 ? e.clientX - centre : 0;
           slider.setPointerCapture(e.pointerId);
+          pointerValue(e);
+        });
+        slider.addEventListener("pointermove", function (e) {
+          if (slider.tsPointerId === e.pointerId) { e.preventDefault(); pointerValue(e); }
         });
         slider.addEventListener("input", function () {
           slider.tsSeek = { time: +slider.value, sentAt: null };
@@ -2130,10 +2162,13 @@
           if (!slider.tsDragging) seekTimer = setTimeout(commit, 150);
         });
         slider.addEventListener("change", commit);
-        slider.addEventListener("pointerup", commit);
+        slider.addEventListener("pointerup", function (e) {
+          if (slider.tsPointerId !== e.pointerId) return;
+          pointerValue(e); commit();
+        });
         slider.addEventListener("blur", commit);
         slider.addEventListener("pointercancel", function () {
-          clearTimeout(seekTimer); slider.tsDragging = false; slider.tsSeek = null;
+          clearTimeout(seekTimer); slider.tsDragging = false; slider.tsPointerId = null; slider.tsSeek = null;
           medienZeigen();
         });
       });

@@ -1013,6 +1013,7 @@ html[data-ts-schwarz="1"] #ts-clock:not([data-art="fest"]){opacity:0}
   white-space:normal;overflow-wrap:anywhere;max-width:100%}
 .ts-sp-medium input[type="range"]{appearance:none;-webkit-appearance:none;
   width:100%;min-width:0;height:24px;margin:0;padding:0;cursor:pointer;
+  touch-action:none;user-select:none;
   background:transparent;border:0;border-radius:3px;color:var(--sp-satz)}
 .ts-sp-medium input[type="range"]::-webkit-slider-runnable-track{
   height:4px;border-radius:2px;background:linear-gradient(to right,
