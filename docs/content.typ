@@ -2065,6 +2065,48 @@ auf, und jedes Begleitpaket kann es genauso tun.
   2,5" ist gut, "erhöhe $a$ um 1" nicht.
 ]
 
+== Audio und Medienausschnitte
+
+`audio` nimmt eine lokale Datei neben dem HTML oder eine direkte HTTP(S)-Audio-URL.
+Die Wiedergabe startet standardmäßig manuell. Audio, Video und YouTube nehmen
+`start` und `end` als Sekundenpositionen in der Quelle; `loop: true` wiederholt
+nur diesen Ausschnitt.
+
+// check: folie
+#show-code[```typ
+#audio("musik.mp3", start: 30, end: 75, loop: true)
+```]
+
+// check: folie
+#show-code[```typ
+#video("film.mp4", start: 30, end: 75, loop: true)
+```]
+
+// check: folie
+#show-code[```typ
+#embed(url: "https://www.youtube.com/embed/M7lc1UVf-VE",
+       start: 30, end: 75, loop: true)
+```]
+
+Die Sprecheransicht hat Wiedergabetasten und eine ziehbare Zeitleiste. `k`
+startet oder pausiert, `j` und `l` springen zehn Sekunden innerhalb des Ausschnitts.
+`Shift+L` wechselt Hell/Dunkel. YouTube braucht HTTP(S) und Internetzugang.
+Seine Bedienleiste ist standardmäßig verborgen; `?controls=1` in der URL zeigt
+sie wieder. Titel, Branding und Videoqualität bestimmt weiterhin YouTube.
+
+Die Klassenuhr kann bei null einen optionalen Signalton auf der Bühne spielen:
+
+#show-code[```typ
+#show: presentation.with(room: (
+  clock: (step: 5, sound: "gong.mp3"),
+))
+```]
+
+`sound` nimmt eine Datei oder direkte URL; `none` lässt die Uhr stumm.
+Die Audiofreigabe des Browsers gilt weiterhin. `speaker-view: (shortcuts: false)`
+verbirgt die Tastaturhilfe beim Start. `h` oder `?` schaltet sie um;
+verborgen nimmt sie keinen Platz ein.
+
 == Video
 
 `video` legt ein echtes HTML5-Video über die Folie: beim Betreten der Folie

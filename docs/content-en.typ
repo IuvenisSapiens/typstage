@@ -1642,6 +1642,46 @@ That is how the `ggb-` commands drive their applets — see the chapter
   the console. `bridge-targets()` reports the names on the current slide.
 ]
 
+== Audio and media clips
+
+`audio` accepts a local file beside the HTML or a direct HTTP(S) audio URL.
+It starts manually by default. Audio, video and YouTube accept `start` and
+`end` in source seconds; `loop: true` repeats only that segment.
+
+// check: folie
+#show-code[```typ
+#audio("music.mp3", start: 30, end: 75, loop: true)
+```]
+
+// check: folie
+#show-code[```typ
+#video("film.mp4", start: 30, end: 75, loop: true)
+```]
+
+// check: folie
+#show-code[```typ
+#embed(url: "https://www.youtube.com/embed/M7lc1UVf-VE",
+       start: 30, end: 75, loop: true)
+```]
+
+The presenter has playback controls and a draggable timeline. `k` plays or
+pauses; `j` and `l` seek ten seconds within the segment. `Shift+L` changes the
+presenter's light/dark appearance. YouTube requires HTTP(S) and internet access.
+Its control bar is hidden by default; `?controls=1` in its URL restores it.
+Titles, branding and stream quality remain controlled by YouTube.
+
+A class timer can play an optional signal on the stage when it reaches zero:
+
+#show-code[```typ
+#show: presentation.with(room: (
+  clock: (step: 5, sound: "gong.mp3"),
+))
+```]
+
+`sound` accepts a file or direct URL; `none` keeps the timer silent. Browser
+audio permissions apply. Use `speaker-view: (shortcuts: false)` to start with
+shortcut help hidden; `h` or the `?` button toggles it without reserving space.
+
 == Video
 
 // check: folie dateien=still.png

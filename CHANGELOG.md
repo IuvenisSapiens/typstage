@@ -25,6 +25,25 @@ All notable changes to this package are recorded here. The format follows
   available as custom sound keys.
 
 
+### Media and release-candidate fixes
+
+- `audio(src)` accepts local files and direct audio URLs, with presenter controls.
+- Audio, video and YouTube share `start`, `end` and `loop` for selected segments.
+  Seeking stays within the segment; `ends-at` schedules the selected duration.
+- `room.clock.sound` optionally plays a file or URL once when the timer reaches
+  zero, on the stage only. Cancellation and restoring an expired timer are silent.
+- Presenter scrubbing follows real mouse/touch movement, previews locally and
+  sends one seek on release. Cancellation does not seek.
+- YouTube uses its actual displayed viewport and hides its control bar by default
+  (`?controls=1` restores it). Branding and streaming quality remain provider-controlled.
+- GeoGebra preserves its logical viewport while rendering at display scale and DPR.
+- Hidden shortcut help occupies no space; help stays beside the light/dark button.
+- Coarse countdowns retain their initial duration until the first interval passes.
+- `vortragen` and its handout measure equal card heights from their text, including
+  fallback fonts. `geogebra-sprecher` aligns captions and construction at steps 2–5.
+- New browser regressions cover these behaviors, including painted card bounds,
+  GeoGebra bridge messages, clipped playback and real pointer gestures.
+
 ### Added
 
 - The tour demonstrates YouTube controls, the presenter dividers, hidden
